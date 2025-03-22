@@ -1,0 +1,74 @@
+:root {
+    --primary-color: #4CAF50;
+    --secondary-color: #2196F3;
+    --background-color: #ffffff;
+    --text-color: #333333;
+    --border-radius: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+.navbar {
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1rem;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    z-index: 1000;
+}
+
+.feed-container {
+    max-width: 600px;
+    margin: 80px auto 0;
+    padding: 20px;
+}
+
+.post-card {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.post-video {
+    width: 100%;
+    aspect-ratio: 9/16;
+    object-fit: cover;
+}
+
+.post-content {
+    padding: 15px;
+}
+
+.interaction-buttons {
+    display: flex;
+    gap: 15px;
+    padding: 10px 15px;
+    border-top: 1px solid #eee;
+}
+
+.button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-color);
+}
+
+.button:hover {
+    color: var(--primary-color);
+}
