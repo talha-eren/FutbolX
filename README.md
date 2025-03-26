@@ -1,185 +1,50 @@
-# FutbolX - Futbol Tutkunu Sosyal Platform
+# Welcome to your Expo app 👋
 
-<div align="center">
-  <img src="https://placehold.co/600x400/4CAF50/FFFFFF/png?text=FutbolX+Logo" alt="FutbolX Logo" width="300"/>
-  
-  <p style="font-size: 20px; margin-top: 20px;">Futbol tutkunlarını buluşturan modern sosyal platform</p>
-</div>
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-<br>
+## Get started
 
-## 📱 Proje Hakkında
+1. Install dependencies
 
-FutbolX, futbol severlerin bir araya gelerek içerik paylaşabilecekleri, halı saha maçı organize edebilecekleri ve futbol topluluğuna dahil olabilecekleri çok platformlu (web ve mobil) bir sosyal medya uygulamasıdır. 
+   ```bash
+   npm install
+   ```
 
-<br>
+2. Start the app
 
-## ✨ Özellikler
+   ```bash
+    npx expo start
+   ```
 
-<br>
+In the output, you'll find options to open the app in a
 
-### 🔄 Temel Özellikler
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-- **Kullanıcı Profil Sistemi:** Futbol profilleri, beceri seviyeleri ve pozisyon tercihleri
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-- **Video Paylaşımı:** Maç, antrenman ve futbol beceri videoları
+## Get a fresh project
 
-- **Sosyal Etkileşim:** Beğenme, yorum yapma ve içerik paylaşma
-
-<br>
-
-### ⚽ Futbol Odaklı Özellikler
-
-- **Halı Saha Rezervasyon:** En yakın halı sahaları bulma ve rezervasyon yapma
-
-- **Oyuncu Eşleştirme:** Eksik oyuncuları maçlar için bulma
-
-- **Takım Oluşturma:** Yeni takımlar kurma ve turnuvalar organize etme
-
-- **Konum Bazlı Öneriler:** Yakınınızdaki halı sahalar ve oyuncular
-
-<br>
-
-### 🌐 Çok Platformlu Deneyim
-
-- **Web Uygulaması:** Masaüstü bilgisayarlar için optimize edilmiş arayüz
-
-- **Mobil Uygulama:** iOS ve Android cihazlar için native deneyim
-
-- **Duyarlı Tasarım:** Tüm ekran boyutlarına uygun tasarım
-
-<br>
-
-## 🚀 Teknoloji Yığını
-
-- **Frontend:** React Native (Mobil), React (Web)
-
-- **State Yönetimi:** React Context ve Hooks
-
-- **Stilizasyon:** StyleSheet, CSS
-
-- **Navigasyon:** Expo Router
-
-- **Platformlar:** iOS, Android, Web
-
-<br>
-
-## 🏗️ Proje Yapısı
-
-```
-FutbolX/
-├── app/              # Expo Router yapısı
-│   ├── (auth)/       # Giriş ve kayıt ekranları
-│   ├── (tabs)/       # Ana uygulama sekmeleri
-│   └── [...]         # Diğer sayfalar
-├── components/       # Yeniden kullanılabilir bileşenler
-│   ├── ui/           # Temel UI bileşenleri
-│   └── [...]         # Diğer bileşen kategorileri
-├── hooks/            # Custom React hooks
-├── constants/        # Sabitler ve yapılandırma
-├── services/         # API ve veri işleme servisleri
-└── assets/           # Resimler, fontlar ve diğer statik dosyalar
-```
-
-<br>
-
-## 📋 Geliştirme Zaman Çizelgesi
-
-- **Hafta 1:** Temel Araştırma (Pazar araştırmaları, benzer uygulamaların incelenmesi)
-
-- **Hafta 2-3:** Geliştirme Başlangıcı ✅ (Geliştirme ortamı, kütüphaneler, temel ekranlar)
-
-- **Hafta 4-5:** Temel Özellikler (Kullanıcı profili, video yükleme, veritabanı bağlantıları)
-
-- **Hafta 6-7:** Sosyal Özellikler (Rezervasyon sistemi, beğeni ve yorum sistemi)
-
-- **Hafta 8-9:** Veri İşlemleri (Kullanıcı verileri, filtreleme, konum tabanlı öneriler)
-
-- **Hafta 10-11:** Eşleştirme Sistemi (Oyuncu eşleştirme, takım oluşturma)
-
-- **Hafta 12-14:** Test ve Yayın (Hata ayıklama, performans iyileştirmeleri, yayınlama)
-
-<br>
-
-## 🛠️ Kurulum ve Çalıştırma
-
-### Gereksinimler
-
-- Node.js (v14 veya üzeri)
-- npm veya yarn
-- Expo CLI (`npm install -g expo-cli`)
-
-<br>
-
-### Kurulum
+When you're ready, run:
 
 ```bash
-# Projeyi klonlayın
-git clone https://github.com/username/futbolx.git
-cd futbolx
-
-# Bağımlılıkları yükleyin
-npm install
-# veya
-yarn install
-
-# Uygulamayı başlatın
-npm start
-# veya
-yarn start
+npm run reset-project
 ```
 
-<br>
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-### Platformlara Göre Çalıştırma
+## Learn more
 
-```bash
-# Web için
-npm run web
-# veya
-yarn web
+To learn more about developing your project with Expo, look at the following resources:
 
-# iOS için (MacOS gerektirir)
-npm run ios
-# veya
-yarn ios
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-# Android için
-npm run android
-# veya
-yarn android
-```
+## Join the community
 
-<br>
+Join our community of developers creating universal apps.
 
-## 🤝 Katkıda Bulunma
-
-1. Bu repo'yu fork edin
-2. Yeni bir branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Değişikliklerinizi commit edin (`git commit -m 'feat: Add some amazing feature'`)
-4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
-5. Pull Request açın
-
-<br>
-
-## 📄 Lisans
-
-Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır.
-
-<br>
-
-## 📧 İletişim
-
-**Proje Sahibi:** Talha Eren Bilikci  
-
-**E-posta:** [bilikcitalha@gmail.com](mailto:bilikcitalha@gmail.com)  
-
-**Proje E-posta:** [info@futbolx.com](mailto:info@futbolx.com)
-
-<br>
-
----
-
-<div align="center">
-  <p style="font-size: 18px; margin-top: 20px;">FutbolX - Futbolun yeni sosyal deneyimi</p>
-</div>
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
