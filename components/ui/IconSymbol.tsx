@@ -22,6 +22,34 @@ const MAPPING = {
   'sportscourt': 'sports',
   'calendar': 'event',
   'mappin': 'place',
+  // Auth ekranları için ikonlar
+  'envelope': 'email',
+  'lock': 'lock',
+  'eye': 'visibility',
+  'eye.slash': 'visibility-off',
+  'at': 'alternate-email',
+  // Yeni eklenen eksik ikonlar
+  'heart': 'favorite',
+  'bubble.right': 'chat',
+  'square.and.arrow.up': 'share',
+  'location.fill': 'location-on',
+  'pencil': 'edit',
+  'arrow.right.square': 'logout',
+  'person.fill': 'person',
+  'clock.arrow.circlepath': 'restore',
+  'phone.fill': 'phone',
+  'envelope.fill': 'email',
+  'star': 'star-border',
+  'star.fill': 'star',
+  'star.leadinghalf.filled': 'star-half',
+  // Konsolda görülen eksik ikonlar
+  'list.bullet': 'format-list-bulleted',
+  'play.fill': 'play-arrow',
+  'video': 'videocam',
+  'mappin.and.ellipse': 'place',
+  'clock': 'access-time',
+  'turkishlirasign.circle': 'monetization-on', // En yakın para birimi ikonu
+  'lock.fill': 'lock',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

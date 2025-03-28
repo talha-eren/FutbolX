@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
 
 // Örnek kullanıcı verisi
 const userData = {
@@ -66,8 +68,31 @@ export default function ProfileScreen() {
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'tabIconDefault');
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   const screenWidth = Dimensions.get('window').width;
+
+  // Çıkış yapma fonksiyonu
+  const handleLogout = async () => {
+    Alert.alert(
+      "Çıkış Yap",
+      "Hesabınızdan çıkış yapmak istediğinize emin misiniz?",
+      [
+        {
+          text: "İptal",
+          style: "cancel"
+        },
+        {
+          text: "Çıkış Yap",
+          onPress: async () => {
+            await logout();
+            router.replace('/(auth)/login');
+          }
+        }
+      ]
+    );
+  };
 
   // Yıldız derecelendirmesi gösterimi
   const renderRating = (rating: number) => {
@@ -158,9 +183,12 @@ export default function ProfileScreen() {
           <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>Profili Düzenle</ThemedText>
         </TouchableOpacity>
         
-        <TouchableOpacity style={[styles.button, styles.secondaryButton, { borderColor: '#E0E0E0' }]}>
-          <IconSymbol name="square.and.arrow.up" size={16} color={textColor} />
-          <ThemedText style={styles.buttonText}>Paylaş</ThemedText>
+        <TouchableOpacity 
+          style={[styles.button, styles.secondaryButton, { borderColor: '#E0E0E0' }]}
+          onPress={() => handleLogout()}
+        >
+          <IconSymbol name="arrow.right.square" size={16} color="tomato" />
+          <ThemedText style={[styles.buttonText, {color: 'tomato'}]}>Çıkış Yap</ThemedText>
         </TouchableOpacity>
       </View>
     </View>
