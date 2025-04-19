@@ -72,11 +72,18 @@ const theme = createTheme({
 // Misafir kullanıcıları kontrol etmek için yardımcı bileşen
 const ProtectedRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-  if (!isLoggedIn) {
-    // Not: Navbar'daki yönlendirmeler sayesinde bu koda normalde erişilmez,
-    // ancak URL'i doğrudan giren kullanıcılar için bir güvenlik katmanı olarak kalır
-    return <Navigate to="/login" replace />;
+  const token = localStorage.getItem('userToken');
+  const location = window.location.pathname;
+  
+  console.log('Korumalı rota kontrolü:', { isLoggedIn, location });
+  
+  if (!isLoggedIn || !token) {
+    // Kullanıcı giriş yapmamışsa, mevcut konumu redirect parametresi olarak ekleyerek
+    // login sayfasına yönlendir
+    console.log('Kullanıcı giriş yapmamış, giriş sayfasına yönlendiriliyor');
+    return <Navigate to={`/login?redirect=${location}`} replace />;
   }
+  
   return children;
 };
 

@@ -26,6 +26,8 @@ function Navbar() {
     
     // URL'den aktif butonu belirleme
     const path = location.pathname;
+    console.log('Mevcut sayfa yolu:', path);
+    
     if (path === '/') setActiveButton('/');
     else if (path.includes('matches')) setActiveButton('/matches');
     else if (path.includes('teams')) setActiveButton('/teams');
@@ -34,9 +36,11 @@ function Navbar() {
       // Yönlendirme parametresi varsa, o sayfanın butonunu aktif et
       const params = new URLSearchParams(location.search);
       const redirect = params.get('redirect');
-      if (redirect === 'matches') setActiveButton('/matches');
-      else if (redirect === 'teams') setActiveButton('/teams');
-      else if (redirect === 'reservations') setActiveButton('/reservations');
+      console.log('Yönlendirme parametresi:', redirect);
+      
+      if (redirect && redirect.includes('/matches')) setActiveButton('/matches');
+      else if (redirect && redirect.includes('/teams')) setActiveButton('/teams');
+      else if (redirect && redirect.includes('/reservations')) setActiveButton('/reservations');
       else setActiveButton('/login');
     }
   }, [location]);
@@ -55,6 +59,7 @@ function Navbar() {
     if (isProtected && !isLoggedIn) {
       // Giriş yapmamış kullanıcıları yönlendirirken bile butonu aktif et
       localStorage.setItem('lastActiveButton', path);
+      console.log('Korumalı rota için son aktif buton kaydedildi:', path);
     }
   };
 
@@ -108,7 +113,7 @@ function Navbar() {
             </Button>
             <Button
               component={Link}
-              to={isLoggedIn ? "/matches" : "/login?redirect=matches"}
+              to={isLoggedIn ? "/matches" : "/login?redirect=/matches"}
               startIcon={<EventNote />}
               onClick={() => handleButtonClick('/matches', true)}
               sx={getButtonStyle('/matches')}
@@ -117,7 +122,7 @@ function Navbar() {
             </Button>
             <Button
               component={Link}
-              to={isLoggedIn ? "/teams" : "/login?redirect=teams"}
+              to={isLoggedIn ? "/teams" : "/login?redirect=/teams"}
               startIcon={<People />}
               onClick={() => handleButtonClick('/teams', true)}
               sx={getButtonStyle('/teams')}
@@ -126,7 +131,7 @@ function Navbar() {
             </Button>
             <Button
               component={Link}
-              to={isLoggedIn ? "/reservations" : "/login?redirect=reservations"}
+              to={isLoggedIn ? "/reservations" : "/login?redirect=/reservations"}
               startIcon={<Add />}
               onClick={() => handleButtonClick('/reservations', true)}
               sx={{

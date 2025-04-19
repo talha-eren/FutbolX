@@ -10,9 +10,11 @@ import {
   Alert,
   Grid,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  CircularProgress
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import axios from 'axios';
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -25,6 +27,7 @@ function Register() {
     agreeTerms: false
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -37,37 +40,71 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
     
     // Doğrulama kontrolleri
     if (!formData.firstName || !formData.lastName || !formData.username || 
         !formData.email || !formData.password || !formData.confirmPassword) {
       setError('Lütfen tüm alanları doldurun');
+      setLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Şifreler eşleşmiyor');
+      setLoading(false);
       return;
     }
 
     if (!formData.agreeTerms) {
       setError('Devam etmek için kullanım koşullarını kabul etmelisiniz');
+      setLoading(false);
       return;
     }
     
-    // Burada normalde bir API çağrısı yapılacak
     try {
-      // API çağrısı simülasyonu
-      console.log('Kayıt yapılıyor:', formData);
+      console.log('Kayıt denemesi:', {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName
+      });
       
-      // Gerçek bir API entegrasyonunda burada axios ile backend'e istek atılacak
-      // Örnek: await axios.post('/api/auth/register', formData);
+      // Backend API'ye kayıt isteği gönder
+      const response = await axios.post('http://localhost:5000/api/auth/register', {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('API yanıtı:', response.data);
       
       // Kayıt başarılı ise giriş sayfasına yönlendir
-      navigate('/login');
+      navigate('/login', { state: { message: 'Kayıt başarılı! Şimdi giriş yapabilirsiniz.' } });
     } catch (err) {
-      setError('Kayıt yapılamadı. Lütfen tekrar deneyin.');
       console.error('Kayıt hatası:', err);
+      
+      // Hata mesajını göster
+      if (err.response) {
+        console.error('Hata yanıtı:', err.response.data);
+        setError(err.response.data.message || 'Kayıt yapılamadı. Lütfen tekrar deneyin.');
+      } else if (err.request) {
+        console.error('Yanıt alınamadı:', err.request);
+        setError('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
+      } else {
+        console.error('Hata:', err.message);
+        setError('Kayıt yapılamadı. Lütfen tekrar deneyin.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,6 +140,7 @@ function Register() {
                 autoFocus
                 value={formData.firstName}
                 onChange={handleChange}
+                disabled={loading}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -115,6 +153,7 @@ function Register() {
                 autoComplete="family-name"
                 value={formData.lastName}
                 onChange={handleChange}
+                disabled={loading}
               />
             </Grid>
             <Grid item xs={12}>
@@ -127,6 +166,7 @@ function Register() {
                 autoComplete="username"
                 value={formData.username}
                 onChange={handleChange}
+                disabled={loading}
               />
             </Grid>
             <Grid item xs={12}>
@@ -139,6 +179,7 @@ function Register() {
                 autoComplete="email"
                 value={formData.email}
                 onChange={handleChange}
+                disabled={loading}
               />
             </Grid>
             <Grid item xs={12}>
@@ -152,6 +193,7 @@ function Register() {
                 autoComplete="new-password"
                 value={formData.password}
                 onChange={handleChange}
+                disabled={loading}
               />
             </Grid>
             <Grid item xs={12}>
@@ -164,6 +206,7 @@ function Register() {
                 id="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                disabled={loading}
               />
             </Grid>
             <Grid item xs={12}>
@@ -174,6 +217,7 @@ function Register() {
                     color="primary" 
                     checked={formData.agreeTerms}
                     onChange={handleChange}
+                    disabled={loading}
                   />
                 }
                 label="Kullanım koşullarını ve gizlilik politikasını kabul ediyorum."
@@ -186,8 +230,9 @@ function Register() {
             variant="contained"
             color="primary"
             sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
           >
-            Kaydol
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Kaydol'}
           </Button>
           <Box sx={{ textAlign: 'center' }}>
             <Link component={RouterLink} to="/login" variant="body2">

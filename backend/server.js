@@ -1,13 +1,19 @@
+// .env dosyasını yükle - en üste olmalı
+require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-// .env dosyasını yükle
-dotenv.config();
+// Auth rotalarını içe aktar
+const authRoutes = require('./routes/authRoutes');
+
+// .env dosyası zaten en üstte yüklendi
 
 const app = express();
 
@@ -19,8 +25,14 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Middleware
-app.use(cors());
+// CORS ayarları - tüm kaynaklardan gelen isteklere izin ver
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Video yüklemeleri için multer konfigürasyonu
 const storage = multer.diskStorage({
@@ -35,15 +47,18 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // MongoDB bağlantısı
-// Bağlantı bilgilerini .env dosyasından oku
-const MONGO_USER = process.env.MONGO_USER;
-const MONGO_PASSWORD = process.env.MONGO_PASSWORD;
-const MONGO_CLUSTER = process.env.MONGO_CLUSTER;
+// .env dosyasından MongoDB URI'yi çek
+const mongoURI = process.env.MONGODB_URI;
 
-// MongoDB URI oluştur
-const mongoURI = `mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/?retryWrites=true&w=majority&appName=Cluster0`;
+// MongoDB URI'nin doğru şekilde yüklenip yüklenmediğini kontrol et
+if (!mongoURI) {
+  console.error('.env dosyasından MONGODB_URI yüklenemedi!');
+  process.exit(1); // Hata durumunda uygulamayı sonlandır
+}
 
-console.log('MongoDB URI kullanılıyor');
+
+
+
 
 mongoose.connect(mongoURI)
   .then(() => {
@@ -117,6 +132,9 @@ app.post('/api/posts/:id/comment', async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 });
+
+// Auth rotalarını kullan
+app.use('/api/auth', authRoutes);
 
 // Uploads klasörüne statik erişim sağla
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
