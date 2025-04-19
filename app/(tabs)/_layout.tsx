@@ -10,7 +10,7 @@ import { FutbolXLogo } from '@/components/FutbolXLogo';
 import { useAuth } from '@/context/AuthContext';
 
 // Sekme tipini tanımla
-type TabType = 'home' | 'upload' | 'profile' | 'explore' | 'matches';
+type TabType = 'home' | 'upload' | 'profile' | 'feed' | 'matches';
 
 // Hover props tipini tanımla
 type HoverableProps = {
@@ -122,7 +122,7 @@ export default function TabLayout() {
         contentStyle: { backgroundColor: colorScheme === 'dark' ? '#121212' : '#F5F5F5' }
       }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="explore" />
+        <Stack.Screen name="feed" />
         <Stack.Screen name="matches" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="upload" />
@@ -192,22 +192,22 @@ export default function TabLayout() {
         
         <HoverableTouchable 
           style={styles.footerTab}
-          onPress={() => changeTab('explore')}
-          onHoverIn={() => setHoveredTab('explore')}
+          onPress={() => changeTab('feed')}
+          onHoverIn={() => setHoveredTab('feed')}
           onHoverOut={() => setHoveredTab(null)}
         >
           <View style={[
             styles.iconWrapper, 
-            activeTab === 'explore' && styles.activeIconWrapper,
-            hoveredTab === 'explore' && styles.hoveredIconWrapper
+            activeTab === 'feed' && styles.activeIconWrapper,
+            hoveredTab === 'feed' && styles.hoveredIconWrapper
           ]}>
-            <IconSymbol name="magnifyingglass" size={22} color="#FFFFFF" />
+            <IconSymbol name="film" size={22} color="#FFFFFF" />
           </View>
           <ThemedText style={[
             styles.footerTabText, 
-            activeTab === 'explore' && styles.activeFooterTabText,
-            hoveredTab === 'explore' && styles.hoveredFooterTabText
-          ]}>Keşfet</ThemedText>
+            activeTab === 'feed' && styles.activeFooterTabText,
+            hoveredTab === 'feed' && styles.hoveredFooterTabText
+          ]}>Akış</ThemedText>
         </HoverableTouchable>
         
         <HoverableTouchable 

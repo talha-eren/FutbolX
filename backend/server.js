@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const videoRoutes = require('./routes/video');
 
 // Çevre değişkenlerini yükle
 dotenv.config();
@@ -23,6 +24,7 @@ mongoose.connect(process.env.MONGODB_URI)
 // Rotalar
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/videos', videoRoutes);
 
 // Ana sayfa rotası
 app.get('/', (req, res) => {

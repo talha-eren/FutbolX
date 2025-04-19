@@ -66,11 +66,17 @@ type UserProfile = {
   footPreference?: string;
 };
 
+import { VideoMeta, videoService, API_URL } from '../../services/videoApi';
+import VideoPlayer from '../../components/VideoPlayer';
+
 export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState('profile');
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userVideos, setUserVideos] = useState<VideoMeta[]>([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
   
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
@@ -146,7 +152,20 @@ export default function ProfileScreen() {
       }
     };
 
+    const fetchVideos = async () => {
+      if (user) {
+        try {
+          const videos = await videoService.listByUser(user._id || user.id);
+          setUserVideos(videos);
+        } catch (err) {
+          // Hata durumunda video listesi boş kalsın
+          setUserVideos([]);
+        }
+      }
+    };
+
     fetchProfileData();
+    fetchVideos();
   }, [user]);
 
   // Çıkış yapma fonksiyonu
