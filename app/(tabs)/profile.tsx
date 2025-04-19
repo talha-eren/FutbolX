@@ -1,31 +1,12 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
-
-// Örnek kullanıcı verisi
-const userData = {
-  username: 'futbolcu10',
-  fullName: 'Mehmet Yılmaz',
-  profilePic: 'https://randomuser.me/api/portraits/men/32.jpg',
-  bio: 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
-  location: 'İstanbul, Kadıköy',
-  phone: '+90 (555) 123-4567',
-  email: 'mehmet.yilmaz@gmail.com',
-  stats: {
-    matches: 24,
-    goals: 38,
-    assists: 12,
-    playHours: 47,
-  },
-  level: 'Orta',
-  position: 'Forvet',
-  footPreference: 'Sağ',
-};
+import { userService } from '@/services/api';
 
 // Yaklaşan maçlar
 const upcomingMatches = [
@@ -63,15 +44,110 @@ const pastMatches = Array(6).fill(null).map((_, index) => ({
   }
 }));
 
+// Kullanıcı profil tipi
+type UserProfile = {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  profilePicture: string;
+  bio?: string;
+  location?: string;
+  phone?: string;
+  favoriteTeams?: string[];
+  stats?: {
+    matches: number;
+    goals: number;
+    assists: number;
+    playHours: number;
+  };
+  level?: string;
+  position?: string;
+  footPreference?: string;
+};
+
 export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState('profile');
+  const [userData, setUserData] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'tabIconDefault');
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUserData } = useAuth();
   const router = useRouter();
 
   const screenWidth = Dimensions.get('window').width;
+
+  // Profil verilerini yükle
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Eğer kullanıcı giriş yapmışsa, profil bilgilerini getir
+        if (user) {
+          const profileData = await userService.getProfile();
+          
+          // Veritabanından gelen verileri UserProfile formatına dönüştür
+          const formattedData: UserProfile = {
+            id: profileData._id || profileData.id,
+            name: profileData.name,
+            username: profileData.username,
+            email: profileData.email,
+            profilePicture: profileData.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg',
+            bio: profileData.bio || 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
+            location: profileData.location || 'İstanbul, Kadıköy',
+            phone: profileData.phone || '+90 (555) 123-4567',
+            favoriteTeams: profileData.favoriteTeams || [],
+            stats: profileData.stats || {
+              matches: 24,
+              goals: 38,
+              assists: 12,
+              playHours: 47,
+            },
+            level: profileData.level || 'Orta',
+            position: profileData.position || 'Forvet',
+            footPreference: profileData.footPreference || 'Sağ',
+          };
+          
+          setUserData(formattedData);
+        }
+      } catch (err) {
+        console.error('Profil bilgileri yüklenirken hata:', err);
+        setError('Profil bilgileri yüklenemedi. Lütfen tekrar deneyin.');
+        
+        // Hata durumunda varsayılan verilerle devam et
+        if (user) {
+          setUserData({
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            profilePicture: user.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg',
+            bio: 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
+            location: 'İstanbul, Kadıköy',
+            phone: '+90 (555) 123-4567',
+            stats: {
+              matches: 24,
+              goals: 38,
+              assists: 12,
+              playHours: 47,
+            },
+            level: 'Orta',
+            position: 'Forvet',
+            footPreference: 'Sağ',
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [user]);
 
   // Çıkış yapma fonksiyonu
   const handleLogout = async () => {
@@ -124,75 +200,103 @@ export default function ProfileScreen() {
     );
   };
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.profileInfo}>
-        <Image source={{ uri: userData.profilePic }} style={styles.profilePic} />
-        
-        <View style={styles.userInfo}>
-          <ThemedText style={styles.fullName}>{userData.fullName}</ThemedText>
-          <ThemedText style={styles.username}>@{userData.username}</ThemedText>
+  const renderHeader = () => {
+    if (!userData) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+          <ThemedText style={styles.loadingText}>Profil bilgileri yükleniyor...</ThemedText>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.header}>
+        <View style={styles.profileInfo}>
+          <Image 
+            source={{ uri: userData.profilePicture }} 
+            style={styles.profilePic} 
+            defaultSource={require('@/assets/images/default-avatar.png')}
+          />
           
-          <View style={styles.playerDetails}>
-            <View style={styles.playerDetail}>
-              <IconSymbol name="location.fill" size={14} color={textColor} />
-              <ThemedText style={styles.detailText}>{userData.location}</ThemedText>
-            </View>
+          <View style={styles.userInfo}>
+            <ThemedText style={styles.fullName}>{userData.name}</ThemedText>
+            <ThemedText style={styles.username}>@{userData.username}</ThemedText>
             
-            <View style={styles.playerAttributeContainer}>
-              <View style={[styles.playerAttributeTag, { backgroundColor: '#4CAF50' }]}>
-                <ThemedText style={styles.playerAttributeText}>{userData.level}</ThemedText>
-              </View>
+            <View style={styles.playerDetails}>
+              {userData.location && (
+                <View style={styles.playerDetail}>
+                  <IconSymbol name="location.fill" size={14} color={textColor} />
+                  <ThemedText style={styles.detailText}>{userData.location}</ThemedText>
+                </View>
+              )}
               
-              <View style={[styles.playerAttributeTag, { backgroundColor: '#2196F3' }]}>
-                <ThemedText style={styles.playerAttributeText}>{userData.position}</ThemedText>
-              </View>
-              
-              <View style={[styles.playerAttributeTag, { backgroundColor: '#FF9800' }]}>
-                <ThemedText style={styles.playerAttributeText}>{userData.footPreference} Ayak</ThemedText>
+              <View style={styles.playerAttributeContainer}>
+                {userData.level && (
+                  <View style={[styles.playerAttributeTag, { backgroundColor: '#4CAF50' }]}>
+                    <ThemedText style={styles.playerAttributeText}>{userData.level}</ThemedText>
+                  </View>
+                )}
+                
+                {userData.position && (
+                  <View style={[styles.playerAttributeTag, { backgroundColor: '#2196F3' }]}>
+                    <ThemedText style={styles.playerAttributeText}>{userData.position}</ThemedText>
+                  </View>
+                )}
+                
+                {userData.footPreference && (
+                  <View style={[styles.playerAttributeTag, { backgroundColor: '#FF9800' }]}>
+                    <ThemedText style={styles.playerAttributeText}>{userData.footPreference} Ayak</ThemedText>
+                  </View>
+                )}
               </View>
             </View>
           </View>
         </View>
-      </View>
 
-      <ThemedText style={styles.bio}>{userData.bio}</ThemedText>
+        {userData.bio && <ThemedText style={styles.bio}>{userData.bio}</ThemedText>}
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>{userData.stats.matches}</ThemedText>
-          <ThemedText style={styles.statLabel}>Maç</ThemedText>
-        </View>
-        <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>{userData.stats.goals}</ThemedText>
-          <ThemedText style={styles.statLabel}>Gol</ThemedText>
-        </View>
-        <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>{userData.stats.assists}</ThemedText>
-          <ThemedText style={styles.statLabel}>Asist</ThemedText>
-        </View>
-        <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>{userData.stats.playHours}</ThemedText>
-          <ThemedText style={styles.statLabel}>Saat</ThemedText>
+        {userData.stats && (
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>{userData.stats.matches}</ThemedText>
+              <ThemedText style={styles.statLabel}>Maç</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>{userData.stats.goals}</ThemedText>
+              <ThemedText style={styles.statLabel}>Gol</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>{userData.stats.assists}</ThemedText>
+              <ThemedText style={styles.statLabel}>Asist</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>{userData.stats.playHours}</ThemedText>
+              <ThemedText style={styles.statLabel}>Saat</ThemedText>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[styles.button, styles.primaryButton, { backgroundColor: tintColor }]}
+            onPress={() => Alert.alert('Bilgi', 'Profil düzenleme özelliği yakında eklenecek.')}
+          >
+            <IconSymbol name="pencil" size={16} color="#FFFFFF" />
+            <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>Profili Düzenle</ThemedText>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.button, styles.secondaryButton, { borderColor: '#E0E0E0' }]}
+            onPress={() => handleLogout()}
+          >
+            <IconSymbol name="arrow.right.square" size={16} color="tomato" />
+            <ThemedText style={[styles.buttonText, {color: 'tomato'}]}>Çıkış Yap</ThemedText>
+          </TouchableOpacity>
         </View>
       </View>
-
-      <View style={styles.actionButtons}>
-        <TouchableOpacity style={[styles.button, styles.primaryButton, { backgroundColor: tintColor }]}>
-          <IconSymbol name="pencil" size={16} color="#FFFFFF" />
-          <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>Profili Düzenle</ThemedText>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, styles.secondaryButton, { borderColor: '#E0E0E0' }]}
-          onPress={() => handleLogout()}
-        >
-          <IconSymbol name="arrow.right.square" size={16} color="tomato" />
-          <ThemedText style={[styles.buttonText, {color: 'tomato'}]}>Çıkış Yap</ThemedText>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderTabs = () => (
     <View style={[styles.tabs, { borderBottomColor: '#E0E0E0' }]}>
@@ -264,60 +368,72 @@ export default function ProfileScreen() {
     </View>
   );
 
-  const renderProfileDetails = () => (
-    <View style={styles.detailsContainer}>
-      <ThemedText style={styles.sectionTitle}>İletişim Bilgileri</ThemedText>
-      
-      <View style={styles.detailItem}>
-        <IconSymbol name="phone.fill" size={18} color={textColor} />
-        <ThemedText style={styles.detailText}>{userData.phone}</ThemedText>
+  const renderProfileDetails = () => {
+    if (!userData) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.detailsContainer}>
+        <ThemedText style={styles.sectionTitle}>İletişim Bilgileri</ThemedText>
+        
+        {userData.phone && (
+          <View style={styles.detailItem}>
+            <IconSymbol name="phone.fill" size={18} color={textColor} />
+            <ThemedText style={styles.detailText}>{userData.phone}</ThemedText>
+          </View>
+        )}
+        
+        <View style={styles.detailItem}>
+          <IconSymbol name="envelope.fill" size={18} color={textColor} />
+          <ThemedText style={styles.detailText}>{userData.email}</ThemedText>
+        </View>
+        
+        <ThemedText style={styles.sectionTitle}>Yetenekler</ThemedText>
+        
+        <View style={styles.skillsContainer}>
+          <View style={styles.skillItem}>
+            <ThemedText style={styles.skillLabel}>Hız</ThemedText>
+            <View style={styles.skillBarContainer}>
+              <View style={[styles.skillBar, { width: '85%', backgroundColor: tintColor }]} />
+            </View>
+          </View>
+          
+          <View style={styles.skillItem}>
+            <ThemedText style={styles.skillLabel}>Şut</ThemedText>
+            <View style={styles.skillBarContainer}>
+              <View style={[styles.skillBar, { width: '75%', backgroundColor: tintColor }]} />
+            </View>
+          </View>
+          
+          <View style={styles.skillItem}>
+            <ThemedText style={styles.skillLabel}>Pas</ThemedText>
+            <View style={styles.skillBarContainer}>
+              <View style={[styles.skillBar, { width: '65%', backgroundColor: tintColor }]} />
+            </View>
+          </View>
+          
+          <View style={styles.skillItem}>
+            <ThemedText style={styles.skillLabel}>Dribling</ThemedText>
+            <View style={styles.skillBarContainer}>
+              <View style={[styles.skillBar, { width: '70%', backgroundColor: tintColor }]} />
+            </View>
+          </View>
+          
+          <View style={styles.skillItem}>
+            <ThemedText style={styles.skillLabel}>Fizik</ThemedText>
+            <View style={styles.skillBarContainer}>
+              <View style={[styles.skillBar, { width: '60%', backgroundColor: tintColor }]} />
+            </View>
+          </View>
+        </View>
       </View>
-      
-      <View style={styles.detailItem}>
-        <IconSymbol name="envelope.fill" size={18} color={textColor} />
-        <ThemedText style={styles.detailText}>{userData.email}</ThemedText>
-      </View>
-      
-      <ThemedText style={styles.sectionTitle}>Yetenekler</ThemedText>
-      
-      <View style={styles.skillsContainer}>
-        <View style={styles.skillItem}>
-          <ThemedText style={styles.skillLabel}>Hız</ThemedText>
-          <View style={styles.skillBarContainer}>
-            <View style={[styles.skillBar, { width: '85%', backgroundColor: tintColor }]} />
-          </View>
-        </View>
-        
-        <View style={styles.skillItem}>
-          <ThemedText style={styles.skillLabel}>Şut</ThemedText>
-          <View style={styles.skillBarContainer}>
-            <View style={[styles.skillBar, { width: '75%', backgroundColor: tintColor }]} />
-          </View>
-        </View>
-        
-        <View style={styles.skillItem}>
-          <ThemedText style={styles.skillLabel}>Pas</ThemedText>
-          <View style={styles.skillBarContainer}>
-            <View style={[styles.skillBar, { width: '65%', backgroundColor: tintColor }]} />
-          </View>
-        </View>
-        
-        <View style={styles.skillItem}>
-          <ThemedText style={styles.skillLabel}>Dribling</ThemedText>
-          <View style={styles.skillBarContainer}>
-            <View style={[styles.skillBar, { width: '70%', backgroundColor: tintColor }]} />
-          </View>
-        </View>
-        
-        <View style={styles.skillItem}>
-          <ThemedText style={styles.skillLabel}>Fizik</ThemedText>
-          <View style={styles.skillBarContainer}>
-            <View style={[styles.skillBar, { width: '60%', backgroundColor: tintColor }]} />
-          </View>
-        </View>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderUpcomingMatches = () => (
     <View style={styles.matchesContainer}>
@@ -416,6 +532,36 @@ export default function ProfileScreen() {
     </View>
   );
 
+  // Yükleme durumunu kontrol et
+  if (loading && !userData) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+          <ThemedText style={styles.loadingText}>Profil bilgileri yükleniyor...</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+  
+  // Hata durumunu kontrol et
+  if (error && !userData) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={40} color="tomato" />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+          <TouchableOpacity 
+            style={[styles.button, { backgroundColor: tintColor, marginTop: 20 }]}
+            onPress={() => router.replace('/(auth)/login')}
+          >
+            <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>Giriş Sayfasına Dön</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
+    );
+  }
+  
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -438,6 +584,29 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 30,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: 'tomato',
+    textAlign: 'center',
   },
   header: {
     marginBottom: 24,
