@@ -1,15 +1,22 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, CssBaseline, Box, createTheme } from '@mui/material';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider, CssBaseline, Box, Container, createTheme } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { tr } from 'date-fns/locale';
+
+// Temel Bileşenler
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+
+// Sayfa Bileşenleri
 import Feed from './components/Feed';
 import MatchResults from './components/MatchResults';
 import Teams from './components/Teams';
 import Reservation from './components/Reservation';
 import Profile from './components/Profile';
+import Login from './components/Auth/Login';
+import Register from './components/Auth/Register';
 
 // Özel tema oluşturma
 const theme = createTheme({
@@ -62,21 +69,58 @@ const theme = createTheme({
   },
 });
 
+// Misafir kullanıcıları kontrol etmek için yardımcı bileşen
+const ProtectedRoute = ({ children }) => {
+  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+  if (!isLoggedIn) {
+    // Not: Navbar'daki yönlendirmeler sayesinde bu koda normalde erişilmez,
+    // ancak URL'i doğrudan giren kullanıcılar için bir güvenlik katmanı olarak kalır
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
         <Router>
-          <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
             <Navbar />
-            <Routes>
-              <Route path="/" element={<Feed />} />
-              <Route path="/matches" element={<MatchResults />} />
-              <Route path="/teams" element={<Teams />} />
-              <Route path="/reservations" element={<Reservation />} />
-              <Route path="/profile" element={<Profile />} />
-            </Routes>
+            <Box component="main" sx={{ flexGrow: 1, py: 10 }}>
+              <Container maxWidth="lg">
+                <Routes>
+                  {/* Herkese açık sayfalar */}
+                  <Route path="/" element={<Feed />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  
+                  {/* Sadece giriş yapmış kullanıcılara özel sayfalar */}
+                  <Route path="/matches" element={
+                    <ProtectedRoute>
+                      <MatchResults />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/teams" element={
+                    <ProtectedRoute>
+                      <Teams />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/reservations" element={
+                    <ProtectedRoute>
+                      <Reservation />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/profile" element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  } />
+                </Routes>
+              </Container>
+            </Box>
+            <Footer />
           </Box>
         </Router>
       </LocalizationProvider>

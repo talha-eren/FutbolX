@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// .env dosyasını yükle
 dotenv.config();
 
 const app = express();
@@ -34,14 +35,23 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // MongoDB bağlantısı
-mongoose.connect('mongodb://localhost:27017/futbolx', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => {
-  console.log('MongoDB bağlantısı başarılı');
-}).catch((err) => {
-  console.error('MongoDB bağlantı hatası:', err);
-});
+// Bağlantı bilgilerini .env dosyasından oku
+const MONGO_USER = process.env.MONGO_USER;
+const MONGO_PASSWORD = process.env.MONGO_PASSWORD;
+const MONGO_CLUSTER = process.env.MONGO_CLUSTER;
+
+// MongoDB URI oluştur
+const mongoURI = `mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/?retryWrites=true&w=majority&appName=Cluster0`;
+
+console.log('MongoDB URI kullanılıyor');
+
+mongoose.connect(mongoURI)
+  .then(() => {
+    console.log('MongoDB bağlantısı başarılı');
+  })
+  .catch((err) => {
+    console.error('MongoDB bağlantı hatası:', err);
+  });
 
 // Post modeli
 const postSchema = new mongoose.Schema({
