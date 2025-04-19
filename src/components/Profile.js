@@ -14,19 +14,20 @@ import {
 } from '@mui/icons-material';
 
 const userStats = {
-  matches: 45,
-  goals: 28,
-  assists: 15,
-  rating: 4.2,
-  position: 'Forvet',
+  matches: 52,
+  goals: 34,
+  assists: 18,
+  rating: 4.5,
+  position: 'Orta Saha',
   foot: 'Sağ',
-  height: 178,
-  weight: 72,
-  teams: ['Yıldızlar FC', 'Kartallar Spor'],
+  height: 180,
+  weight: 75,
+  teams: ['Galatasaray Alt Yapı', 'FutbolX FC'],
   achievements: [
-    'En İyi Golcü 2024',
-    'Ayın Oyuncusu (Mart 2024)',
-    'Hat-trick Kralı'
+    'En İyi Orta Saha 2024',
+    'Ayın Oyuncusu (Nisan 2025)',
+    'Asist Kralı 2024',
+    'FutbolX Turnuvası Şampiyonu'
   ]
 };
 
@@ -100,33 +101,34 @@ const highlights = [
 ];
 
 function Profile() {
-  const [tabValue, setTabValue] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const [editMode, setEditMode] = useState(false);
-  const [profileData, setProfileData] = useState({
-    name: 'Ahmet Yılmaz',
-    username: 'ahmet10',
-    email: 'ahmet@example.com',
-    phone: '+90 555 123 4567',
-    bio: 'Futbol tutkunu ⚽ | Forvet | Gol kralı 👑'
+  const [openDialog, setOpenDialog] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
+  const [editedData, setEditedData] = useState({});
+  const [userInfo, setUserInfo] = useState({
+    username: 'talhaeren',
+    firstName: 'Talha',
+    lastName: 'Eren',
+    email: 'bilikcitalha@gmail.com',
+    bio: 'Futbol tutkunu, orta saha oyuncusu. Galatasaray alt yapısından yetişme. FutbolX platformunun kurucusu.',
+    profilePicture: 'https://randomuser.me/api/portraits/men/32.jpg'
   });
-  const [editedData, setEditedData] = useState(profileData);
 
   const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+    setActiveTab(newValue);
   };
 
   const handleEditProfile = () => {
     setEditMode(true);
-    setEditedData(profileData);
   };
 
   const handleSaveProfile = () => {
-    setProfileData(editedData);
     setEditMode(false);
   };
 
   const renderTabContent = () => {
-    switch (tabValue) {
+    switch (activeTab) {
       case 0: // İstatistikler
         return (
           <Grid container spacing={3}>
@@ -138,6 +140,13 @@ function Profile() {
                     Genel İstatistikler
                   </Typography>
                   <Grid container spacing={2}>
+                    <Grid item xs={6} sm={3}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+                          {userInfo.firstName} {userInfo.lastName}
+                        </Typography>
+                      </Box>
+                    </Grid>
                     <Grid item xs={6} sm={3}>
                       <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="h4" color="primary">
@@ -165,16 +174,6 @@ function Profile() {
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Asist
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary">
-                          {userStats.rating}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Ortalama Puan
                         </Typography>
                       </Box>
                     </Grid>
@@ -364,15 +363,18 @@ function Profile() {
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <Box sx={{ position: 'relative' }}>
-              <Avatar 
-                sx={{ 
-                  width: 120, 
+              <Avatar
+                src={userInfo.profilePicture}
+                sx={{
+                  width: 120,
                   height: 120,
+                  border: '4px solid white',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   bgcolor: 'primary.main',
-                  fontSize: '3rem'
+                  fontSize: 56
                 }}
               >
-                {profileData.name.charAt(0)}
+                {userInfo.firstName ? userInfo.firstName.charAt(0).toUpperCase() : 'U'}
               </Avatar>
               <IconButton
                 sx={{
@@ -389,7 +391,7 @@ function Profile() {
             <Box sx={{ ml: 3, flex: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                  {profileData.name}
+                  {userInfo.firstName} {userInfo.lastName}
                 </Typography>
                 <Button
                   startIcon={editMode ? <Save /> : <Edit />}
@@ -401,10 +403,10 @@ function Profile() {
                 </Button>
               </Box>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-                @{profileData.username}
+                @{userInfo.username}
               </Typography>
               <Typography variant="body1">
-                {profileData.bio}
+                {userInfo.bio}
               </Typography>
             </Box>
           </Box>
@@ -427,7 +429,7 @@ function Profile() {
                 />
               ) : (
                 <Typography variant="body1">
-                  {profileData.email}
+                  {userInfo.email}
                 </Typography>
               )}
             </Grid>
@@ -445,7 +447,7 @@ function Profile() {
                 />
               ) : (
                 <Typography variant="body1">
-                  {profileData.phone}
+                  {userInfo.phone || '+90 555 123 4567'}
                 </Typography>
               )}
             </Grid>

@@ -18,6 +18,11 @@ import Profile from './components/Profile';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 
+// Video Bileşenleri
+import VideoList from './components/Video/VideoList';
+import VideoDetail from './components/Video/VideoDetail';
+import UploadVideo from './components/Video/UploadVideo';
+
 // Özel tema oluşturma
 const theme = createTheme({
   palette: {
@@ -122,6 +127,15 @@ function App() {
                   <Route path="/profile" element={
                     <ProtectedRoute>
                       <Profile />
+                    </ProtectedRoute>
+                  } />
+                  
+                  {/* Video Rotaları */}
+                  <Route path="/videos" element={<VideoList />} />
+                  <Route path="/videos/:id" element={<VideoDetail />} />
+                  <Route path="/upload-video" element={
+                    <ProtectedRoute>
+                      <UploadVideo />
                     </ProtectedRoute>
                   } />
                 </Routes>

@@ -10,8 +10,9 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// Auth rotalarını içe aktar
+// Rotaları içe aktar
 const authRoutes = require('./routes/authRoutes');
+const videoRoutes = require('./routes/videoRoutes');
 
 // .env dosyası zaten en üstte yüklendi
 
@@ -135,6 +136,10 @@ app.post('/api/posts/:id/comment', async (req, res) => {
 
 // Auth rotalarını kullan
 app.use('/api/auth', authRoutes);
+app.use('/api/videos', videoRoutes);
+
+// Static dosyaları servis et
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // Uploads klasörüne statik erişim sağla
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
