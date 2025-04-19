@@ -1,27 +1,34 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from '../services/api';
 
 type User = {
   id: string;
-  fullName: string;
+  name: string;
   email: string;
   username: string;
+  profilePicture?: string;
+  favoriteTeams?: string[];
 };
 
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   isLoggedIn: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (fullName: string, username: string, email: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<boolean>;
+  register: (name: string, username: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
 };
 
-// @ts-ignore
-const AuthContext = createContext<AuthContextType>();
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -29,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Uygulama başladığında localStorage'dan kullanıcı bilgilerini yükle
+    // Uygulama başladığında AsyncStorage'dan kullanıcı bilgilerini yükle
     const loadUserData = async () => {
       try {
         const userData = await AsyncStorage.getItem('user');
@@ -46,25 +53,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUserData();
   }, []);
 
+  // Kullanıcı verilerini yenileme fonksiyonu
+  const refreshUserData = async (): Promise<void> => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+    } catch (error) {
+      console.error('Kullanıcı verileri yenilenirken hata:', error);
+    }
+  };
+
   // Giriş fonksiyonu
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      // API çağrısı simülasyonu
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Gerçek uygulamada burada API'ye istek gönderilir
-      // Şimdilik önceden tanımlanmış bir kullanıcı ile devam ediyoruz
-      const mockUser: User = {
-        id: '1',
-        fullName: 'Test Kullanıcı',
-        email: email,
-        username: 'testuser'
-      };
+      // Backend API'sine giriş isteği gönder
+      const response = await authService.login(username, password);
       
-      // Kullanıcı bilgilerini yerel depolamaya kaydet
-      await AsyncStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
+      // Kullanıcı bilgilerini ayarla
+      setUser(response.user);
       return true;
     } catch (error) {
       console.error('Giriş yaparken hata:', error);
@@ -76,27 +86,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Kayıt fonksiyonu
   const register = async (
-    fullName: string, 
+    name: string, 
     username: string, 
     email: string, 
     password: string
   ): Promise<boolean> => {
     try {
       setIsLoading(true);
-      // API çağrısı simülasyonu
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Gerçek uygulamada burada API'ye istek gönderilir
-      // Şimdilik başarılı bir kayıt simüle ediyoruz
-      const newUser: User = {
-        id: Date.now().toString(),
-        fullName,
-        email,
-        username
-      };
+      // Backend API'sine kayıt isteği gönder
+      const response = await authService.register(username, email, password, name);
       
-      // Normalde giriş yapmadan önce doğrulama gerekebilir
-      // Şimdilik kayıt sonrası otomatik giriş yapılmaz
+      // Kullanıcı bilgilerini ayarla
+      setUser(response.user);
       return true;
     } catch (error) {
       console.error('Kayıt olurken hata:', error);
@@ -110,8 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async (): Promise<void> => {
     try {
       setIsLoading(true);
-      // Kullanıcı bilgilerini yerel depolamadan sil
-      await AsyncStorage.removeItem('user');
+      
+      // Backend API'sine çıkış isteği gönder
+      await authService.logout();
+      
+      // Kullanıcı bilgilerini temizle
       setUser(null);
     } catch (error) {
       console.error('Çıkış yaparken hata:', error);
@@ -126,7 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoggedIn: !!user,
     login,
     register,
-    logout
+    logout,
+    refreshUserData
   };
 
   return (
