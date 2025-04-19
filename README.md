@@ -1,106 +1,185 @@
-# FutbolX - Halı Saha Sosyal Platformu
+# FutbolX - Futbol Tutkunu Sosyal Platform
 
-FutbolX, halı saha futbolu tutkunları için geliştirilmiş, hem web hem de mobil platformlarda çalışan kapsamlı bir sosyal medya ve rezervasyon uygulamasıdır. Uygulama, futbolseverlerin maç organize etmelerini, takım oluşturmalarını ve halı saha rezervasyonu yapmalarını kolaylaştıran bir ekosistem sunmaktadır.
+<div align="center">
+  <img src="https://placehold.co/600x400/4CAF50/FFFFFF/png?text=FutbolX+Logo" alt="FutbolX Logo" width="300"/>
+  
+  <p style="font-size: 20px; margin-top: 20px;">Futbol tutkunlarını buluşturan modern sosyal platform</p>
+</div>
 
-![FutbolX Logo](./src/assets/logo.png)
+<br>
 
-## Özellikler
+## 📱 Proje Hakkında
 
-### Kullanıcı Yönetimi
-- **Kullanıcı Kaydı ve Girişi**: Email ve şifre ile güvenli kayıt ve giriş imkanı
-- **Misafir Modu**: Kayıt olmadan sınırlı özelliklere erişim imkanı
-- **Profil Yönetimi**: Kullanıcı profillerini düzenleme ve kişiselleştirme
+FutbolX, futbol severlerin bir araya gelerek içerik paylaşabilecekleri, halı saha maçı organize edebilecekleri ve futbol topluluğuna dahil olabilecekleri çok platformlu (web ve mobil) bir sosyal medya uygulamasıdır. 
 
-### Sosyal Özellikler
-- **Maç Organizasyonu**: Maç oluşturma, katılımcı davet etme ve maç detaylarını yönetme
-- **Takım Yönetimi**: Takım oluşturma, oyuncu davet etme ve takım istatistiklerini görüntüleme
-- **Sosyal Etkileşim**: Maç sonuçlarını ve anları paylaşma, yorum yapma
+<br>
 
-### Rezervasyon Sistemi
-- **Halı Saha Rezervasyonu**: Müsait halı sahaları görüntüleme ve rezervasyon yapma
-- **Ödeme Sistemi**: Güvenli çevrimiçi ödeme seçenekleri
-- **Rezervasyon Yönetimi**: Rezervasyon geçmişi ve gelecek rezervasyonlar
+## ✨ Özellikler
 
-## Teknoloji Yığını
+<br>
 
-### Web Uygulaması (Frontend)
-- **React**: Modern, bileşen tabanlı kullanıcı arayüzü
-- **Material UI**: Duyarlı ve modern tasarım bileşenleri
-- **React Router**: Sayfa yönlendirme ve navigasyon
-- **Axios**: API istekleri için HTTP istemcisi
+### 🔄 Temel Özellikler
 
-### Mobil Uygulama
-- **Kotlin**: Android platformu için modern programlama dili
-- **Jetpack Compose**: Deklaratif UI oluşturma
-- **Android Architecture Components**: MVVM mimarisi
+- **Kullanıcı Profil Sistemi:** Futbol profilleri, beceri seviyeleri ve pozisyon tercihleri
 
-### Backend
-- **Node.js & Express**: Hızlı ve ölçeklenebilir API sunucusu
-- **MongoDB**: NoSQL veritabanı çözümü
-- **JWT**: Güvenli kullanıcı kimlik doğrulama
-- **Multer**: Dosya yükleme desteği
+- **Video Paylaşımı:** Maç, antrenman ve futbol beceri videoları
 
-## Kurulum
+- **Sosyal Etkileşim:** Beğenme, yorum yapma ve içerik paylaşma
 
-### Web Uygulaması Kurulumu
+<br>
+
+### ⚽ Futbol Odaklı Özellikler
+
+- **Halı Saha Rezervasyon:** En yakın halı sahaları bulma ve rezervasyon yapma
+
+- **Oyuncu Eşleştirme:** Eksik oyuncuları maçlar için bulma
+
+- **Takım Oluşturma:** Yeni takımlar kurma ve turnuvalar organize etme
+
+- **Konum Bazlı Öneriler:** Yakınınızdaki halı sahalar ve oyuncular
+
+<br>
+
+### 🌐 Çok Platformlu Deneyim
+
+- **Web Uygulaması:** Masaüstü bilgisayarlar için optimize edilmiş arayüz
+
+- **Mobil Uygulama:** iOS ve Android cihazlar için native deneyim
+
+- **Duyarlı Tasarım:** Tüm ekran boyutlarına uygun tasarım
+
+<br>
+
+## 🚀 Teknoloji Yığını
+
+- **Frontend:** React Native (Mobil), React (Web)
+
+- **State Yönetimi:** React Context ve Hooks
+
+- **Stilizasyon:** StyleSheet, CSS
+
+- **Navigasyon:** Expo Router
+
+- **Platformlar:** iOS, Android, Web
+
+<br>
+
+## 🏗️ Proje Yapısı
+
+```
+FutbolX/
+├── app/              # Expo Router yapısı
+│   ├── (auth)/       # Giriş ve kayıt ekranları
+│   ├── (tabs)/       # Ana uygulama sekmeleri
+│   └── [...]         # Diğer sayfalar
+├── components/       # Yeniden kullanılabilir bileşenler
+│   ├── ui/           # Temel UI bileşenleri
+│   └── [...]         # Diğer bileşen kategorileri
+├── hooks/            # Custom React hooks
+├── constants/        # Sabitler ve yapılandırma
+├── services/         # API ve veri işleme servisleri
+└── assets/           # Resimler, fontlar ve diğer statik dosyalar
+```
+
+<br>
+
+## 📋 Geliştirme Zaman Çizelgesi
+
+- **Hafta 1:** Temel Araştırma (Pazar araştırmaları, benzer uygulamaların incelenmesi)
+
+- **Hafta 2-3:** Geliştirme Başlangıcı ✅ (Geliştirme ortamı, kütüphaneler, temel ekranlar)
+
+- **Hafta 4-5:** Temel Özellikler (Kullanıcı profili, video yükleme, veritabanı bağlantıları)
+
+- **Hafta 6-7:** Sosyal Özellikler (Rezervasyon sistemi, beğeni ve yorum sistemi)
+
+- **Hafta 8-9:** Veri İşlemleri (Kullanıcı verileri, filtreleme, konum tabanlı öneriler)
+
+- **Hafta 10-11:** Eşleştirme Sistemi (Oyuncu eşleştirme, takım oluşturma)
+
+- **Hafta 12-14:** Test ve Yayın (Hata ayıklama, performans iyileştirmeleri, yayınlama)
+
+<br>
+
+## 🛠️ Kurulum ve Çalıştırma
+
+### Gereksinimler
+
+- Node.js (v14 veya üzeri)
+- npm veya yarn
+- Expo CLI (`npm install -g expo-cli`)
+
+<br>
+
+### Kurulum
 
 ```bash
 # Projeyi klonlayın
-git clone https://github.com/kullaniciadi/FutbolX.git
-cd FutbolX
+git clone https://github.com/username/futbolx.git
+cd futbolx
 
 # Bağımlılıkları yükleyin
 npm install
+# veya
+yarn install
 
-# Geliştirme sunucusunu başlatın
+# Uygulamayı başlatın
 npm start
+# veya
+yarn start
 ```
 
-### Backend Kurulumu
+<br>
+
+### Platformlara Göre Çalıştırma
 
 ```bash
-# Backend dizinine gidin
-cd backend
+# Web için
+npm run web
+# veya
+yarn web
 
-# Bağımlılıkları yükleyin
-npm install
+# iOS için (MacOS gerektirir)
+npm run ios
+# veya
+yarn ios
 
-# .env dosyasını oluşturun ve gerekli değişkenleri tanımlayın
-echo "MONGODB_URI=mongodb://localhost:27017/futbolx
-JWT_SECRET=sizin_jwt_gizli_anahtariniz
-PORT=5000" > .env
-
-# Sunucuyu başlatın
-npm run dev
+# Android için
+npm run android
+# veya
+yarn android
 ```
 
-### Mobil Uygulama Kurulumu
+<br>
 
-1. Android Studio'yu açın
-2. "Open an Existing Project" seçeneğini kullanarak proje klasöründeki `/app` dizinini açın
-3. Gradle senkronizasyonunu tamamlayın
-4. Emülatör veya fiziksel cihazda uygulamayı çalıştırın
+## 🤝 Katkıda Bulunma
 
-## Kullanıcı Erişimi ve Güvenlik
+1. Bu repo'yu fork edin
+2. Yeni bir branch oluşturun (`git checkout -b feature/amazing-feature`)
+3. Değişikliklerinizi commit edin (`git commit -m 'feat: Add some amazing feature'`)
+4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
+5. Pull Request açın
 
-FutbolX uygulaması, farklı erişim düzeyleri sunmaktadır:
+<br>
 
-### Misafir Kullanıcılar
-- Ana sayfaya sınırlı erişim
-- Giriş yapmadan uygulamanın temel özelliklerini görüntüleme
-- Özel içeriklere erişim için giriş sayfasına yönlendirme
-
-### Kayıtlı Kullanıcılar
-- Tüm platformun özelliklerine tam erişim
-- Maç oluşturma ve katılma
-- Takım oluşturma ve yönetme
-- Halı saha rezervasyonu yapma
-- Profil yönetimi
-
-## Lisans
+## 📄 Lisans
 
 Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır.
 
-## İletişim
+<br>
 
-Sorularınız veya geri bildirimleriniz için [info@futbolx.com](mailto:info@futbolx.com) adresine e-posta gönderebilirsiniz.
+## 📧 İletişim
+
+**Proje Sahibi:** Talha Eren Bilikci  
+
+**E-posta:** [bilikcitalha@gmail.com](mailto:bilikcitalha@gmail.com)  
+
+**Proje E-posta:** [info@futbolx.com](mailto:info@futbolx.com)
+
+<br>
+
+---
+
+<div align="center">
+  <p style="font-size: 18px; margin-top: 20px;">FutbolX - Futbolun yeni sosyal deneyimi</p>
+</div>
