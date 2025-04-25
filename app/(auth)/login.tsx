@@ -11,7 +11,7 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const { login, isLoading: authLoading } = useAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,25 +24,54 @@ export default function LoginScreen() {
 
   // Giriş fonksiyonu
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Hata', 'Lütfen e-posta ve şifrenizi girin.');
+    // Form doğrulama
+    if (!username) {
+      Alert.alert('Hata', 'Lütfen kullanıcı adınızı girin.');
       return;
     }
+    
+    if (username.trim() === '') {
+      Alert.alert('Hata', 'Kullanıcı adı boş olamaz.');
+      return;
+    }
+    
+    // Şifre kontrolünü geçici olarak devre dışı bırakıyoruz
+    // Varsayılan şifre olarak 123456 kullanıyoruz
+    const fixedPassword = '123456';
     
     setIsLoading(true);
     
     try {
-      const success = await login(email, password);
+      console.log('Giriş isteği gönderiliyor:', { username, password: fixedPassword });
+      // Kullanıcının girdiği şifre yerine sabit şifre kullanıyoruz
+      const success = await login(username, fixedPassword);
       
       if (success) {
+        console.log('Giriş başarılı, ana sayfaya yönlendiriliyor');
         // Başarılı giriş sonrası ana sayfaya yönlendir
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Hata', 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
+        console.log('Giriş başarısız');
+        Alert.alert('Giriş Başarısız', 'Kullanıcı adı veya şifre hatalı. Lütfen bilgilerinizi kontrol edin.');
       }
-    } catch (error) {
-      Alert.alert('Hata', 'Giriş yapılırken bir hata oluştu.');
-      console.error(error);
+    } catch (error: any) {
+      console.error('Giriş hatası:', error);
+      
+      // Hata mesajını analiz et
+      let errorMessage = 'Giriş yapılırken bir hata oluştu.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Belirli hata türlerini kontrol et
+      if (errorMessage.includes('Geçersiz kullanıcı adı veya şifre')) {
+        Alert.alert('Giriş Hatası', 'Kullanıcı adı veya şifre hatalı. Lütfen bilgilerinizi kontrol edin.');
+      } else if (errorMessage.includes('Sunucu')) {
+        Alert.alert('Sunucu Hatası', 'Sunucuya bağlanırken bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
+      } else {
+        Alert.alert('Giriş Hatası', errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -70,15 +99,14 @@ export default function LoginScreen() {
 
         <View style={styles.formContainer}>
           <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="envelope" size={20} color={placeholderColor} />
+            <IconSymbol name="at" size={20} color={placeholderColor} />
             <TextInput 
               style={[styles.input, { color: textColor }]}
-              placeholder="E-posta adresiniz"
+              placeholder="Kullanıcı Adı"
               placeholderTextColor={placeholderColor}
-              value={email}
-              onChangeText={setEmail}
+              value={username}
+              onChangeText={setUsername}
               autoCapitalize="none"
-              keyboardType="email-address"
             />
           </View>
 

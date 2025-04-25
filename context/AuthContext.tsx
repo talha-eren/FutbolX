@@ -15,6 +15,7 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   isLoggedIn: boolean;
+  error: string;
   login: (username: string, password: string) => Promise<boolean>;
   register: (name: string, username: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -34,6 +35,7 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     // Uygulama başladığında AsyncStorage'dan kullanıcı bilgilerini yükle
@@ -69,16 +71,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
+      setError('');
+      
+      // Parametreleri kontrol et
+      if (!username || !password) {
+        const errorMsg = 'Kullanıcı adı ve şifre gereklidir';
+        console.error('Eksik parametreler:', { username: !!username, password: !!password });
+        setError(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Şifre uzunluğunu kontrol et
+      if (password.length < 6) {
+        const errorMsg = 'Şifre en az 6 karakter olmalıdır';
+        console.error('Şifre çok kısa');
+        setError(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      console.log('AuthContext: Giriş isteği gönderiliyor...', { username, passwordLength: password.length });
       
       // Backend API'sine giriş isteği gönder
       const response = await authService.login(username, password);
       
-      // Kullanıcı bilgilerini ayarla
+      // Yanıtı kontrol et
+      if (!response) {
+        const errorMsg = 'Sunucudan yanıt alınamadı';
+        console.error('Yanıt alınamadı');
+        setError(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      if (!response.token || !response.user) {
+        const errorMsg = 'Sunucudan geçerli yanıt alınamadı';
+        console.error('Geçersiz yanıt formatı:', response);
+        setError(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      console.log('Giriş başarılı, kullanıcı bilgileri alındı:', { id: response.user.id, username: response.user.username });
+      
+      // Token ve kullanıcı bilgilerini AsyncStorage'a kaydet
+      try {
+        await AsyncStorage.setItem('token', response.token);
+        await AsyncStorage.setItem('user', JSON.stringify(response.user));
+        console.log('Kullanıcı bilgileri kaydedildi');
+      } catch (storageError) {
+        console.error('AsyncStorage hatası:', storageError);
+        // Depolama hatası olsa bile devam et
+      }
+      
+      // Kullanıcı bilgilerini state'e ayarla
       setUser(response.user);
       return true;
-    } catch (error) {
-      console.error('Giriş yaparken hata:', error);
-      return false;
+    } catch (error: any) {
+      console.error('Giriş yaparken hata:', error?.message || error);
+      // Hata fırlat, böylece UI tarafında yakalanabilir
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -94,10 +143,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
+      console.log('AuthContext: Kayıt isteği gönderiliyor...');
       // Backend API'sine kayıt isteği gönder
       const response = await authService.register(username, email, password, name);
       
-      // Kullanıcı bilgilerini ayarla
+      console.log('Kayıt başarılı, kullanıcı bilgileri alındı:', response.user);
+      
+      // Token ve kullanıcı bilgilerini AsyncStorage'a kaydet
+      await AsyncStorage.setItem('token', response.token);
+      await AsyncStorage.setItem('user', JSON.stringify(response.user));
+      
+      // Kullanıcı bilgilerini state'e ayarla
       setUser(response.user);
       return true;
     } catch (error) {
@@ -113,11 +169,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Backend API'sine çıkış isteği gönder
+      // Backend API'sine çıkış isteği gönder (opsiyonel)
       await authService.logout();
       
-      // Kullanıcı bilgilerini temizle
+      // Token ve kullanıcı bilgilerini AsyncStorage'dan temizle
+      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('user');
+      
+      // Kullanıcı bilgilerini state'den temizle
       setUser(null);
+      
+      console.log('Çıkış başarılı, kullanıcı oturumu kapatıldı');
     } catch (error) {
       console.error('Çıkış yaparken hata:', error);
     } finally {
@@ -129,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoading,
     isLoggedIn: !!user,
+    error,
     login,
     register,
     logout,

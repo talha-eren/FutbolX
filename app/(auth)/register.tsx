@@ -44,24 +44,66 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (username.length < 3) {
+      Alert.alert('Hata', 'Kullanıcı adı en az 3 karakter olmalıdır.');
+      return;
+    }
+
+    // Email formatını kontrol et
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Hata', 'Geçerli bir e-posta adresi girin.');
+      return;
+    }
+
     setIsLoading(true);
+    console.log('Kayıt işlemi başlatılıyor:', { fullName, username, email });
     
     try {
       // AuthContext'in register fonksiyonunu kullan
       const success = await register(fullName, username, email, password);
       
       if (success) {
+        console.log('Kayıt başarılı');
         Alert.alert(
           'Başarılı', 
           'Kaydınız başarıyla oluşturuldu. Şimdi giriş yapabilirsiniz.',
           [{ text: 'Tamam', onPress: () => router.push('/login') }]
         );
       } else {
+        console.log('Kayıt başarısız');
         Alert.alert('Hata', 'Kayıt sırasında bir sorun oluştu. Lütfen tekrar deneyin.');
       }
-    } catch (error) {
-      Alert.alert('Hata', 'Kayıt yapılırken bir hata oluştu.');
-      console.error(error);
+    } catch (error: any) {
+      console.error('Kayıt hatası:', error);
+      
+      // Hata mesajını analiz et
+      let errorMessage = 'Kayıt yapılırken bir hata oluştu.';
+      
+      // API yanıtından hata mesajını almaya çalış
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Response içinde bir hata mesajı varsa onu kullan
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      console.log('Hata mesajı:', errorMessage);
+      
+      // Kullanıcı adı veya email zaten kullanılıyorsa özel mesaj göster
+      if (errorMessage.includes('zaten kullanılıyor') || 
+          errorMessage.includes('already') || 
+          errorMessage.includes('duplicate')) {
+        Alert.alert(
+          'Kullanıcı Mevcut', 
+          'Bu kullanıcı adı veya e-posta adresi zaten kullanılıyor. Lütfen farklı bilgilerle tekrar deneyin.',
+          [{ text: 'Tamam', style: 'default' }]
+        );
+      } else {
+        Alert.alert('Kayıt Hatası', errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }

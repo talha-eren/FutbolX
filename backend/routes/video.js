@@ -8,15 +8,15 @@ const router = express.Router();
 
 // GridFS Storage setup
 const storage = new GridFsStorage({
-  url: process.env.MONGODB_URI,
+  url: process.env.MONGODB_URI || 'mongodb://localhost:27017/futbolx',
   file: (req, file) => {
     return {
       filename: `${Date.now()}-${file.originalname}`,
       bucketName: 'videos',
       metadata: {
-        user: req.user.id,
-        title: req.body.title,
-        description: req.body.description,
+        user: req.user ? req.user.id : 'guest',
+        title: req.body ? req.body.title : 'Untitled',
+        description: req.body ? req.body.description : '',
       },
     };
   },

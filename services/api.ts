@@ -1,7 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-// API URL'sini burada tanımlıyoruz
-const API_URL = 'http://10.0.2.2:5000/api'; // Android emülatör için localhost bağlantısı
+// API URL'sini platform bazlı tanımlıyoruz
+let API_URL = '';
+
+// Platform kontrolü yaparak uygun API URL'sini belirle
+try {
+  if (Platform.OS === 'web') {
+    API_URL = 'http://localhost:5000/api'; // Web için localhost
+  } else if (Platform.OS === 'android') {
+    API_URL = 'http://10.0.2.2:5000/api'; // Android emülatör için
+  } else if (Platform.OS === 'ios') {
+    API_URL = 'http://localhost:5000/api'; // iOS için
+  } else {
+    API_URL = 'http://localhost:5000/api'; // Varsayılan
+  }
+} catch (error) {
+  // Platform.OS erişilemezse (örneğin, Node.js ortamında çalışırken)
+  API_URL = 'http://localhost:5000/api'; // Varsayılan olarak localhost kullan
+  console.log('Platform tespiti yapılamadı, varsayılan API URL kullanılıyor:', API_URL);
+}
+
+console.log('API URL:', API_URL);
 
 // Kimlik doğrulama başlıklarını hazırlayan yardımcı fonksiyon
 const getAuthHeaders = async () => {
@@ -17,6 +37,23 @@ export const authService = {
   // Kullanıcı Girişi
   login: async (username: string, password: string) => {
     try {
+      console.log(`API isteği gönderiliyor: ${API_URL}/auth/login`);
+      console.log('Giriş verileri:', { username, passwordLength: password?.length });
+      
+      // İsteği göndermeden önce parametreleri kontrol et
+      if (!username || !password) {
+        console.error('Eksik parametreler:', { username: !!username, password: !!password });
+        throw new Error('Kullanıcı adı ve şifre gereklidir');
+      }
+      
+      // Şifre uzunluğunu kontrol et
+      if (password.length < 6) {
+        console.error('Şifre çok kısa');
+        throw new Error('Şifre en az 6 karakter olmalıdır');
+      }
+      
+      // API isteğini gönder
+      console.log('Fetch isteği gönderiliyor:', `${API_URL}/auth/login`);
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -25,16 +62,31 @@ export const authService = {
         body: JSON.stringify({ username, password })
       });
 
+      // Yanıtı işle
+      console.log('Yanıt alındı, JSON parse ediliyor');
       const data = await response.json();
+      console.log('Sunucu yanıtı:', { 
+        status: response.status, 
+        ok: response.ok, 
+        hasToken: !!data.token,
+        hasUser: !!data.user,
+        message: data.message || 'Mesaj yok'
+      });
       
       if (!response.ok) {
+        console.error('Giriş başarısız:', data.message);
         throw new Error(data.message || 'Giriş başarısız');
       }
       
-      // Token ve kullanıcı bilgilerini kaydet
-      await AsyncStorage.setItem('token', data.token);
-      await AsyncStorage.setItem('user', JSON.stringify(data.user));
+      // Token ve kullanıcı verilerini kontrol et
+      if (!data.token || !data.user) {
+        console.error('Sunucu geçerli yanıt döndürmedi:', data);
+        throw new Error('Sunucudan geçerli kullanıcı bilgileri alınamadı');
+      }
       
+      console.log('Giriş başarılı, token alındı');
+      
+      // Token ve kullanıcı bilgileri AuthContext tarafından kaydedilecek
       return data;
     } catch (error) {
       console.error('Giriş hatası:', error);
@@ -45,6 +97,9 @@ export const authService = {
   // Kullanıcı Kaydı
   register: async (username: string, email: string, password: string, name: string) => {
     try {
+      console.log(`API isteği gönderiliyor: ${API_URL}/auth/register`);
+      console.log('Kayıt verileri:', { username, email, name });
+      
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
@@ -54,15 +109,29 @@ export const authService = {
       });
 
       const data = await response.json();
+      console.log('Sunucu yanıtı:', { status: response.status, ok: response.ok, data });
       
       if (!response.ok) {
-        throw new Error(data.message || 'Kayıt başarısız');
+        // Daha detaylı hata bilgisi
+        console.error('Kayıt başarısız:', data);
+        
+        // Hata mesajını oluştur
+        let errorMessage = data.message || 'Kayıt başarısız';
+        
+        // MongoDB duplicate key hatasını kontrol et
+        if (data.message && data.message.includes('duplicate key')) {
+          errorMessage = 'Bu kullanıcı adı veya e-posta adresi zaten kullanılıyor';
+        }
+        
+        // Hata nesnesine ek bilgiler ekle
+        const enhancedError = new Error(errorMessage);
+        (enhancedError as any).response = { data, status: response.status };
+        throw enhancedError;
       }
       
-      // Kayıt başarılı olduğunda token ve kullanıcı bilgilerini kaydet
-      await AsyncStorage.setItem('token', data.token);
-      await AsyncStorage.setItem('user', JSON.stringify(data.user));
+      console.log('Kayıt başarılı, token alındı');
       
+      // Token ve kullanıcı bilgileri AuthContext tarafından kaydedilecek
       return data;
     } catch (error) {
       console.error('Kayıt hatası:', error);

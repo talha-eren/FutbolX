@@ -1,18 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Button, TextInput, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { videoService } from '../services/videoApi';
+import { videoService, API_URL, VideoMeta } from '../../services/videoApi';
 import VideoPlayer from '../../components/VideoPlayer';
 import { Modal } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
+import { useRouter } from 'expo-router';
 
 const VideoUploadScreen = () => {
-  const [video, setVideo] = useState(null);
+  const [video, setVideo] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const [videos, setVideos] = useState([]);
+  const [videos, setVideos] = useState<VideoMeta[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
+  const { user } = useAuth();
+  const router = useRouter();
+  
+  // Kullanıcı giriş kontrolü
+  useEffect(() => {
+    if (!user) {
+      // Kullanıcı giriş yapmamışsa, giriş sayfasına yönlendir
+      const timer = setTimeout(() => {
+        router.replace('/(auth)/login?returnTo=videoUpload');
+        Alert.alert('Giriş Gerekli', 'Video yükleme özelliğini kullanmak için giriş yapmanız gerekmektedir.');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, router]);
 
   const pickVideo = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: 'video/*' });
@@ -34,26 +50,30 @@ const VideoUploadScreen = () => {
       setTitle('');
       setDescription('');
       fetchVideos();
-    } catch (err) {
-      Alert.alert('Yükleme hatası', err.message);
+    } catch (err: any) {
+      Alert.alert('Yükleme hatası', err?.message || 'Bilinmeyen bir hata oluştu');
     }
     setLoading(false);
   };
 
   const fetchVideos = async () => {
+    if (!user) return; // Kullanıcı giriş yapmamışsa videoları listeleme
+    
     setLoading(true);
     try {
       const list = await videoService.list();
       setVideos(list);
-    } catch (err) {
-      Alert.alert('Listeleme hatası', err.message);
+    } catch (err: any) {
+      Alert.alert('Listeleme hatası', err?.message || 'Bilinmeyen bir hata oluştu');
     }
     setLoading(false);
   };
 
   React.useEffect(() => {
-    fetchVideos();
-  }, []);
+    if (user) {
+      fetchVideos();
+    }
+  }, [user]);
 
   return (
     <View style={styles.container}>
@@ -87,11 +107,11 @@ const VideoUploadScreen = () => {
                 setLoading(true);
                 try {
                   // Video dosyasının URL'sini oluştur
-                  const url = `${videoService.API_URL}/download/${item.fileId}`;
+                  const url = `${API_URL}/download/${item.fileId}`;
                   setSelectedVideoUrl(url);
                   setModalVisible(true);
-                } catch (err) {
-                  Alert.alert('Video alınamadı', err.message);
+                } catch (err: any) {
+                  Alert.alert('Video alınamadı', err?.message || 'Bilinmeyen bir hata oluştu');
                 }
                 setLoading(false);
               }}

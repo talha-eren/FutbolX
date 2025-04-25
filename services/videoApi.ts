@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 export interface VideoComment {
   user: { username: string } | string;
@@ -17,12 +18,17 @@ export interface VideoMeta {
   comments: VideoComment[];
 }
 
-export const API_URL = 'http://localhost:5000/api/videos';
+// Mobil cihazlar için IP adresi, web için localhost kullan
+export const API_URL = Platform.OS === 'web' 
+  ? 'http://localhost:5000/api/videos'
+  : 'http://10.192.23.58:5000/api/videos'; // IP adresini backend sunucunuzun IP'si ile değiştirin
 
 export const videoService = {
-  upload: async (videoUri, title, description) => {
+  upload: async (videoUri: string, title: string, description: string) => {
     const token = await AsyncStorage.getItem('token');
     const formData = new FormData();
+    // @ts-ignore - React Native'in FormData implementasyonu standart web FormData'dan farklı
+    // ve dosya eklemek için özel bir format kullanıyor
     formData.append('video', {
       uri: videoUri,
       type: 'video/mp4',

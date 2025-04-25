@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator } from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useAuth } from '@/context/AuthContext';
+import { ThemedView } from '../../components/ThemedView';
+import { ThemedText } from '../../components/ThemedText';
+import { useThemeColor } from '../../hooks/useThemeColor';
+import { IconSymbol } from '../../components/ui/IconSymbol';
+import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
-import { userService } from '@/services/api';
+import { userService } from '../../services/api';
 
 // Yaklaşan maçlar
 const upcomingMatches = [
@@ -86,6 +86,18 @@ export default function ProfileScreen() {
 
   const screenWidth = Dimensions.get('window').width;
 
+  // Profil sayfasına giriş kontrolü
+  useEffect(() => {
+    if (!user) {
+      // Kullanıcı giriş yapmamışsa, 2 saniye sonra giriş sayfasına yönlendir
+      const timer = setTimeout(() => {
+        router.replace('/(auth)/login?returnTo=profile');
+        Alert.alert('Giriş Gerekli', 'Bu özelliği kullanmak için giriş yapmanız gerekmektedir.');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, router]);
+
   // Profil verilerini yükle
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -95,31 +107,55 @@ export default function ProfileScreen() {
         
         // Eğer kullanıcı giriş yapmışsa, profil bilgilerini getir
         if (user) {
-          const profileData = await userService.getProfile();
-          
-          // Veritabanından gelen verileri UserProfile formatına dönüştür
-          const formattedData: UserProfile = {
-            id: profileData._id || profileData.id,
-            name: profileData.name,
-            username: profileData.username,
-            email: profileData.email,
-            profilePicture: profileData.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg',
-            bio: profileData.bio || 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
-            location: profileData.location || 'İstanbul, Kadıköy',
-            phone: profileData.phone || '+90 (555) 123-4567',
-            favoriteTeams: profileData.favoriteTeams || [],
-            stats: profileData.stats || {
-              matches: 24,
-              goals: 38,
-              assists: 12,
-              playHours: 47,
-            },
-            level: profileData.level || 'Orta',
-            position: profileData.position || 'Forvet',
-            footPreference: profileData.footPreference || 'Sağ',
-          };
-          
-          setUserData(formattedData);
+          try {
+            const profileData = await userService.getProfile();
+            
+            // Veritabanından gelen verileri UserProfile formatına dönüştür
+            const formattedData: UserProfile = {
+              id: profileData._id || profileData.id,
+              name: profileData.name,
+              username: profileData.username,
+              email: profileData.email,
+              profilePicture: profileData.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg',
+              bio: profileData.bio || 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
+              location: profileData.location || 'İstanbul, Kadıköy',
+              phone: profileData.phone || '+90 (555) 123-4567',
+              favoriteTeams: profileData.favoriteTeams || [],
+              stats: profileData.stats || {
+                matches: 24,
+                goals: 38,
+                assists: 12,
+                playHours: 47,
+              },
+              level: profileData.level || 'Orta',
+              position: profileData.position || 'Forvet',
+              footPreference: profileData.footPreference || 'Sağ',
+            };
+            
+            setUserData(formattedData);
+          } catch (apiError) {
+            console.error('Profil getirme hatası:', apiError);
+            // API hatası durumunda kullanıcı bilgilerini kullan
+            setUserData({
+              id: user.id,
+              name: user.name,
+              username: user.username,
+              email: user.email,
+              profilePicture: user.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg',
+              bio: 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
+              location: 'İstanbul, Kadıköy',
+              phone: '+90 (555) 123-4567',
+              stats: {
+                matches: 24,
+                goals: 38,
+                assists: 12,
+                playHours: 47,
+              },
+              level: 'Orta',
+              position: 'Forvet',
+              footPreference: 'Sağ',
+            });
+          }
         }
       } catch (err) {
         console.error('Profil bilgileri yüklenirken hata:', err);
@@ -155,7 +191,7 @@ export default function ProfileScreen() {
     const fetchVideos = async () => {
       if (user) {
         try {
-          const videos = await videoService.listByUser(user._id || user.id);
+          const videos = await videoService.listByUser(user.id);
           setUserVideos(videos);
         } catch (err) {
           // Hata durumunda video listesi boş kalsın

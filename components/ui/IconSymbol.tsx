@@ -49,6 +49,7 @@ const MAPPING = {
   'mappin.and.ellipse': 'place',
   'clock': 'access-time',
   'turkishlirasign.circle': 'monetization-on', // En yakın para birimi ikonu
+  'film': 'movie', // Eksik film ikonu eklendi
   'lock.fill': 'lock',
 } as Partial<
   Record<
