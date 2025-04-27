@@ -19,31 +19,65 @@ export interface VideoMeta {
 }
 
 // Mobil cihazlar için IP adresi, web için localhost kullan
+// Bilgisayarın gerçek IP adresi (ipconfig ile tespit edildi)
+const COMPUTER_IP = '192.168.1.27';
+
 export const API_URL = Platform.OS === 'web' 
   ? 'http://localhost:5000/api/videos'
-  : 'http://10.192.23.58:5000/api/videos'; // IP adresini backend sunucunuzun IP'si ile değiştirin
+  : `http://${COMPUTER_IP}:5000/api/videos`; // Bilgisayarın gerçek IP adresi kullanılıyor
 
 export const videoService = {
   upload: async (videoUri: string, title: string, description: string) => {
-    const token = await AsyncStorage.getItem('token');
-    const formData = new FormData();
-    // @ts-ignore - React Native'in FormData implementasyonu standart web FormData'dan farklı
-    // ve dosya eklemek için özel bir format kullanıyor
-    formData.append('video', {
-      uri: videoUri,
-      type: 'video/mp4',
-      name: `${Date.now()}.mp4`,
-    });
-    formData.append('title', title);
-    formData.append('description', description);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        throw new Error('Oturum açık değil, lütfen giriş yapın');
+      }
+      
+      // FormData oluştur
+      const formData = new FormData();
+      
+      // Video dosyasını ekle
+      const videoFile = {
+        uri: videoUri,
+        type: 'video/mp4',
+        name: `video-${Date.now()}.mp4`,
+      };
+      
+      // @ts-ignore - React Native'in FormData implementasyonu standart web FormData'dan farklı
+      formData.append('video', videoFile);
+      formData.append('title', title);
+      formData.append('description', description);
 
-    const response = await axios.post(`${API_URL}/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    return response.data;
+      console.log('Video yükleme isteği gönderiliyor:', { title, description });
+      
+      // Axios ile yükleme - Content-Type header'i belirtmiyoruz
+      const response = await axios.post(`${API_URL}/videos/upload`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // Content-Type header'i eklemeyin, FormData ile çalışırken sorun çıkarıyor
+        },
+        // İlerleme durumunu izle
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`Yükleme ilerlemesi: %${percentCompleted}`);
+          } else {
+            console.log(`Yükleme devam ediyor: ${progressEvent.loaded} byte`);
+          }
+        },
+      });
+      
+      console.log('Video başarıyla yüklendi:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Video yükleme hatası:', error);
+      if (axios.isAxiosError(error)) {
+        const errorMsg = error.response?.data?.message || error.message;
+        throw new Error(`Video yüklenirken hata: ${errorMsg}`);
+      }
+      throw error;
+    }
   },
 
   list: async () => {

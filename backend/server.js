@@ -14,6 +14,9 @@ const jwt = require('jsonwebtoken');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const videoRoutes = require('./routes/video');
+const fieldRoutes = require('./routes/field');
+const eventRoutes = require('./routes/event');
+const postRoutes = require('./routes/post');
 
 const app = express();
 
@@ -64,10 +67,18 @@ mongoose.connect(mongoURI)
     console.error('MongoDB bağlantı hatası:', err);
   });
 
+// Health check endpoint'i
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
 // API rotaları
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/videos', videoRoutes);
+app.use('/api/fields', fieldRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/posts', postRoutes);
 
 // Basit bir test endpoint'i
 app.get('/api/test', (req, res) => {

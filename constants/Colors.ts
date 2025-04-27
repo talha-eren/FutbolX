@@ -1,26 +1,60 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * FutbolX uygulaması için renk şeması
+ * Web sitesi tasarımına uygun olarak güncellenmiştir
  */
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Ana renkler
+const primaryColor = '#4CAF50';     // Yeşil - Futbol çimini temsil eden ana renk
+const secondaryColor = '#388E3C';   // Koyu yeşil - Vurgu rengi
+const accentColor = '#8BC34A';      // Açık yeşil - İkincil vurgu rengi
+const neutralColor = '#F5F5F5';     // Açık gri - Nötr arka plan rengi
+
+// Metin renkleri
+const darkText = '#212121';         // Koyu metin rengi
+const mediumText = '#757575';       // Orta metin rengi
+const lightText = '#FFFFFF';        // Açık metin rengi
+
+// Uyarı renkleri
+const successColor = '#4CAF50';     // Başarı rengi
+const warningColor = '#FFC107';     // Uyarı rengi
+const errorColor = '#F44336';       // Hata rengi
+const infoColor = '#2196F3';        // Bilgi rengi
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: darkText,
+    secondaryText: mediumText,
+    background: '#FFFFFF',
+    secondaryBackground: neutralColor,
+    tint: primaryColor,
+    secondaryTint: secondaryColor,
+    accent: accentColor,
+    icon: mediumText,
+    tabIconDefault: mediumText,
+    tabIconSelected: primaryColor,
+    success: successColor,
+    warning: warningColor,
+    error: errorColor,
+    info: infoColor,
+    card: '#FFFFFF',
+    border: '#E0E0E0',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: lightText,
+    secondaryText: '#BDBDBD',
+    background: '#121212',
+    secondaryBackground: '#1E1E1E',
+    tint: accentColor,
+    secondaryTint: primaryColor,
+    accent: secondaryColor,
+    icon: '#BDBDBD',
+    tabIconDefault: '#BDBDBD',
+    tabIconSelected: accentColor,
+    success: successColor,
+    warning: warningColor,
+    error: errorColor,
+    info: infoColor,
+    card: '#1E1E1E',
+    border: '#333333',
   },
 };

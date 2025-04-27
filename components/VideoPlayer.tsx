@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import Video from 'react-native-video';
 
-const VideoPlayer = ({ uri }) => {
+const VideoPlayer = ({ uri }: { uri: string }) => {
   return (
     <View style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' }}>
       <Video

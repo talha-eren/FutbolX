@@ -16,7 +16,7 @@ type AuthContextType = {
   isLoading: boolean;
   isLoggedIn: boolean;
   error: string;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string | null, password: string | null, socialLoginData?: any) => Promise<boolean>;
   register: (name: string, username: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
@@ -67,13 +67,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Giriş fonksiyonu
-  const login = async (username: string, password: string): Promise<boolean> => {
+  // Giriş fonksiyonu - Normal ve sosyal giriş destekli
+  const login = async (username: string | null, password: string | null, socialLoginData?: any): Promise<boolean> => {
     try {
       setIsLoading(true);
       setError('');
       
-      // Parametreleri kontrol et
+      // Sosyal giriş kontrolü
+      if (socialLoginData) {
+        console.log('AuthContext: Sosyal giriş verileri işleniyor...');
+        
+        // Sosyal giriş verilerini doğrudan kullan
+        const response = socialLoginData;
+        
+        if (!response.token || !response.user) {
+          const errorMsg = 'Sosyal giriş verileri geçersiz';
+          console.error('Geçersiz sosyal giriş verileri:', response);
+          setError(errorMsg);
+          throw new Error(errorMsg);
+        }
+        
+        console.log('Sosyal giriş başarılı, kullanıcı bilgileri alındı:', { id: response.user.id, username: response.user.username });
+        
+        // Token ve kullanıcı bilgilerini AsyncStorage'a kaydet
+        try {
+          await AsyncStorage.setItem('token', response.token);
+          await AsyncStorage.setItem('user', JSON.stringify(response.user));
+          console.log('Sosyal giriş kullanıcı bilgileri kaydedildi');
+        } catch (storageError) {
+          console.error('AsyncStorage hatası:', storageError);
+          // Depolama hatası olsa bile devam et
+        }
+        
+        // Kullanıcı bilgilerini state'e ayarla
+        setUser(response.user);
+        return true;
+      }
+      
+      // Normal giriş için parametreleri kontrol et
       if (!username || !password) {
         const errorMsg = 'Kullanıcı adı ve şifre gereklidir';
         console.error('Eksik parametreler:', { username: !!username, password: !!password });

@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { StyleSheet, ScrollView, View, Image, TouchableOpacity, TextInput, FlatList, Platform, Pressable, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, ScrollView, View, Image, TouchableOpacity, TextInput, FlatList, Platform, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { Link, useRouter } from 'expo-router';
 import { FutbolXLogo } from '@/components/FutbolXLogo';
-import { Video } from 'expo-av';
 import * as Linking from 'expo-linking';
 import { useAuth } from '@/context/AuthContext';
+import { fieldService, eventService, postService } from '@/services/api';
 
 // Halı saha veri yapısı
 interface Field {
@@ -109,12 +109,138 @@ export default function IndexScreen() {
   const [searchText, setSearchText] = useState('');
   const [hoveredField, setHoveredField] = useState<string | null>(null);
   const [hoveredPost, setHoveredPost] = useState<string | null>(null);
+  const [fields, setFields] = useState<Field[]>(fieldData); // Başlangıçta örnek veriler
+  const [events, setEvents] = useState<any[]>([]); // Etkinlikler için boş dizi
+  const [posts, setPosts] = useState<Post[]>(postData); // Başlangıçta örnek veriler
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const router = useRouter();
   const { isLoggedIn } = useAuth();
   
   const primaryColor = '#4CAF50';
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
+  
+  // Veritabanından halı sahaları ve etkinlikleri çekme
+  useEffect(() => {
+    const fetchData = async () => {
+      if (activeTab === 'halisaha') {
+        fetchFields();
+      } else if (activeTab === 'etkinlikler') {
+        fetchEvents();
+      } else if (activeTab === 'kesfet') {
+        fetchPosts();
+      }
+    };
+    
+    fetchData();
+  }, [activeTab]);
+  
+  // Halı sahaları çekme fonksiyonu
+  const fetchFields = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await fieldService.getFields();
+      if (data && data.length > 0) {
+        setFields(data);
+      }
+    } catch (err: any) {
+      console.error('Halı sahaları getirme hatası:', err);
+      setError(err.message || 'Halı sahaları yüklenirken bir hata oluştu');
+      // Hata durumunda örnek verileri kullan
+      setFields(fieldData);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Etkinlikleri çekme fonksiyonu
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await eventService.getAll();
+      
+      // Veri kontrolü
+      if (data && Array.isArray(data) && data.length > 0) {
+        console.log('Etkinlikler başarıyla yüklendi:', data.length);
+        setEvents(data);
+      } else {
+        console.log('Etkinlik bulunamadı, örnek veriler kullanılıyor');
+        // Veritabanında etkinlik yoksa örnek veriler oluştur
+        createSampleEvents();
+      }
+    } catch (err: any) {
+      console.error('Etkinlikleri getirme hatası:', err);
+      setError(err.message || 'Etkinlikler yüklenirken bir hata oluştu');
+      // Hata durumunda örnek etkinlikler oluştur
+      createSampleEvents();
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Gönderileri çekme fonksiyonu
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await postService.getAll();
+      
+      // Veri kontrolü
+      if (data && Array.isArray(data) && data.length > 0) {
+        console.log('Gönderiler başarıyla yüklendi:', data.length);
+        setPosts(data);
+      } else {
+        console.log('Gönderi bulunamadı, örnek veriler kullanılıyor');
+        setPosts(postData); // Örnek verileri kullan
+      }
+    } catch (err: any) {
+      console.error('Gönderileri getirme hatası:', err);
+      setError(err.message || 'Gönderiler yüklenirken bir hata oluştu');
+      // Hata durumunda örnek verileri kullan
+      setPosts(postData);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Örnek etkinlikler oluşturma fonksiyonu
+  const createSampleEvents = async () => {
+    // Burada backend'e örnek etkinlikler eklenebilir
+    // Şimdilik sadece örnek veri gösteriyoruz
+    const sampleEvents = [
+      {
+        id: '1',
+        title: 'Dostluk Maçı',
+        description: 'Haftalık dostluk maçımıza davetlisiniz',
+        location: 'Yıldız Halı Saha, Kadıköy',
+        date: '28 Nisan 2025',
+        time: '19:00',
+        image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+        participants: 12,
+        maxParticipants: 14
+      },
+      {
+        id: '2',
+        title: 'Amatör Turnuva',
+        description: 'Ödüllü amatör futbol turnuvası',
+        location: 'Gol Park, Beyoğlu',
+        date: '5 Mayıs 2025',
+        time: '16:00',
+        image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1364&auto=format&fit=crop',
+        participants: 24,
+        maxParticipants: 32
+      }
+    ];
+    
+    setEvents(sampleEvents);
+  };
 
   // Misafir kullanıcıları login'e yönlendirme
   const handleRestrictedAction = () => {
@@ -149,14 +275,14 @@ export default function IndexScreen() {
         onPress={isLoggedIn ? () => router.push("/reservation" as any) : handleRestrictedAction}
         activeOpacity={0.7}
       >
-        <ThemedText style={styles.reservationText}>Rezervasyon</ThemedText>
+        <ThemedText style={styles.reservationButtonText}>Rezervasyon</ThemedText>
       </TouchableOpacity>
     </View>
   );
 
   // Tab bileşeni
   const renderTabs = () => (
-    <View style={styles.tabContainer}>
+    <View style={styles.tabs}>
       <TouchableOpacity 
         style={[styles.tab, activeTab === 'kesfet' && styles.activeTab]}
         onPress={() => setActiveTab('kesfet')}
@@ -213,7 +339,6 @@ export default function IndexScreen() {
     </View>
   );
 
-  // Popüler Halı Sahalar bölümü
   const renderPopularFields = () => (
     <View style={styles.sectionContainer}>
       <View style={styles.sectionHeader}>
@@ -226,8 +351,19 @@ export default function IndexScreen() {
         </TouchableOpacity>
       </View>
       
-      <View style={styles.fieldsContainer}>
-        {fieldData.slice(0, 2).map((field, index) => (
+      {loading && activeTab === 'halisaha' ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <ThemedText style={styles.loadingText}>Halı sahalar yükleniyor...</ThemedText>
+        </View>
+      ) : error && activeTab === 'halisaha' ? (
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={24} color="#F44336" />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+        </View>
+      ) : (
+        <View style={styles.fieldsContainer}>
+          {fields.slice(0, 2).map((field, index) => (
           <Pressable 
             key={field.id} 
             style={[
@@ -246,7 +382,7 @@ export default function IndexScreen() {
             />
             <View style={styles.fieldInfo}>
               <View style={styles.fieldNameContainer}>
-                <IconSymbol name="list.bullet" size={18} color={textColor} />
+                <IconSymbol name="list.bullet" size={18} color="#212121" />
                 <ThemedText style={styles.fieldName}>{field.name}</ThemedText>
               </View>
               <View style={styles.fieldLocationContainer}>
@@ -275,113 +411,141 @@ export default function IndexScreen() {
             </View>
           </Pressable>
         ))}
-      </View>
+        </View>
+      )}
     </View>
   );
 
-  // Son Paylaşımlar bölümü
+  const renderEvents = () => (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.sectionTitle}>Yakın Etkinlikler</ThemedText>
+        <TouchableOpacity 
+          onPress={isLoggedIn ? () => router.push("/events" as any) : handleRestrictedAction}
+          activeOpacity={0.7}
+        >
+          <ThemedText style={styles.seeAllText}>Tümünü Gör</ThemedText>
+        </TouchableOpacity>
+      </View>
+      
+      {loading && activeTab === 'etkinlikler' ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <ThemedText style={styles.loadingText}>Etkinlikler yükleniyor...</ThemedText>
+        </View>
+      ) : error && activeTab === 'etkinlikler' ? (
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={24} color="#F44336" />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+        </View>
+      ) : events.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="calendar.badge.exclamationmark" size={40} color="#9E9E9E" />
+          <ThemedText style={styles.emptyText}>Henüz etkinlik bulunmuyor</ThemedText>
+        </View>
+      ) : (
+        <View style={styles.eventsContainer}>
+          {events.map((event) => (
+            <Pressable
+              key={event.id}
+              style={[styles.eventCard]}
+              onPress={isLoggedIn ? () => router.push(`/events/${event.id}` as any) : handleRestrictedAction}
+            >
+              <Image source={{ uri: event.image }} style={styles.eventImage} />
+              <View style={styles.eventContent}>
+                <ThemedText style={styles.eventTitle}>{event.title}</ThemedText>
+                <View style={styles.eventInfoRow}>
+                  <IconSymbol name="mappin.and.ellipse" size={14} color="#212121" />
+                  <ThemedText style={styles.eventInfoText}>{event.location}</ThemedText>
+                </View>
+                <View style={styles.eventInfoRow}>
+                  <IconSymbol name="calendar" size={14} color="#212121" />
+                  <ThemedText style={styles.eventInfoText}>{event.date}, {event.time}</ThemedText>
+                </View>
+                <View style={styles.eventParticipants}>
+                  <ThemedText style={styles.eventParticipantsText}>
+                    {event.participants}/{event.maxParticipants} Katılımcı
+                  </ThemedText>
+                  <View style={styles.eventParticipantsBar}>
+                    <View 
+                      style={[styles.eventParticipantsFill, { width: `${Math.floor((event.participants / event.maxParticipants) * 100)}%` }]} 
+                    />
+                  </View>
+                </View>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
   const renderRecentPosts = () => (
     <View style={styles.sectionContainer}>
-      <ThemedText style={styles.sectionTitle}>Son Paylaşımlar</ThemedText>
-      
-      {postData.slice(0, 1).map(post => (
-        <Pressable 
-          key={post.id} 
-          style={[
-            styles.postCard,
-            hoveredPost === post.id && styles.postCardHovered
-          ]}
-          onHoverIn={() => setHoveredPost(post.id)}
-          onHoverOut={() => setHoveredPost(null)}
-          onPress={isLoggedIn ? () => router.push(`/post/${post.id}` as any) : handleRestrictedAction}
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.sectionTitle}>Gönderiler</ThemedText>
+        <TouchableOpacity 
+          onPress={isLoggedIn ? () => router.push("/posts" as any) : handleRestrictedAction}
+          activeOpacity={0.7}
         >
-          <View style={styles.postHeader}>
-            {post.userAvatar ? (
-              <Image 
-                source={{ uri: post.userAvatar }} 
-                style={styles.avatarImage}
-              />
-            ) : (
-              <View style={styles.avatarContainer}>
-                <ThemedText style={styles.avatarText}>
-                  {post.username.charAt(0).toUpperCase()}
-                </ThemedText>
-              </View>
-            )}
-            <View style={styles.postUserInfo}>
-              <ThemedText style={styles.postUsername}>{post.username}</ThemedText>
-              <View style={styles.postLocationContainer}>
-                <IconSymbol name="mappin" size={12} color="#777" />
-                <ThemedText style={styles.postLocation}>{post.location}</ThemedText>
+          <ThemedText style={styles.seeAllText}>Tümünü Gör</ThemedText>
+        </TouchableOpacity>
+      </View>
+      
+      {loading && activeTab === 'kesfet' ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <ThemedText style={styles.loadingText}>Gönderiler yükleniyor...</ThemedText>
+        </View>
+      ) : error && activeTab === 'kesfet' ? (
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={24} color="#F44336" />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+        </View>
+      ) : posts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="photo.on.rectangle.angled" size={40} color="#9E9E9E" />
+          <ThemedText style={styles.emptyText}>Henüz gönderi bulunmuyor</ThemedText>
+        </View>
+      ) : (
+        posts.map((post) => (
+          <Pressable 
+            key={post.id} 
+            style={[
+              styles.postCard,
+              hoveredPost === post.id && styles.postCardHovered
+            ]}
+            onHoverIn={() => setHoveredPost(post.id)}
+            onHoverOut={() => setHoveredPost(null)}
+            onPress={isLoggedIn ? () => router.push(`/post/${post.id}` as any) : handleRestrictedAction}
+          >
+            <View style={styles.postHeader}>
+              {post.userAvatar ? (
+                <Image 
+                  source={{ uri: post.userAvatar }} 
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={styles.avatarContainer}>
+                  <ThemedText style={styles.avatarText}>
+                    {post.username.charAt(0).toUpperCase()}
+                  </ThemedText>
+                </View>
+              )}
+              <View style={styles.postUserInfo}>
+                <ThemedText style={styles.postUsername}>{post.username}</ThemedText>
+                <View style={styles.postLocationContainer}>
+                  <IconSymbol name="mappin" size={12} color="#777" />
+                  <ThemedText style={styles.postLocation}>{post.location}</ThemedText>
+                </View>
+                <ThemedText style={styles.postTime}>{post.timestamp}</ThemedText>
               </View>
             </View>
-            <ThemedText style={styles.postTime}>{post.timestamp}</ThemedText>
-          </View>
-          
-          <ThemedText style={styles.postContent}>{post.content}</ThemedText>
-          
-          {post.image && (
-            <Image 
-              source={{ uri: post.image }}
-              style={styles.postImage}
-              resizeMode="cover"
-            />
-          )}
-          
-          {post.video && (
-            <View style={styles.videoContainer}>
-              <Video
-                source={{ uri: post.video }}
-                useNativeControls
-                resizeMode={Platform.OS === 'web' ? ('contain' as any) : 'contain'}
-                style={styles.video}
-                posterSource={{ uri: post.image }}
-                posterStyle={styles.videoPoster}
-                isLooping={false}
-              />
-              <TouchableOpacity 
-                style={styles.playButton}
-                onPress={() => Alert.alert("Video", "Video oynatılıyor...")}
-              >
-                <IconSymbol name="play.fill" size={30} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          )}
-          
-          {/* Post interaction buttons */}
-          <View style={styles.postActions}>
-            <TouchableOpacity 
-              style={styles.postAction}
-              activeOpacity={0.7}
-            >
-              <IconSymbol name="heart" size={16} color="#777" />
-              <ThemedText style={styles.postActionText}>{post.likes}</ThemedText>
-            </TouchableOpacity>
             
-            <TouchableOpacity 
-              style={styles.postAction}
-              activeOpacity={0.7}
-            >
-              <IconSymbol name="bubble.right" size={16} color="#777" />
-              <ThemedText style={styles.postActionText}>{post.comments}</ThemedText>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.postAction}
-              activeOpacity={0.7}
-              onPress={() => {
-                if (isLoggedIn) {
-                  Linking.openURL(`https://wa.me/?text=FutbolX postunu gör: ${post.content}`);
-                } else {
-                  handleRestrictedAction();
-                }
-              }}
-            >
-              <IconSymbol name="square.and.arrow.up" size={16} color="#777" />
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      ))}
+            <ThemedText style={styles.postContent}>{post.content}</ThemedText>
+          </Pressable>
+        ))
+      )}
     </View>
   );
 
@@ -394,8 +558,9 @@ export default function IndexScreen() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {renderPopularFields()}
-        {renderRecentPosts()}
+        {activeTab === 'kesfet' && renderRecentPosts()}
+        {activeTab === 'halisaha' && renderPopularFields()}
+        {activeTab === 'etkinlikler' && renderEvents()}
       </ScrollView>
     </ThemedView>
   );
@@ -404,75 +569,172 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#F44336'
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+    textAlign: 'center'
+  },
+  eventInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8
+  },
+  eventInfoText: {
+    fontSize: 14,
+    marginLeft: 4
+  },
+  eventParticipants: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8
+  },
+  eventParticipantsText: {
+    fontSize: 14,
+    marginLeft: 4
+  },
+  eventParticipantsBar: {
+    height: 4,
+    backgroundColor: '#4CAF50',
+    borderRadius: 2,
+    marginTop: 4
+  },
+  eventParticipantsFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 2
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   titleContainer: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   logoText: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#4CAF50',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   searchContainer: {
     flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginHorizontal: 10,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#333',
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#424242',
+  },
+  iconButton: {
+    padding: 8,
   },
   reservationButton: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  reservationText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 15,
     paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginLeft: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  reservationButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+    letterSpacing: 0.3,
+  },
+  tabs: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+    marginBottom: 20,
+    paddingHorizontal: 10,
     backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-    paddingVertical: 5,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomWidth: 2,
     borderBottomColor: '#4CAF50',
   },
   tabText: {
-    marginLeft: 5,
-    color: '#777',
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   activeTabText: {
     color: '#4CAF50',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   scrollView: {
     flex: 1,
@@ -486,213 +748,250 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 16,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    color: '#212121',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.05)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   seeAllText: {
     color: '#4CAF50',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   fieldsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 24,
   },
   fieldCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    margin: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
     ...Platform.select({
       web: {
         cursor: 'pointer',
-        transition: 'all 0.2s ease-in-out',
+        transition: 'all 0.3s ease-in-out',
       }
     })
   },
   fieldCardHovered: {
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-    transform: [{ translateY: -3 }],
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    transform: [{ translateY: -5 }],
   },
   fieldImage: {
     width: '100%',
-    height: 120,
+    height: 140,
     resizeMode: 'cover',
   },
   fieldInfo: {
-    padding: 10,
+    padding: 14,
   },
   fieldNameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   fieldName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 5,
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 6,
+    color: '#212121',
+    letterSpacing: 0.2,
   },
   fieldLocationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   fieldLocation: {
-    fontSize: 12,
-    color: '#777',
-    marginLeft: 5,
+    fontSize: 13,
+    color: '#757575',
+    marginLeft: 6,
+    letterSpacing: 0.1,
   },
   fieldPriceContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 4,
   },
   fieldPrice: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#4CAF50',
+    letterSpacing: 0.3,
   },
   miniButton: {
     backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.2)',
   },
   miniButtonText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
     color: '#4CAF50',
   },
   postCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 15,
+    borderRadius: 16,
+    padding: 18,
+    marginHorizontal: 16,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
     ...Platform.select({
       web: {
         cursor: 'pointer',
-        transition: 'all 0.2s ease-in-out',
+        transition: 'all 0.3s ease-in-out',
       }
     })
   },
   postCardHovered: {
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    transform: [{ translateY: -3 }],
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FF5722',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   avatarText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   postUserInfo: {
-    marginLeft: 10,
+    marginLeft: 12,
     flex: 1,
   },
   postUsername: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#212121',
+    marginBottom: 2,
+    letterSpacing: 0.2,
   },
   postLocationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   postLocation: {
-    fontSize: 12,
-    color: '#777',
-    marginLeft: 3,
+    fontSize: 13,
+    color: '#757575',
+    marginLeft: 4,
+    letterSpacing: 0.1,
   },
   postTime: {
-    fontSize: 12,
-    color: '#777',
+    fontSize: 13,
+    color: '#757575',
+    fontWeight: '500',
   },
   postContent: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 15,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 18,
+    color: '#424242',
+    letterSpacing: 0.2,
   },
-  postImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 10,
+  eventsContainer: {
+    marginTop: 10,
   },
-  videoContainer: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 10,
-    position: 'relative',
+  eventCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     overflow: 'hidden',
   },
-  video: {
+  eventImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 8,
+    height: 120,
+    resizeMode: 'cover',
   },
-  videoPoster: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
+  eventContent: {
+    padding: 12,
   },
-  playButton: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -20 }, { translateY: -20 }],
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
   postActions: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingTop: 10,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+    paddingTop: 14,
+    marginTop: 4,
   },
   postAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 20,
+    paddingVertical: 6,
   },
   postActionText: {
-    fontSize: 14,
-    color: '#777',
-    marginLeft: 5,
+    fontSize: 15,
+    color: '#757575',
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });

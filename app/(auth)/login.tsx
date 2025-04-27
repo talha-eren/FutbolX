@@ -24,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
-export default function LoginScreen() {
+function LoginScreen() {
   // Temel state ve hooklar
   const colorScheme = useColorScheme();
   const router = useRouter();
@@ -93,7 +93,16 @@ export default function LoginScreen() {
     }
   }, [fadeAnim, slideAnim, formOpacity, authError]);
   
-  // Giriş fonksiyonu - veritabanıyla daha iyi entegre
+  // Facebook ile giriş fonksiyonu kaldırıldı
+  
+  // Sayfa yüklenirken yapılacak işlemler
+  useEffect(() => {
+    console.log('Login sayfası yüklendi');
+  }, []);
+
+  // Google ile giriş özelliği kaldırıldı
+
+  // Normal giriş fonksiyonu
   const handleLogin = async () => {
     // Klavyeyi kapat
     Keyboard.dismiss();
@@ -135,7 +144,7 @@ export default function LoginScreen() {
           useNativeDriver: true
         }).start(() => {
           // Ana sayfaya yönlendir
-          router.replace('/');
+          router.replace('/(tabs)');
         });
       }
     } catch (error: any) {
@@ -269,8 +278,11 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               {/* Şifremi unuttum */}
-              <TouchableOpacity style={styles.forgotPasswordContainer}>
-                <ThemedText style={[styles.forgotPassword, { color: accentColor }]}>
+              <TouchableOpacity 
+                style={styles.forgotPasswordContainer}
+                onPress={() => router.push('/forgot-password')}
+              >
+                <ThemedText style={[styles.forgotPassword, { color: primaryColor }]}>
                   Şifremi Unuttum
                 </ThemedText>
               </TouchableOpacity>
@@ -285,31 +297,7 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Ayırıcı */}
-              <View style={styles.separator}>
-                <View style={[styles.separatorLine, { backgroundColor: placeholderColor }]} />
-                <ThemedText style={styles.separatorText}>veya</ThemedText>
-                <View style={[styles.separatorLine, { backgroundColor: placeholderColor }]} />
-              </View>
-
-              {/* Sosyal giriş butonları */}
-              <View style={styles.socialLoginContainer}>
-                <TouchableOpacity
-                  style={[styles.socialButton, { backgroundColor: '#4267B2' }]}
-                  onPress={() => console.log('Facebook ile giriş')}
-                >
-                  <MaterialIcons name="facebook" size={20} color="white" style={styles.socialIcon} />
-                  <ThemedText style={styles.socialButtonText}>Facebook ile Giriş Yap</ThemedText>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.socialButton, { backgroundColor: '#DB4437' }]}
-                  onPress={() => console.log('Google ile giriş')}
-                >
-                  <MaterialIcons name="mail" size={20} color="white" style={styles.socialIcon} />
-                  <ThemedText style={styles.socialButtonText}>Google ile Giriş Yap</ThemedText>
-                </TouchableOpacity>
-              </View>
+              {/* Google ile giriş butonu kaldırıldı */}
             </Animated.View>
           </ScrollView>
         </Animated.View>
@@ -317,6 +305,8 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+export default LoginScreen;
 
 const styles = StyleSheet.create({
   // Ana container

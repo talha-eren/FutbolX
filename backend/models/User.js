@@ -30,8 +30,25 @@ const userSchema = new mongoose.Schema({
     default: ''
   },
   favoriteTeams: [{
-    type: String
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team'
   }],
+  // Şifre sıfırlama alanları
+  resetPasswordCode: {
+    type: String
+  },
+  resetPasswordExpires: {
+    type: Date
+  },
+  // Sosyal giriş alanları
+  googleId: {
+    type: String,
+    sparse: true
+  },
+  facebookId: {
+    type: String,
+    sparse: true
+  },
   createdAt: {
     type: Date,
     default: Date.now
