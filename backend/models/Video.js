@@ -8,8 +8,10 @@ const VideoSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String },
   description: { type: String },
-  // GridFS dosya ID'si
-  fileId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  // Video URL'si (uploads/videos/filename)
+  url: { type: String, required: true },
+  thumbnail: { type: String },
+  views: { type: Number, default: 0 },
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   comments: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

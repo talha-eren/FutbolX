@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, Image, TouchableOpacity, TextInput, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, ScrollView, Image, TouchableOpacity, TextInput, FlatList, ActivityIndicator } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -19,152 +19,54 @@ interface Field {
   openHours: string;
 }
 
-// Popüler halı sahalar
-const popularFields: Field[] = [
-  {
-    id: '1',
-    name: 'Yıldız Halı Saha',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=10',
-    location: 'Kadıköy, İstanbul',
-    city: 'İstanbul',
-    district: 'Kadıköy',
-    rating: 4.8,
-    priceRange: '350-450 TL',
-    features: ['Duş', 'Otopark', 'Kafeterya'],
-    openHours: '09:00-23:00'
-  },
-  {
-    id: '2',
-    name: 'Gol Park',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=20',
-    location: 'Ataşehir, İstanbul',
-    city: 'İstanbul',
-    district: 'Ataşehir',
-    rating: 4.5,
-    priceRange: '300-400 TL',
-    features: ['Duş', 'Soyunma Odası', 'WiFi'],
-    openHours: '10:00-24:00'
-  },
-  {
-    id: '3',
-    name: 'Futbol Arena',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=30',
-    location: 'Üsküdar, İstanbul',
-    city: 'İstanbul',
-    district: 'Üsküdar',
-    rating: 4.3,
-    priceRange: '400-500 TL',
-    features: ['Duş', 'Otopark', 'Soyunma Odası', 'Kafeterya'],
-    openHours: '08:00-24:00'
-  },
-  {
-    id: '4',
-    name: 'GreenPitch',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=40',
-    location: 'Beşiktaş, İstanbul',
-    city: 'İstanbul',
-    district: 'Beşiktaş',
-    rating: 4.9,
-    priceRange: '450-550 TL',
-    features: ['Duş', 'Otopark', 'Soyunma Odası', 'Kafeterya', 'WiFi'],
-    openHours: '09:00-01:00'
-  },
-  {
-    id: '5',
-    name: 'Sahasever',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=50',
-    location: 'Beylikdüzü, İstanbul',
-    city: 'İstanbul',
-    district: 'Beylikdüzü',
-    rating: 4.1,
-    priceRange: '350-400 TL',
-    features: ['Duş', 'Kafeterya'],
-    openHours: '10:00-22:00'
-  },
-  {
-    id: '6',
-    name: 'Goldensport',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=60',
-    location: 'Kartal, İstanbul',
-    city: 'İstanbul',
-    district: 'Kartal',
-    rating: 4.6,
-    priceRange: '400-450 TL',
-    features: ['Duş', 'Otopark', 'Soyunma Odası'],
-    openHours: '09:00-22:00'
-  },
-  {
-    id: '7',
-    name: 'Futbol Akademi',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=70',
-    location: 'Kağıthane, İstanbul',
-    city: 'İstanbul',
-    district: 'Kağıthane',
-    rating: 4.3,
-    priceRange: '350-450 TL',
-    features: ['Duş', 'Otopark', 'Kafeterya'],
-    openHours: '10:00-23:00'
-  },
-  {
-    id: '8',
-    name: 'Bahçe Saha',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=80',
-    location: 'Tuzla, İstanbul',
-    city: 'İstanbul',
-    district: 'Tuzla',
-    rating: 4.0,
-    priceRange: '300-350 TL',
-    features: ['Duş', 'Otopark'],
-    openHours: '10:00-22:00'
-  },
-];
-
-// Bölge kategorileri
-const districts = [
-  'Tüm Bölgeler',
-  'Kadıköy',
-  'Beşiktaş',
-  'Üsküdar',
-  'Ataşehir',
-  'Kartal',
-  'Beylikdüzü',
-  'Kağıthane',
-  'Tuzla'
-];
-
-// Özellik kategorileri
-const features = [
-  'Tüm Özellikler',
-  'Duş',
-  'Otopark',
-  'Kafeterya',
-  'Soyunma Odası',
-  'WiFi'
-];
-
 export default function ExploreScreen() {
   const [searchText, setSearchText] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('Tüm Bölgeler');
   const [selectedFeature, setSelectedFeature] = useState('Tüm Özellikler');
   const [activeTab, setActiveTab] = useState('districts'); // 'districts' veya 'features'
   
+  // Halı saha verilerini ve filtre seçeneklerini API'den çek
+  const [fields, setFields] = useState<Field[]>([]);
+  const [districts, setDistricts] = useState(['Tüm Bölgeler']);
+  const [features, setFeatures] = useState(['Tüm Özellikler']);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({}, 'tabIconDefault');
 
+  // Verileri API'den çek
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Verileri çekme fonksiyonu
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Halı sahaları çek
+      // const fieldsData = await fieldService.getFields();
+      // setFields(fieldsData || []);
+      
+      // Bölgeleri çek
+      // const districtsData = await fieldService.getDistricts();
+      // setDistricts(['Tüm Bölgeler', ...districtsData]);
+      
+      // Özellikleri çek
+      // const featuresData = await fieldService.getFeatures();
+      // setFeatures(['Tüm Özellikler', ...featuresData]);
+    } catch (err) {
+      console.error('Veri çekme hatası:', err);
+      setError('Veriler yüklenirken bir hata oluştu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Arama ve filtreleme
-  const filteredFields = popularFields.filter(field => {
-    const matchesSearch = field.name.toLowerCase().includes(searchText.toLowerCase()) || 
-                        field.location.toLowerCase().includes(searchText.toLowerCase());
-    
-    const matchesDistrict = selectedDistrict === 'Tüm Bölgeler' || field.district === selectedDistrict;
-    
-    const matchesFeature = selectedFeature === 'Tüm Özellikler' || 
-                          field.features.includes(selectedFeature);
-    
-    return matchesSearch && matchesDistrict && matchesFeature;
-  });
+  const filteredFields = [] as Field[];
 
   // Yıldız derecelendirmesi gösterimi
   const renderRating = (rating: number) => {

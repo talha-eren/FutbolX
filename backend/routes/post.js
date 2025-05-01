@@ -40,8 +40,28 @@ const upload = multer({
 // Tüm gönderileri getir
 router.get('/', async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 });
-    res.json(posts);
+    // Populate ile kullanıcı bilgilerini de getir
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .populate('author', 'username name profilePicture');
+    
+    // Kullanıcı bilgilerini ve içeriği içeren tam yanıt
+    const enhancedPosts = posts.map(post => {
+      return {
+        _id: post._id,
+        content: post.content,
+        image: post.image,
+        video: post.video,
+        createdAt: post.createdAt,
+        timestamp: post.createdAt, // timestamp alanını ekle
+        username: post.author ? post.author.username : 'Bilinmeyen Kullanıcı',
+        userImage: post.author ? post.author.profilePicture : '',
+        user: post.author,
+        likes: post.likes || 0
+      };
+    });
+    
+    res.json(enhancedPosts);
   } catch (error) {
     console.error('Gönderi getirme hatası:', error);
     res.status(500).json({ message: 'Sunucu hatası' });
@@ -65,35 +85,72 @@ router.get('/:id', async (req, res) => {
 // Yeni gönderi ekle
 router.post('/', auth, upload.single('media'), async (req, res) => {
   try {
+    console.log('Gönderi isteği alındı:', {
+      body: req.body,
+      file: req.file ? {
+        filename: req.file.filename,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : 'Medya dosyası yok'
+    });
+    
     const user = await User.findById(req.user.id).select('-password');
     
     if (!user) {
       return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
     }
 
+    // Yeni gönderi oluştur
     const newPost = new Post({
+      author: req.user.id,
       user: req.user.id,
       username: user.username,
-      userImage: user.profilePicture,
-      content: req.body.content
+      userImage: user.profilePicture || '',
+      content: req.body.content,
+      contentType: req.body.contentType || 'text'
     });
 
-    // Eğer medya yüklendiyse
+    // Medya dosyası yüklendiyse
     if (req.file) {
-      const isVideo = /mp4|mov|avi/.test(path.extname(req.file.filename).toLowerCase());
+      // Mimetype'a göre video mu image mi kontrol et
+      const isVideo = req.file.mimetype.includes('video') || 
+                       /mp4|mov|avi/i.test(path.extname(req.file.filename));
       
       if (isVideo) {
         newPost.video = `/uploads/posts/${req.file.filename}`;
+        newPost.contentType = 'video';
       } else {
         newPost.image = `/uploads/posts/${req.file.filename}`;
+        newPost.contentType = 'image';
       }
+      
+      console.log('Medya türü:', isVideo ? 'Video' : 'Image');
+      console.log('Medya dosya yolu:', isVideo ? newPost.video : newPost.image);
     }
 
     const savedPost = await newPost.save();
-    res.status(201).json(savedPost);
+    
+    // Gönderi nesnesini hazırla
+    const enhancedPost = {
+      ...savedPost.toObject(),
+      user: {
+        _id: user._id,
+        username: user.username,
+        profilePicture: user.profilePicture || ''
+      }
+    };
+    
+    console.log('Gönderi kaydedildi:', {
+      id: savedPost._id,
+      contentType: savedPost.contentType,
+      hasImage: !!savedPost.image,
+      hasVideo: !!savedPost.video
+    });
+    
+    res.status(201).json(enhancedPost);
   } catch (error) {
     console.error('Gönderi ekleme hatası:', error);
-    res.status(500).json({ message: 'Sunucu hatası' });
+    res.status(500).json({ message: 'Sunucu hatası: ' + error.message });
   }
 });
 

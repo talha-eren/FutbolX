@@ -17,6 +17,7 @@ const videoRoutes = require('./routes/video');
 const fieldRoutes = require('./routes/field');
 const eventRoutes = require('./routes/event');
 const postRoutes = require('./routes/post');
+const matchRoutes = require('./routes/match');
 
 const app = express();
 
@@ -31,9 +32,25 @@ if (!fs.existsSync(uploadsDir)) {
 // CORS ayarları - tüm kaynaklardan gelen isteklere izin ver
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true,
+  exposedHeaders: ['Content-Length', 'X-Requested-With']
 }));
+
+// OPTIONS isteklerini ön işlemden geçir
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // OPTIONS istekleri için hemen yanıt dön
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -51,20 +68,38 @@ const upload = multer({ storage: storage });
 
 // MongoDB bağlantısı
 // .env dosyasından MongoDB URI'yi çek
-const mongoURI = process.env.MONGODB_URI;
+const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://bilikcitalha:talhaeren@cluster0.86ovh.mongodb.net/futbolx?retryWrites=true&w=majority&appName=Cluster0';
 
 // MongoDB URI'nin doğru şekilde yüklenip yüklenmediğini kontrol et
 if (!mongoURI) {
   console.error('.env dosyasından MONGODB_URI yüklenemedi!');
-  process.exit(1); // Hata durumunda uygulamayı sonlandır
+  process.exit(1); // Hata kodu ile çık
 }
 
+console.log('MongoDB URI:', mongoURI.substring(0, 20) + '...');
+
+// Veritabanına bağlan
 mongoose.connect(mongoURI)
   .then(() => {
     console.log('MongoDB bağlantısı başarılı');
+    
+    // MongoDB bağlantı bilgilerini göster
+    const dbName = mongoose.connection.db.databaseName;
+    console.log(`Veritabanı adı: ${dbName}`);
+    
+    // Veritabanı durumunu kontrol et
+    mongoose.connection.db.admin().serverStatus()
+      .then(info => {
+        console.log('MongoDB sunucu durumu: OK');
+        console.log(`MongoDB versiyonu: ${info.version}`);
+      })
+      .catch(err => {
+        console.log('MongoDB sunucu durum kontrolü yapılamadı:', err.message);
+      });
   })
   .catch((err) => {
     console.error('MongoDB bağlantı hatası:', err);
+    process.exit(1); // Hata kodu ile çık
   });
 
 // Health check endpoint'i
@@ -79,14 +114,60 @@ app.use('/api/videos', videoRoutes);
 app.use('/api/fields', fieldRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/matches', matchRoutes);
 
 // Basit bir test endpoint'i
 app.get('/api/test', (req, res) => {
   res.json({ message: 'FutbolX API çalışıyor!' });
 });
 
-// Statik dosyaları servis et
+// Statik dosyaları servis et - tüm yollar için
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Alternatif yol - /api/uploads için de aynı klasörü servis et
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Video dosyalarını servis et
+app.get('/api/uploads/videos/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, 'uploads/videos', filename);
+  
+  console.log(`Video dosyası isteği: ${filename}`);
+  
+  if (fs.existsSync(filePath)) {
+    console.log(`Video dosyası bulundu: ${filePath}`);
+    // Video dosyasını gönderirken CORS başlıklarını ayarla
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header('Content-Type', 'video/mp4');
+    res.sendFile(filePath);
+  } else {
+    console.log(`Video dosyası bulunamadı: ${filePath}`);
+    res.status(404).json({ message: 'Video bulunamadı' });
+  }
+});
+
+// Doğrudan video dosyalarına erişim için alternatif yol
+app.get('/uploads/videos/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, 'uploads/videos', filename);
+  
+  console.log(`Alternatif yoldan video dosyası isteği: ${filename}`);
+  
+  if (fs.existsSync(filePath)) {
+    console.log(`Video dosyası bulundu: ${filePath}`);
+    // Video dosyasını gönderirken CORS başlıklarını ayarla
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header('Content-Type', 'video/mp4');
+    res.sendFile(filePath);
+  } else {
+    console.log(`Video dosyası bulunamadı: ${filePath}`);
+    res.status(404).json({ message: 'Video bulunamadı' });
+  }
+});
 
 // Veritabanı içeriğini görüntüleme endpoint'i
 app.get('/api/db-info', async (req, res) => {

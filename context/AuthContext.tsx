@@ -9,6 +9,35 @@ type User = {
   username: string;
   profilePicture?: string;
   favoriteTeams?: string[];
+  location?: string;
+  level?: string;
+  position?: string;
+  footPreference?: string;
+  bio?: string;
+  isAdmin?: boolean;
+  stats?: {
+    matches: number;
+    goals: number;
+    assists: number;
+    playHours: number;
+    rating: number;
+  };
+};
+
+// Kayıt için profil bilgileri tipi
+type UserProfileData = {
+  location?: string;
+  level?: string;
+  position?: string;
+  footPreference?: string;
+  bio?: string;
+  stats?: {
+    matches: number;
+    goals: number;
+    assists: number;
+    playHours: number;
+    rating: number;
+  };
 };
 
 type AuthContextType = {
@@ -16,8 +45,9 @@ type AuthContextType = {
   isLoading: boolean;
   isLoggedIn: boolean;
   error: string;
+  token: string | null;
   login: (username: string | null, password: string | null, socialLoginData?: any) => Promise<boolean>;
-  register: (name: string, username: string, email: string, password: string) => Promise<boolean>;
+  register: (name: string, username: string, email: string, password: string, profileData?: UserProfileData) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
 };
@@ -36,14 +66,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Uygulama başladığında AsyncStorage'dan kullanıcı bilgilerini yükle
     const loadUserData = async () => {
       try {
         const userData = await AsyncStorage.getItem('user');
+        const savedToken = await AsyncStorage.getItem('token');
+        
         if (userData) {
           setUser(JSON.parse(userData));
+        }
+        
+        if (savedToken) {
+          setToken(savedToken);
         }
       } catch (error) {
         console.error('Kullanıcı verileri yüklenirken hata:', error);
@@ -59,8 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUserData = async (): Promise<void> => {
     try {
       const userData = await AsyncStorage.getItem('user');
+      const savedToken = await AsyncStorage.getItem('token');
+      
       if (userData) {
         setUser(JSON.parse(userData));
+      }
+      
+      if (savedToken) {
+        setToken(savedToken);
       }
     } catch (error) {
       console.error('Kullanıcı verileri yenilenirken hata:', error);
@@ -101,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Kullanıcı bilgilerini state'e ayarla
         setUser(response.user);
+        setToken(response.token);
         return true;
       }
       
@@ -154,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Kullanıcı bilgilerini state'e ayarla
       setUser(response.user);
+      setToken(response.token);
       return true;
     } catch (error: any) {
       console.error('Giriş yaparken hata:', error?.message || error);
@@ -169,14 +214,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string, 
     username: string, 
     email: string, 
-    password: string
+    password: string,
+    profileData?: UserProfileData
   ): Promise<boolean> => {
     try {
       setIsLoading(true);
       
-      console.log('AuthContext: Kayıt isteği gönderiliyor...');
+      console.log('AuthContext: Kayıt isteği gönderiliyor...', {
+        name, username, email, profileData
+      });
+      
       // Backend API'sine kayıt isteği gönder
-      const response = await authService.register(username, email, password, name);
+      const response = await authService.register(
+        username, 
+        email, 
+        password, 
+        name, 
+        profileData
+      );
       
       console.log('Kayıt başarılı, kullanıcı bilgileri alındı:', response.user);
       
@@ -186,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Kullanıcı bilgilerini state'e ayarla
       setUser(response.user);
+      setToken(response.token);
       return true;
     } catch (error) {
       console.error('Kayıt olurken hata:', error);
@@ -209,8 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Kullanıcı bilgilerini state'den temizle
       setUser(null);
-      
-      console.log('Çıkış başarılı, kullanıcı oturumu kapatıldı');
+      setToken(null);
     } catch (error) {
       console.error('Çıkış yaparken hata:', error);
     } finally {
@@ -218,19 +273,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value = {
-    user,
-    isLoading,
-    isLoggedIn: !!user,
-    error,
-    login,
-    register,
-    logout,
-    refreshUserData
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isLoggedIn: !!user,
+        error,
+        token,
+        login,
+        register,
+        logout,
+        refreshUserData,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

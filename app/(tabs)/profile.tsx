@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator, Text } from 'react-native';
 import { ThemedView } from '../../components/ThemedView';
 import { ThemedText } from '../../components/ThemedText';
 import { useThemeColor } from '../../hooks/useThemeColor';
@@ -8,42 +8,17 @@ import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { userService } from '../../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
+import { IS_OFFLINE_MODE, OFFLINE_DATA, checkOfflineMode } from '@/services/api';
+
+// Varsayılan profil resmi URL'si
+const DEFAULT_PROFILE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 // Yaklaşan maçlar
-const upcomingMatches = [
-  {
-    id: '1',
-    date: '26 Mart 2025',
-    time: '19:30 - 21:00',
-    fieldName: 'Yıldız Halı Saha',
-    location: 'Kadıköy, İstanbul',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=100',
-    status: 'confirmed', // confirmed, pending
-  },
-  {
-    id: '2',
-    date: '2 Nisan 2025',
-    time: '20:00 - 21:30',
-    fieldName: 'GreenPitch',
-    location: 'Beşiktaş, İstanbul',
-    image: 'https://source.unsplash.com/random/300x200/?soccer,field&sig=101',
-    status: 'pending', // confirmed, pending
-  },
-];
+const upcomingMatches = [];
 
 // Geçmiş maçlar
-const pastMatches = Array(6).fill(null).map((_, index) => ({
-  id: index.toString(),
-  date: `${15 - index} Mart 2025`,
-  fieldName: ['Yıldız Halı Saha', 'Gol Park', 'GreenPitch', 'Futbol Arena', 'Sahasever'][index % 5],
-  location: ['Kadıköy', 'Ataşehir', 'Beşiktaş', 'Üsküdar', 'Beylikdüzü'][index % 5] + ', İstanbul',
-  image: `https://source.unsplash.com/random/300x200/?soccer,field&sig=${200 + index}`,
-  performance: {
-    goals: Math.floor(Math.random() * 3),
-    assists: Math.floor(Math.random() * 2),
-    rating: Math.floor(Math.random() * 2) + 3 + Math.random(),
-  }
-}));
+const pastMatches = [];
 
 // Kullanıcı profil tipi
 type UserProfile = {
@@ -61,15 +36,16 @@ type UserProfile = {
     goals: number;
     assists: number;
     playHours: number;
+    rating: number;
   };
-  // Doğrudan erişim için ek alanlar
-  matches: number;
-  goals: number;
-  assists: number;
-  playHours: number;
   level?: string;
   position?: string;
   footPreference?: string;
+  // Stats değerlerine doğrudan erişim için
+  matches?: number;
+  goals?: number;
+  assists?: number;
+  playHours?: number;
 };
 
 import { VideoMeta, videoService, API_URL } from '../../services/videoApi';
@@ -83,6 +59,8 @@ export default function ProfileScreen() {
   const [userVideos, setUserVideos] = useState<VideoMeta[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
+  const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
+  const [pastMatches, setPastMatches] = useState<any[]>([]);
   
   // Yeni renk şemasından renkleri al
   const tintColor = useThemeColor({}, 'tint');
@@ -99,129 +77,135 @@ export default function ProfileScreen() {
 
   const screenWidth = Dimensions.get('window').width;
 
-  // Profil sayfasına giriş kontrolü
-  useEffect(() => {
-    if (!user) {
-      // Kullanıcı giriş yapmamışsa, 2 saniye sonra giriş sayfasına yönlendir
-      const timer = setTimeout(() => {
-        router.replace('/(auth)/login?returnTo=profile');
-        Alert.alert('Giriş Gerekli', 'Bu özelliği kullanmak için giriş yapmanız gerekmektedir.');
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [user, router]);
-
-  // Profil verilerini yükle
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Eğer kullanıcı giriş yapmışsa, profil bilgilerini getir
-        if (user) {
-          try {
-            const profileData = await userService.getProfile();
-            
-            // Veritabanından gelen verileri UserProfile formatına dönüştür
-            const stats = profileData.stats || {
-              matches: 24,
-              goals: 38,
-              assists: 12,
-              playHours: 47,
-            };
-            
-            const formattedData: UserProfile = {
-              id: profileData._id || profileData.id,
-              name: profileData.name,
-              username: profileData.username,
-              email: profileData.email,
-              profilePicture: profileData.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg',
-              bio: profileData.bio || 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
-              location: profileData.location || 'İstanbul, Kadıköy',
-              phone: profileData.phone || '+90 (555) 123-4567',
-              favoriteTeams: profileData.favoriteTeams || [],
-              stats: stats,
-              // Doğrudan erişim için ek alanlar
-              matches: stats.matches,
-              goals: stats.goals,
-              assists: stats.assists,
-              playHours: stats.playHours,
-              level: profileData.level || 'Orta',
-              position: profileData.position || 'Forvet',
-              footPreference: profileData.footPreference || 'Sağ',
-            };
-            
-            setUserData(formattedData);
-          } catch (apiError) {
-            console.error('Profil getirme hatası:', apiError);
-            // API hatası durumunda kullanıcı bilgilerini kullan
-            const defaultStats = {
-              matches: 24,
-              goals: 38,
-              assists: 12,
-              playHours: 47,
-            };
-            
-            setUserData({
-              id: user.id,
-              name: user.name,
-              username: user.username,
-              email: user.email,
-              profilePicture: user.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg',
-              bio: 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
-              location: 'İstanbul, Kadıköy',
-              phone: '+90 (555) 123-4567',
-              stats: defaultStats,
-              // Doğrudan erişim için ek alanlar
-              matches: defaultStats.matches,
-              goals: defaultStats.goals,
-              assists: defaultStats.assists,
-              playHours: defaultStats.playHours,
-              level: 'Orta',
-              position: 'Forvet',
-              footPreference: 'Sağ',
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Profil bilgileri yüklenirken hata:', err);
-        setError('Profil bilgileri yüklenemedi. Lütfen tekrar deneyin.');
-        
-        // Hata durumunda varsayılan verilerle devam et
-        if (user) {
-          const defaultStats = {
-            matches: 24,
-            goals: 38,
-            assists: 12,
-            playHours: 47,
-          };
-          
-          setUserData({
-            id: user.id,
-            name: user.name,
-            username: user.username,
-            email: user.email,
-            profilePicture: user.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg',
-            bio: 'Haftasonları halı saha maçlarını kaçırmam. 5 yıllık amatör lig tecrübem var. Forvet pozisyonunda oynuyorum.',
-            location: 'İstanbul, Kadıköy',
-            phone: '+90 (555) 123-4567',
-            stats: defaultStats,
-            // Doğrudan erişim için ek alanlar
-            matches: defaultStats.matches,
-            goals: defaultStats.goals,
-            assists: defaultStats.assists,
-            playHours: defaultStats.playHours,
-            level: 'Orta',
-            position: 'Forvet',
-            footPreference: 'Sağ',
-          });
-        }
-      } finally {
+  // Çevrimdışı mod desteği
+  const [isOffline, setIsOffline] = useState(IS_OFFLINE_MODE);
+  
+  // Profil verilerini çek - çevrimdışı mod desteği ile
+  const fetchUserProfile = async () => {
+    setLoading(true);
+    try {
+      // Çevrimdışı mod kontrolü
+      const offline = await checkOfflineMode();
+      setIsOffline(offline);
+      
+      if (offline) {
+        console.log('Çevrimdışı mod: Örnek profil verileri kullanılıyor');
+        // Örnek profil verilerini UserProfile formatına dönüştür
+        const offlineUser = OFFLINE_DATA.user;
+        const formattedOfflineUser: UserProfile = {
+          id: offlineUser._id,
+          name: offlineUser.name,
+          username: offlineUser.username,
+          email: offlineUser.email,
+          profilePicture: offlineUser.profilePicture || DEFAULT_PROFILE_IMAGE,
+          bio: 'Futbol tutkunu',
+          location: 'İstanbul',
+          level: offlineUser.level || 'Orta',
+          position: offlineUser.position || 'Forvet',
+          footPreference: 'Sağ',
+          stats: offlineUser.stats || {
+            matches: 15,
+            goals: 8,
+            assists: 5,
+            playHours: 30,
+            rating: 4.2
+          },
+          matches: 15,
+          goals: 8,
+          assists: 5,
+          playHours: 30
+        };
+        setUserData(formattedOfflineUser);
         setLoading(false);
+        return;
       }
-    };
+      
+      // Çevrimiçi mod - gerçek API'den verileri çek
+      const profileData = await userService.getProfile();
+      console.log('Profil verileri:', profileData);
+      
+      // Gelen verileri UserProfile formatına dönüştür
+      const stats = profileData.stats || {};
+      const formattedData: UserProfile = {
+        id: profileData._id || profileData.id,
+        name: profileData.name,
+        username: profileData.username,
+        email: profileData.email,
+        profilePicture: profileData.profilePicture || DEFAULT_PROFILE_IMAGE,
+        bio: profileData.bio || '',
+        location: profileData.location || '',
+        phone: profileData.phone || '',
+        favoriteTeams: profileData.favoriteTeams || [],
+        level: profileData.level || '',
+        position: profileData.position || '',
+        footPreference: profileData.footPreference || '',
+        stats: {
+          matches: stats.matches || 0,
+          goals: stats.goals || 0,
+          assists: stats.assists || 0,
+          playHours: stats.playHours || 0,
+          rating: stats.rating || 0
+        },
+        // Doğrudan erişim için ek alanlar
+        matches: stats.matches || 0,
+        goals: stats.goals || 0,
+        assists: stats.assists || 0,
+        playHours: stats.playHours || 0
+      };
+      
+      setUserData(formattedData);
+      
+    } catch (error) {
+      console.error('Profil yüklenirken hata:', error);
+      Alert.alert(
+        'Bağlantı Hatası', 
+        'Profil bilgileri yüklenemedi. Çevrimdışı mod etkinleştiriliyor.',
+        [{ text: 'Tamam' }]
+      );
+      
+      // Hata durumunda çevrimdışı moda geç
+      setIsOffline(true);
+      
+      // Örnek profil verilerini UserProfile formatına dönüştür
+      const offlineUser = OFFLINE_DATA.user;
+      const formattedOfflineUser: UserProfile = {
+        id: offlineUser._id,
+        name: offlineUser.name,
+        username: offlineUser.username,
+        email: offlineUser.email,
+        profilePicture: offlineUser.profilePicture || DEFAULT_PROFILE_IMAGE,
+        bio: 'Futbol tutkunu',
+        location: 'İstanbul',
+        level: offlineUser.level || 'Orta',
+        position: offlineUser.position || 'Forvet',
+        footPreference: 'Sağ',
+        stats: offlineUser.stats || {
+          matches: 15,
+          goals: 8,
+          assists: 5,
+          playHours: 30,
+          rating: 4.2
+        },
+        matches: 15,
+        goals: 8,
+        assists: 5,
+        playHours: 30
+      };
+      setUserData(formattedOfflineUser);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchUserProfile();
+      fetchVideos();
+      fetchMatches();
+    }, [])
+  );
+
+  // Videoları getir
     const fetchVideos = async () => {
       if (user) {
         try {
@@ -234,9 +218,24 @@ export default function ProfileScreen() {
       }
     };
 
-    fetchProfileData();
-    fetchVideos();
-  }, [user]);
+  // Maçları çekme fonksiyonu (yaklaşan ve geçmiş)
+  const fetchMatches = async () => {
+    if (user) {
+      try {
+        // Bu fonksiyonları backend'de uygulamanız gerekiyor
+        // const upcomingData = await matchService.getUpcomingMatches(user.id);
+        // const pastData = await matchService.getPastMatches(user.id);
+        
+        setUpcomingMatches([]); // API entegrasyonu sonrası upcomingData ile değiştirin
+        setPastMatches([]); // API entegrasyonu sonrası pastData ile değiştirin
+      } catch (err) {
+        console.error('Maçları getirme hatası:', err);
+        // Hata durumunda boş listeler göster
+        setUpcomingMatches([]);
+        setPastMatches([]);
+      }
+    }
+  };
 
   // Çıkış yapma fonksiyonu
   const handleLogout = async () => {
@@ -305,8 +304,10 @@ export default function ProfileScreen() {
             {/* Profil resmi */}
             <View style={styles.profileImageContainer}>
               <Image 
-                source={{ uri: userData.profilePicture || 'https://via.placeholder.com/150' }} 
+                source={{ uri: userData.profilePicture || DEFAULT_PROFILE_IMAGE }} 
                 style={styles.profileImage} 
+                defaultSource={{ uri: DEFAULT_PROFILE_IMAGE }}
+                resizeMode="cover"
               />
               <TouchableOpacity 
                 style={styles.editProfileButton}
@@ -322,26 +323,32 @@ export default function ProfileScreen() {
               <ThemedText style={styles.userUsername}>@{userData.username}</ThemedText>
               
               <View style={styles.userBadges}>
-                <View style={styles.userLevel}>
-                  <IconSymbol name="medal" size={16} color="#FFFFFF" />
-                  <ThemedText style={styles.userLevelText}>
-                    {userData.level || 'Amatör'}
-                  </ThemedText>
-                </View>
+                {userData.level && (
+                  <View style={styles.userLevel}>
+                    <IconSymbol name="medal" size={16} color="#FFFFFF" />
+                    <ThemedText style={styles.userLevelText}>
+                      {userData.level}
+                    </ThemedText>
+                  </View>
+                )}
                 
-                <View style={styles.userPosition}>
-                  <IconSymbol name="person.fill" size={16} color="#FFFFFF" />
-                  <ThemedText style={styles.userPositionText}>
-                    {userData.position || 'Orta Saha'}
-                  </ThemedText>
-                </View>
+                {userData.position && (
+                  <View style={styles.userPosition}>
+                    <IconSymbol name="person.fill" size={16} color="#FFFFFF" />
+                    <ThemedText style={styles.userPositionText}>
+                      {userData.position}
+                    </ThemedText>
+                  </View>
+                )}
                 
-                <View style={styles.userFootPreference}>
-                  <IconSymbol name="figure.walk" size={16} color="#FFFFFF" />
-                  <ThemedText style={styles.userFootPreferenceText}>
-                    {userData.footPreference || 'Sağ Ayak'}
-                  </ThemedText>
-                </View>
+                {userData.footPreference && (
+                  <View style={styles.userFootPreference}>
+                    <IconSymbol name="figure.walk" size={16} color="#FFFFFF" />
+                    <ThemedText style={styles.userFootPreferenceText}>
+                      {userData.footPreference}
+                    </ThemedText>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -350,22 +357,22 @@ export default function ProfileScreen() {
         {/* İstatistikler */}
         <View style={[styles.statsContainer, { backgroundColor: cardColor }]}>
           <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.matches || 0}</ThemedText>
+            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.matches ?? 0}</ThemedText>
             <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Maçlar</ThemedText>
           </View>
           
           <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.goals || 0}</ThemedText>
+            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.goals ?? 0}</ThemedText>
             <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Goller</ThemedText>
           </View>
           
           <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.assists || 0}</ThemedText>
+            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.assists ?? 0}</ThemedText>
             <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Asistler</ThemedText>
           </View>
           
           <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.playHours || 0}</ThemedText>
+            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.playHours ?? 0}</ThemedText>
             <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Saat</ThemedText>
           </View>
         </View>
@@ -470,52 +477,127 @@ export default function ProfileScreen() {
         </View>
       );
     }
-    
-    // Becerileri ayrı bir fonksiyonda oluştur
-    const renderSkills = () => {
-      const skills = [
-        { name: 'Hız', value: 85 },
-        { name: 'Teknik', value: 75 },
-        { name: 'Dayanıklılık', value: 70 },
-        { name: 'Fizik', value: 60 }
-      ];
-      
-      return skills.map((skill, index) => (
-        <View key={index} style={styles.skillItem}>
-          <ThemedText style={styles.skillLabel}>{skill.name}</ThemedText>
-          <View style={styles.skillBarContainer}>
-            <View style={[styles.skillBar, { width: `${skill.value}%`, backgroundColor: tintColor }]} />
-          </View>
-        </View>
-      ));
-    };
-    
     return (
       <View style={styles.detailsContainer}>
-        <ThemedText style={styles.sectionTitle}>İletişim Bilgileri</ThemedText>
-        
-        {userData.phone ? (
-          <View style={styles.detailItem}>
-            <IconSymbol name="phone.fill" size={18} color={textColor} />
-            <ThemedText style={styles.detailText}>{userData.phone}</ThemedText>
+        <View style={styles.infoCard}>
+          <View style={styles.infoHeader}>
+            <ThemedText style={styles.infoTitle}>Kullanıcı Bilgileri</ThemedText>
+            <TouchableOpacity 
+              style={[styles.editButtonSmall, { backgroundColor: tintColor }]} 
+              onPress={() => {
+                // Profil düzenleme sayfasına yönlendir
+                router.push('/(tabs)/edit-profile' as any);
+              }}
+            >
+              <IconSymbol name="pencil" size={16} color="#FFFFFF" />
+              <ThemedText style={styles.editButtonTextSmall}>Düzenle</ThemedText>
+            </TouchableOpacity>
           </View>
-        ) : null}
-        
-        <View style={styles.detailItem}>
-          <IconSymbol name="envelope.fill" size={18} color={textColor} />
-          <ThemedText style={styles.detailText}>{userData.email}</ThemedText>
+
+          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Ad Soyad:</ThemedText><ThemedText style={styles.infoValue}>{userData.name || '-'}</ThemedText></View>
+          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Kullanıcı Adı:</ThemedText><ThemedText style={styles.infoValue}>{userData.username || '-'}</ThemedText></View>
+          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>E-posta:</ThemedText><ThemedText style={styles.infoValue}>{userData.email || '-'}</ThemedText></View>
+          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Konum:</ThemedText><ThemedText style={styles.infoValue}>{userData.location || '-'}</ThemedText></View>
+          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Telefon:</ThemedText><ThemedText style={styles.infoValue}>{userData.phone || '-'}</ThemedText></View>
+          <View style={[styles.infoRow, {borderBottomWidth: 0}]}><ThemedText style={styles.infoLabel}>Hakkında:</ThemedText><ThemedText style={styles.infoValue}>{userData.bio || '-'}</ThemedText></View>
         </View>
         
-        <ThemedText style={styles.sectionTitle}>Yetenekler</ThemedText>
+        <View style={[styles.infoCard, { marginTop: 16 }]}>
+          <View style={styles.infoHeader}>
+            <ThemedText style={styles.infoTitle}>Futbol Özellikleri</ThemedText>
+            <TouchableOpacity 
+              style={[styles.editButtonSmall, { backgroundColor: tintColor }]} 
+              onPress={() => {
+                router.push('/(tabs)/edit-profile' as any);
+              }}
+            >
+              <IconSymbol name="pencil" size={16} color="#FFFFFF" />
+              <ThemedText style={styles.editButtonTextSmall}>Düzenle</ThemedText>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.footballCharacteristics}>
+            <View style={[styles.characteristicItem, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
+              <IconSymbol name="medal" size={24} color={tintColor} />
+              <ThemedText style={styles.characteristicLabel}>Seviye</ThemedText>
+              <ThemedText style={[styles.characteristicValue, { color: tintColor }]}>{userData.level || '-'}</ThemedText>
+            </View>
+            
+            <View style={[styles.characteristicItem, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
+              <IconSymbol name="person.fill" size={24} color={tintColor} />
+              <ThemedText style={styles.characteristicLabel}>Pozisyon</ThemedText>
+              <ThemedText style={[styles.characteristicValue, { color: tintColor }]}>{userData.position || '-'}</ThemedText>
+            </View>
+            
+            <View style={[styles.characteristicItem, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
+              <IconSymbol name="figure.walk" size={24} color={tintColor} />
+              <ThemedText style={styles.characteristicLabel}>Ayak Tercihi</ThemedText>
+              <ThemedText style={[styles.characteristicValue, { color: tintColor }]}>{userData.footPreference || '-'}</ThemedText>
+            </View>
+          </View>
+        </View>
         
-        <View style={styles.skillsContainer}>
-          {renderSkills()}
+        <View style={[styles.statsContainer, { backgroundColor: cardColor }]}> 
+          <View style={styles.statsHeader}>
+            <ThemedText style={styles.statsTitle}>İstatistikler</ThemedText>
+            <TouchableOpacity 
+              style={[styles.editButtonSmall, { backgroundColor: tintColor }]} 
+              onPress={() => {
+                // Profil düzenleme sayfasına istatistikler bölümüne yönlendir
+                router.push('/(tabs)/edit-profile' as any);
+              }}
+            >
+              <IconSymbol name="pencil" size={16} color="#FFFFFF" />
+              <ThemedText style={styles.editButtonTextSmall}>Düzenle</ThemedText>
+            </TouchableOpacity>
+        </View>
+        
+          <View style={styles.statRow}>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.matches || '0'}</ThemedText>
+              <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Maçlar</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.goals || '0'}</ThemedText>
+              <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Goller</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.assists || '0'}</ThemedText>
+              <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Asistler</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.playHours || '0'}</ThemedText>
+              <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Saat</ThemedText>
+            </View>
+          </View>
         </View>
       </View>
     );
   };
 
   const renderUpcomingMatches = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+          <ThemedText style={styles.loadingText}>Maçlar yükleniyor...</ThemedText>
+        </View>
+      );
+    }
+    
+    if (upcomingMatches.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="calendar.badge.exclamationmark" size={40} color="#9E9E9E" />
+          <ThemedText style={styles.emptyText}>Yaklaşan maç bulunmuyor</ThemedText>
+          <TouchableOpacity style={[styles.findMatchButton, { backgroundColor: tintColor }]}>
+            <IconSymbol name="plus" size={18} color="#FFFFFF" />
+            <ThemedText style={styles.findMatchText}>Yeni Maç Bul</ThemedText>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
     const renderMatchItem = (match: typeof upcomingMatches[0]) => {
       return (
         <View key={match.id} style={[styles.matchCard, { borderColor: '#E0E0E0' }]}>
@@ -576,6 +658,24 @@ export default function ProfileScreen() {
   };
 
   const renderMatchHistory = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+          <ThemedText style={styles.loadingText}>Maç geçmişi yükleniyor...</ThemedText>
+        </View>
+      );
+    }
+    
+    if (pastMatches.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="clock.arrow.circlepath" size={40} color="#9E9E9E" />
+          <ThemedText style={styles.emptyText}>Geçmiş maç bulunmuyor</ThemedText>
+        </View>
+      );
+    }
+    
     const renderHistoryItem = (match: typeof pastMatches[0]) => {
       return (
         <View key={match.id} style={[styles.matchCard, { borderColor: '#E0E0E0' }]}>
@@ -624,6 +724,19 @@ export default function ProfileScreen() {
     );
   };
 
+  // Çevrimdışı mod uyarısı ekleyelim
+  const renderOfflineBanner = () => {
+    if (isOffline) {
+      return (
+        <View style={styles.offlineBanner}>
+          <IconSymbol name="exclamationmark.triangle" size={16} color="#FFFFFF" />
+          <Text style={styles.offlineBannerText}>Çevrimdışı Mod - Demo verileri görüntüleniyor</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
   // Yükleme durumunu kontrol et
   if (loading && !userData) {
     return (
@@ -670,6 +783,7 @@ export default function ProfileScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      {renderOfflineBanner()}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {renderHeader()}
         {renderTabs()}
@@ -733,6 +847,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
+    backgroundColor: '#f0f0f0',
   },
   editProfileButton: {
     position: 'absolute',
@@ -832,34 +947,27 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: -25,
-    marginBottom: 24,
-    paddingVertical: 18,
+    justifyContent: 'space-around',
+    marginTop: 16,
+    padding: 16,
     borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   statItem: {
     alignItems: 'center',
-    flex: 1,
-    paddingVertical: 4,
   },
   statValue: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    opacity: 0.8,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -921,10 +1029,56 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     marginHorizontal: 16,
   },
-  detailText: {
-    fontSize: 16,
-    marginLeft: 10,
-    lineHeight: 22,
+  infoCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#212121',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontWeight: '600',
+    color: '#555',
+    width: 110,
+    fontSize: 15,
+  },
+  infoValue: {
+    color: '#222',
+    fontSize: 15,
+    flex: 1,
+  },
+  editButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  editButtonTextSmall: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 4,
   },
   errorContainer: {
     padding: 16,
@@ -944,46 +1098,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     color: '#212121',
   },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-  },
-  skillsContainer: {
-    marginBottom: 24,
-  },
-  skillItem: {
-    marginBottom: 18,
-  },
-  skillLabel: {
+  detailText: {
     fontSize: 16,
-    marginBottom: 8,
-    fontWeight: '600',
-    color: '#424242',
-    letterSpacing: 0.2,
-  },
-  skillBarContainer: {
-    height: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 6,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-  },
-  skillBar: {
-    height: '100%',
-    borderRadius: 6,
+    marginLeft: 10,
+    lineHeight: 22,
   },
   matchesContainer: {
     marginBottom: 20,
@@ -1156,5 +1274,117 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 4,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    marginVertical: 20,
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#9E9E9E',
+    marginBottom: 20,
+  },
+  ratingContainer: {
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  ratingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  ratingTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#212121',
+  },
+  ratingValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginRight: 4,
+  },
+  ratingMax: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#9E9E9E',
+  },
+  ratingBarContainer: {
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  ratingBar: {
+    height: '100%',
+    borderRadius: 10,
+    backgroundColor: '#4CAF50',
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#212121',
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  footballCharacteristics: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  characteristicItem: {
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  characteristicLabel: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 8,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  characteristicValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  offlineBanner: {
+    backgroundColor: '#FF9800',
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  offlineBannerText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    marginLeft: 8,
+    fontSize: 12,
   },
 });

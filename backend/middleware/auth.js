@@ -13,8 +13,9 @@ const auth = (req, res, next) => {
     // Token'ı doğrula
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Kullanıcı ID'sini request'e ekle
-    req.userId = decoded.id;
+    // Kullanıcı bilgisini request'e ekle
+    req.user = { id: decoded.id };
+    req.userId = decoded.id; // Geriye dönük uyumluluk için
     next();
   } catch (error) {
     res.status(401).json({ message: 'Kimlik doğrulama hatası: Geçersiz token' });

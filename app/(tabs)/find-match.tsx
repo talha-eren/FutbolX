@@ -11,7 +11,6 @@ import { API_URL } from '@/services/api';
 // Halı saha maç veri tipi tanımı
 interface Match {
   id: string;
-  _id?: string; // MongoDB kullanıldığında oluşan kimlik
   fieldName: string;
   location: string;
   date: string;
@@ -29,7 +28,7 @@ interface Match {
   isPrivate: boolean;
 }
 
-export default function MatchesScreen() {
+export default function FindMatchScreen() {
   const [filter, setFilter] = useState('hepsi');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -88,7 +87,7 @@ export default function MatchesScreen() {
   
   // Maç oluşturma ekranına yönlendir
   const navigateToCreateMatch = () => {
-    router.push('/(tabs)/create-match');
+    router.push('/(tabs)/create-match' as any);
   };
   
   // Seviye gösterimi için fonksiyon
@@ -178,6 +177,7 @@ export default function MatchesScreen() {
           
           <TouchableOpacity 
             style={[styles.joinButton, { backgroundColor: tintColor }]}
+            onPress={() => handleJoinMatch(item.id)}
             disabled={item.playersJoined >= item.totalPlayers}
           >
             <ThemedText style={styles.joinButtonText}>
@@ -187,6 +187,35 @@ export default function MatchesScreen() {
         </View>
       </View>
     );
+  };
+
+  // Maça katılma işlemi
+  const handleJoinMatch = async (matchId: string) => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${API_URL}/matches/${matchId}/join`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Maça katılırken bir hata oluştu');
+      }
+      
+      // Maçları yeniden yükle
+      fetchMatches();
+      
+    } catch (err: any) {
+      console.error('Maça katılma hatası:', err);
+      setError(err.message || 'Maça katılırken bir hata oluştu');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -270,43 +299,45 @@ export default function MatchesScreen() {
         </ScrollView>
       </View>
       
-      {loading ? (
-        <View style={styles.centerContainer}>
+      {loading && matches.length === 0 ? (
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
-          <ThemedText style={styles.messageText}>Maçlar yükleniyor...</ThemedText>
+          <ThemedText style={styles.loadingText}>Maçlar yükleniyor...</ThemedText>
         </View>
       ) : error ? (
-        <View style={styles.centerContainer}>
-          <IconSymbol name="exclamationmark.triangle" size={40} color="#FF6B6B" />
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={40} color="#F44336" />
           <ThemedText style={styles.errorText}>{error}</ThemedText>
           <TouchableOpacity 
-            style={[styles.retryButton, { backgroundColor: tintColor }]}
+            style={[styles.retryButton, { borderColor: tintColor }]}
             onPress={fetchMatches}
           >
-            <ThemedText style={styles.retryButtonText}>Tekrar Dene</ThemedText>
+            <IconSymbol name="arrow.clockwise" size={20} color={tintColor} />
+            <ThemedText style={[styles.retryText, { color: tintColor }]}>Yeniden Dene</ThemedText>
           </TouchableOpacity>
         </View>
       ) : filteredMatches.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <IconSymbol name="calendar.badge.exclamationmark" size={50} color="#9E9E9E" />
-          <ThemedText style={styles.messageText}>
-            {searchQuery ? 'Aramanızla eşleşen maç bulunamadı.' : 'Henüz maç bulunmuyor.'}
-          </ThemedText>
-          <TouchableOpacity 
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="calendar.badge.exclamationmark" size={40} color="#9E9E9E" />
+          <ThemedText style={styles.emptyText}>Uygun maç bulunamadı</ThemedText>
+          <TouchableOpacity
             style={[styles.createButton, { backgroundColor: tintColor }]}
             onPress={navigateToCreateMatch}
           >
+            <IconSymbol name="plus" size={18} color="#FFFFFF" />
             <ThemedText style={styles.createButtonText}>Yeni Maç Oluştur</ThemedText>
           </TouchableOpacity>
         </View>
       ) : (
-      <FlatList
-        data={filteredMatches}
-        renderItem={renderMatchCard}
-        keyExtractor={item => item._id || item.id || `match-${Math.random()}`}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+        <FlatList
+          data={filteredMatches}
+          renderItem={renderMatchCard}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshing={loading}
+          onRefresh={fetchMatches}
+        />
       )}
     </ThemedView>
   );
@@ -318,93 +349,93 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   header: {
-    marginBottom: 16,
-    paddingHorizontal: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   createMatchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
   },
   createMatchButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    marginLeft: 4,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     marginHorizontal: 16,
     marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
     fontSize: 16,
   },
   filtersContainer: {
     marginBottom: 16,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
   },
   filterButton: {
-    paddingVertical: 8,
     paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
     borderRadius: 20,
-    marginRight: 10,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#EEEEEE',
   },
   filterText: {
-    fontSize: 14,
     fontWeight: '500',
   },
-  listContainer: {
+  listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 100,
+    paddingBottom: 20,
   },
   card: {
+    marginBottom: 16,
     borderRadius: 12,
-    marginBottom: 20,
     borderWidth: 1,
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   cardHeader: {
     position: 'relative',
   },
   imageContainer: {
-    width: '100%',
-    height: 150,
+    position: 'relative',
   },
   fieldImage: {
     width: '100%',
-    height: '100%',
+    height: 180,
+    resizeMode: 'cover',
   },
   privateTag: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
   privateText: {
     color: '#FFFFFF',
+    fontWeight: '600',
     fontSize: 12,
     marginLeft: 4,
   },
@@ -422,14 +453,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   levelTag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 4,
   },
   levelText: {
     color: '#FFFFFF',
+    fontWeight: '600',
     fontSize: 12,
-    fontWeight: 'bold',
   },
   infoRow: {
     flexDirection: 'row',
@@ -442,14 +473,14 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#EEEEEE',
     marginVertical: 12,
   },
   organizerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   organizerInfo: {
     flexDirection: 'row',
@@ -463,32 +494,33 @@ const styles = StyleSheet.create({
   },
   organizerLabel: {
     fontSize: 12,
-    opacity: 0.6,
+    color: '#999',
   },
   organizerName: {
-    fontWeight: '500',
+    fontWeight: '600',
   },
   playersInfo: {
     alignItems: 'flex-end',
   },
   playersProgress: {
     width: 100,
-    height: 6,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 3,
-    marginBottom: 4,
+    height: 8,
+    backgroundColor: '#EEEEEE',
+    borderRadius: 4,
     overflow: 'hidden',
+    marginBottom: 4,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   playersText: {
     fontSize: 12,
+    fontWeight: '500',
   },
   joinButton: {
+    padding: 12,
     borderRadius: 8,
-    paddingVertical: 12,
     alignItems: 'center',
   },
   joinButtonText: {
@@ -496,42 +528,64 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  centerContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  messageText: {
+  loadingText: {
+    marginTop: 12,
     fontSize: 16,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-    color: '#9E9E9E',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   errorText: {
+    marginTop: 12,
+    marginBottom: 20,
     fontSize: 16,
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-    color: '#FF6B6B',
+    color: '#F44336',
   },
   retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
+    borderWidth: 1,
   },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+  retryText: {
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    marginTop: 12,
+    marginBottom: 20,
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#9E9E9E',
   },
   createButton: {
-    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,
   },
   createButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+    marginLeft: 8,
   },
-});
+}); 

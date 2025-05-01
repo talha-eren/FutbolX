@@ -2,72 +2,359 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // API URL'sini platform bazlı tanımlıyoruz
-let API_URL = '';
+export let API_URL = '';
+export let IS_OFFLINE_MODE = false;
 
 // Bilgisayarın gerçek IP adresi (ipconfig ile tespit edildi)
 const COMPUTER_IP = '192.168.1.27';
 
+// Backend portu
+const BACKEND_PORT = 5000;
+
 // Alternatif IP adresleri (bağlantı sorunları için)
 const ALTERNATIVE_IPS = [
-  '192.168.1.27',  // Ana IP
-  'localhost',     // Localhost
-  '10.0.2.2'       // Android emülatör için özel IP
+  '10.0.2.2',        // Android emülatör için özel IP
+  '192.168.1.27',    // Ana IP
+  '192.168.1.49',    // Expo log'undan tespit edilen IP (Metro sunucusu IP'si)
+  'localhost',       // Localhost
+  '127.0.0.1',       // Localhost alternatifi
+  '192.168.1.1',     // Router IP'si
+  '192.168.0.1',     // Alternatif router IP'si
 ];
 
-// Platform kontrolü yaparak uygun API URL'sini belirle
+// Platforma göre API URL'sini belirle
 try {
-  if (Platform.OS === 'web') {
-    API_URL = 'http://localhost:5000/api'; // Web için localhost
+  // Önce Expo Metro sunucusunun IP'sini almaya çalış - bu genellikle en iyi çözümdür
+  // Bu IP, telefonun ve bilgisayarın aynı ağda olduğunu varsayar
+  const METRO_IP = '192.168.1.49'; // Expo loglarında görünen IP
+  
+  if (Platform.OS === 'android' || Platform.OS === 'ios') {
+    // Mobil cihazlar için Expo Metro sunucusunun IP'sini kullan
+    API_URL = `http://${METRO_IP}:${BACKEND_PORT}/api`;
+    console.log(`${Platform.OS} platformu tespit edildi, Metro IP kullanılıyor: ${METRO_IP}`);
+  } else if (Platform.OS === 'web') {
+    // Web için localhost
+    API_URL = `http://localhost:${BACKEND_PORT}/api`;
     console.log('Web platformu tespit edildi, localhost kullanılıyor');
-  } else if (Platform.OS === 'android') {
-    // Android için bilgisayarın gerçek IP adresini kullan
-    API_URL = `http://${COMPUTER_IP}:5000/api`;
-    console.log(`Android platformu tespit edildi, ${COMPUTER_IP} kullanılıyor`);
-  } else if (Platform.OS === 'ios') {
-    // iOS için bilgisayarın gerçek IP adresini kullan
-    API_URL = `http://${COMPUTER_IP}:5000/api`;
-    console.log(`iOS platformu tespit edildi, ${COMPUTER_IP} kullanılıyor`);
   } else {
-    // Varsayılan olarak bilgisayarın gerçek IP adresini kullan
-    API_URL = `http://${COMPUTER_IP}:5000/api`;
+    // Diğer tüm platformlar için varsayılan IP
+    API_URL = `http://${COMPUTER_IP}:${BACKEND_PORT}/api`;
     console.log(`Bilinmeyen platform, varsayılan olarak ${COMPUTER_IP} kullanılıyor`);
   }
 } catch (error) {
   // Hata durumunda bilgisayarın gerçek IP adresini kullan
-  API_URL = `http://${COMPUTER_IP}:5000/api`;
+  API_URL = `http://${COMPUTER_IP}:${BACKEND_PORT}/api`;
   console.log('Platform tespiti yapılamadı, varsayılan IP kullanılıyor:', API_URL);
 }
 
+// Çevrimdışı mod için örnek veriler
+export const OFFLINE_DATA = {
+  user: {
+    _id: "offline-user-id",
+    username: "test_user",
+    email: "test@example.com",
+    name: "Test Kullanıcı",
+    profilePicture: "https://via.placeholder.com/150",
+    level: "Orta",
+    position: "Forvet",
+    stats: {
+      matches: 15,
+      goals: 8,
+      assists: 5,
+      playHours: 30,
+      rating: 4.2
+    },
+    isAdmin: false
+  },
+  posts: [
+    {
+      _id: "offline-post-1",
+      content: "Bugün harika bir antrenman yaptık!",
+      image: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1470&auto=format&fit=crop",
+      user: {
+        _id: "offline-user-id",
+        username: "test_user",
+        profilePicture: "https://via.placeholder.com/150"
+      },
+      likes: 12,
+      comments: 3,
+      createdAt: new Date().toISOString()
+    },
+    {
+      _id: "offline-post-2",
+      content: "Yeni ayakkabılarım ile ilk maç",
+      image: "https://images.unsplash.com/photo-1542541864-c0e546f4b689?q=80&w=1470&auto=format&fit=crop",
+      user: {
+        _id: "offline-user-id",
+        username: "test_user",
+        profilePicture: "https://via.placeholder.com/150"
+      },
+      likes: 8,
+      comments: 1,
+      createdAt: new Date(Date.now() - 86400000).toISOString() // 1 gün önce
+    }
+  ],
+  fields: [
+    {
+      _id: "offline-field-1",
+      id: "offline-field-1",
+      fieldName: "Yeşil Vadi Halı Saha",
+      location: "Kadıköy, İstanbul",
+      rating: 4.7,
+      price: 600,
+      image: "https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop",
+      availability: "Müsait"
+    },
+    {
+      _id: "offline-field-2",
+      id: "offline-field-2",
+      fieldName: "Galatasaray Futbol Akademisi",
+      location: "Florya, İstanbul",
+      rating: 4.8,
+      price: 800,
+      image: "https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1470&auto=format&fit=crop",
+      availability: "Müsait"
+    }
+  ],
+  matches: [
+    {
+      _id: "offline-match-1",
+      id: "offline-match-1",
+      fieldName: "Yeşil Vadi Halı Saha",
+      location: "Kadıköy, İstanbul",
+      date: new Date().toLocaleDateString(),
+      time: "19:00",
+      price: 60,
+      organizer: {
+        _id: "offline-user-id",
+        username: "test_user",
+        profilePicture: "https://via.placeholder.com/150"
+      },
+      playersJoined: 6,
+      totalPlayers: 10,
+      level: "Orta",
+      image: "https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop",
+      isPrivate: false
+    }
+  ]
+};
+
 // API URL'yi test et ve çalışan bir sunucu bulunamazsa alternatif IP'leri dene
 const testApiConnection = async () => {
-  for (const ip of ALTERNATIVE_IPS) {
-    const testUrl = `http://${ip}:5000/api/health`;
+  console.log(`Platform: ${Platform.OS}, API bağlantı testi başlatılıyor...`);
+  
+  // Öncelikle AsyncStorage'dan son çalışan API URL'sini kontrol et
+  try {
+    const lastWorkingApi = await AsyncStorage.getItem('lastWorkingApiUrl');
+    if (lastWorkingApi) {
+      console.log(`Son çalışan API URL: ${lastWorkingApi}, önce bunu deniyorum`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 saniye timeout
+      
+      try {
+        const response = await fetch(`${lastWorkingApi}/health`, {
+          method: 'GET',
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          console.log(`Son çalışan API tekrar doğrulandı: ${lastWorkingApi}`);
+          API_URL = lastWorkingApi;
+          IS_OFFLINE_MODE = false;
+          return true;
+        }
+      } catch (error) {
+        console.log('Son çalışan API artık çalışmıyor:', error);
+      }
+    }
+  } catch (error) {
+    console.log('AsyncStorage hatası:', error);
+  }
+  
+  // Metro IP'sini önce dene
+  const METRO_IP = '192.168.1.49'; // Expo loglarından
+  console.log(`Önce Metro IP adresi deneniyor: ${METRO_IP}`);
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    
+    const response = await fetch(`http://${METRO_IP}:${BACKEND_PORT}/api/health`, {
+      method: 'GET',
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      console.log(`Metro IP ile bağlantı başarılı: ${METRO_IP}`);
+      API_URL = `http://${METRO_IP}:${BACKEND_PORT}/api`;
+      await AsyncStorage.setItem('lastWorkingApiUrl', API_URL);
+      IS_OFFLINE_MODE = false;
+      return true;
+    }
+  } catch (error) {
+    console.log(`Metro IP (${METRO_IP}) bağlantısı başarısız:`, error);
+  }
+  
+  // Platform bazlı test sıralaması
+  let testIps = [...ALTERNATIVE_IPS];
+  
+  // Android için özel sıralama
+  if (Platform.OS === 'android') {
+    testIps = ['10.0.2.2', ...testIps.filter(ip => ip !== '10.0.2.2')];
+    console.log('Android için özel IP sıralaması kullanılıyor:', testIps);
+  }
+  
+  // iOS için özel sıralama
+  if (Platform.OS === 'ios') {
+    testIps = [METRO_IP, COMPUTER_IP, ...testIps.filter(ip => ip !== METRO_IP && ip !== COMPUTER_IP)];
+    console.log('iOS için özel IP sıralaması kullanılıyor:', testIps);
+  }
+  
+  let successfulUrl = null;
+  
+  for (const ip of testIps) {
+    const testUrl = `http://${ip}:${BACKEND_PORT}/api/health`;
     try {
       console.log(`API bağlantısı test ediliyor: ${testUrl}`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
       const response = await fetch(testUrl, { 
         method: 'GET', 
         signal: controller.signal 
       });
+      
       clearTimeout(timeoutId);
+      
       if (response.ok) {
         console.log(`Çalışan API bulundu: ${testUrl}`);
-        API_URL = `http://${ip}:5000/api`;
-        return true;
+        successfulUrl = `http://${ip}:${BACKEND_PORT}/api`;
+        API_URL = successfulUrl;
+        
+        // Başarılı API URL'sini kaydet
+        try {
+          await AsyncStorage.setItem('lastWorkingApiUrl', successfulUrl);
+          console.log('Çalışan API URL kaydedildi:', successfulUrl);
+        } catch (storageError) {
+          console.log('API URL kaydedilemedi:', storageError);
+        }
+        
+        IS_OFFLINE_MODE = false;
+        break;
       }
     } catch (error) {
       console.log(`${ip} adresine bağlantı başarısız:`, error);
     }
   }
-  console.log('Hiçbir API sunucusuna bağlanılamadı, varsayılan adres kullanılacak');
+  
+  if (successfulUrl) {
+    console.log(`API URL başarıyla ayarlandı: ${successfulUrl}`);
+    IS_OFFLINE_MODE = false;
+    return true;
+  } else {
+    console.log('Hiçbir API sunucusuna bağlanılamadı, çevrimdışı mod etkinleştiriliyor');
+    
+    // Varsayılan IP'yi platform bazlı ayarla
+    if (Platform.OS === 'android') {
+      API_URL = `http://10.0.2.2:${BACKEND_PORT}/api`; // Android emülatör için
+    } else if (Platform.OS === 'ios') {
+      API_URL = `http://${METRO_IP}:${BACKEND_PORT}/api`; // iOS için
+    } else {
+      API_URL = `http://${COMPUTER_IP}:${BACKEND_PORT}/api`; // Diğer platformlar için
+    }
+    
+    console.log(`${Platform.OS} için varsayılan olarak şu IP kullanılacak (çevrimdışı mod): ${API_URL}`);
+    
+    IS_OFFLINE_MODE = true;
   return false;
+  }
+};
+
+// Çevrimdışı modu kontrol etme
+export const checkOfflineMode = async () => {
+  // Sunucuya ping at
+  try {
+    console.log('Çevrimdışı mod kontrolü yapılıyor...');
+    console.log('Kontrol için kullanılan API URL:', API_URL);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // Timeout süresini 8 saniyeye çıkardık
+    
+    try {
+      const response = await fetch(`${API_URL}/health`, {
+        method: 'GET',
+        signal: controller.signal,
+        // Önbelleği devre dışı bırak
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        console.log('API sunucusu çalışıyor, çevrimiçi mod aktif');
+        IS_OFFLINE_MODE = false;
+        return false;
+      } else {
+        console.log('API sunucusu yanıt verdi ama durum kodu başarısız:', response.status);
+        // Alternatif IP'leri tekrar dene
+        const connectionResult = await testApiConnection();
+        IS_OFFLINE_MODE = !connectionResult;
+        return !connectionResult;
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.log('API bağlantı hatası:', error);
+      
+      // API test ile alternatif IP'leri dene
+      console.log('Alternatif IP adreslerini deniyorum...');
+      const connectionResult = await testApiConnection();
+      
+      IS_OFFLINE_MODE = !connectionResult;
+      return !connectionResult;
+    }
+  } catch (error) {
+    console.log('Sunucu bağlantısı yok, çevrimdışı mod etkinleştirildi');
+    IS_OFFLINE_MODE = true;
+    return true;
+  }
 };
 
 // Uygulama başladığında API bağlantısını test et
-testApiConnection().catch(err => console.error('API bağlantı testi hatası:', err));
+testApiConnection().catch(err => {
+  console.error('API bağlantı testi hatası:', err);
+  IS_OFFLINE_MODE = true;
+});
+
+// Çevrimdışı mod kontrolünü günlük olarak çağırıyoruz
+// Sadece açık uygulamada 15 dakikada bir kontrol ediyoruz
+setInterval(async () => {
+  if (IS_OFFLINE_MODE) {
+    console.log('Çevrimdışı mod kontrolü yapılıyor (otomatik)...');
+    const isStillOffline = await checkOfflineMode();
+    if (!isStillOffline) {
+      console.log('Bağlantı geri geldi, çevrimiçi moda geçiliyor...');
+    }
+  }
+}, 15 * 60 * 1000); // 15 dakika
+
+// Uygulama her aktif olduğunda API bağlantısını tekrar kontrol edelim
+// AppState kullanılarak yapılabilir - burada örnek gösterim, entegrasyonu gerekir
+// import { AppState } from 'react-native';
+// AppState.addEventListener('change', (nextAppState) => {
+//   if (nextAppState === 'active') {
+//     testApiConnection().catch(console.error);
+//   }
+// });
 
 console.log('API URL:', API_URL);
+console.log(`${Platform.OS} platformu için API URL: ${API_URL}`);
 
 // Kimlik doğrulama başlıklarını hazırlayan yardımcı fonksiyon
 const getAuthHeaders = async () => {
@@ -101,87 +388,6 @@ const fetchAPI = async (url: string, options: RequestInit = {}) => {
     throw error;
   }
 };
-
-// Örnek veriler - API bağlantısı başarısız olursa kullanılacak
-const sampleFields = [
-  {
-    _id: '1',
-    name: 'Yeşil Vadi Halı Saha',
-    location: 'Kadıköy, İstanbul',
-    price: 350,
-    rating: 4.5,
-    image: 'https://via.placeholder.com/150/4CAF50/FFFFFF?text=Hali+Saha',
-    availability: 'Müsait'
-  },
-  {
-    _id: '2',
-    name: 'Gol Akademi',
-    location: 'Beşiktaş, İstanbul',
-    price: 400,
-    rating: 4.2,
-    image: 'https://via.placeholder.com/150/4CAF50/FFFFFF?text=Hali+Saha',
-    availability: 'Dolu'
-  },
-  {
-    _id: '3',
-    name: 'Futbol Arena',
-    location: 'Ümraniye, İstanbul',
-    price: 300,
-    rating: 3.8,
-    image: 'https://via.placeholder.com/150/4CAF50/FFFFFF?text=Hali+Saha',
-    availability: 'Müsait'
-  }
-];
-
-const sampleEvents = [
-  {
-    _id: '1',
-    title: 'Dostluk Maçı',
-    description: 'Haftalık dostluk maçımıza davetlisiniz',
-    location: 'Kadıköy, İstanbul',
-    date: '2025-05-01',
-    time: '18:00',
-    image: 'https://via.placeholder.com/150/4CAF50/FFFFFF?text=Etkinlik',
-    participants: 8,
-    maxParticipants: 14
-  },
-  {
-    _id: '2',
-    title: 'Amatör Turnuva',
-    description: 'Amatör futbolcular için mini turnuva',
-    location: 'Beşiktaş, İstanbul',
-    date: '2025-05-15',
-    time: '16:00',
-    image: 'https://via.placeholder.com/150/4CAF50/FFFFFF?text=Etkinlik',
-    participants: 12,
-    maxParticipants: 24
-  }
-];
-
-const samplePosts = [
-  {
-    _id: '1',
-    username: 'futbolcu10',
-    userImage: 'https://via.placeholder.com/50/4CAF50/FFFFFF?text=User',
-    content: 'Bugün harika bir maç yaptık! #futbol #halısaha',
-    image: 'https://via.placeholder.com/300/4CAF50/FFFFFF?text=Post',
-    video: null,
-    likes: 24,
-    comments: 5,
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: '2',
-    username: 'teknikdirektor',
-    userImage: 'https://via.placeholder.com/50/4CAF50/FFFFFF?text=User',
-    content: 'Yeni taktikler üzerinde çalışıyoruz. Yakında paylaşacağım.',
-    image: null,
-    video: null,
-    likes: 18,
-    comments: 3,
-    createdAt: new Date().toISOString()
-  }
-];
 
 // Kullanıcı Kimlik Doğrulama Servisleri
 export const authService = {
@@ -246,17 +452,37 @@ export const authService = {
   },
 
   // Kullanıcı Kaydı
-  register: async (username: string, email: string, password: string, name: string) => {
+  register: async (username: string, email: string, password: string, name: string, profileData?: any) => {
     try {
       console.log(`API isteği gönderiliyor: ${API_URL}/auth/register`);
-      console.log('Kayıt verileri:', { username, email, name });
+      console.log('Kayıt verileri:', { username, email, name, profileData });
+      
+      // Profil bilgilerini ekle
+      const registerData = {
+        username,
+        email,
+        password,
+        name,
+        location: profileData?.location || '',
+        level: profileData?.level || '',
+        position: profileData?.position || '',
+        footPreference: profileData?.footPreference || '',
+        bio: profileData?.bio || '',
+        stats: profileData?.stats || {
+          matches: 0,
+          goals: 0,
+          assists: 0,
+          playHours: 0,
+          rating: 0
+        }
+      };
       
       const data = await fetchAPI(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ username, email, password, name })
+        body: JSON.stringify(registerData)
       });
       console.log('Sunucu yanıtı:', data);
       
@@ -328,21 +554,51 @@ export const userService = {
   updateProfile: async (profileData: any) => {
     try {
       const headers = await getAuthHeaders();
+      
+      console.log('Profil güncelleniyor:', profileData);
+      
+      // Önce token kontrolü yapalım
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        throw new Error('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.');
+      }
+      
+      // stats alanı için özel işlem yapalım
+      const updatedData = { ...profileData };
+      
+      // İsteği yapalım
       const response = await fetch(`${API_URL}/users/profile`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify(profileData)
+        body: JSON.stringify(updatedData)
       });
 
-      const data = await response.json();
+      // Önce response'un içeriğini text olarak al
+      const responseText = await response.text();
+      
+      // Boş yanıt kontrolü
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Sunucudan yanıt alınamadı');
+      }
+      
+      // JSON parse etmeyi dene
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse hatası:', responseText.substring(0, 100));
+        throw new Error('Sunucu yanıtı geçerli JSON formatında değil');
+      }
       
       if (!response.ok) {
+        console.error('Profil güncelleme başarısız:', data.message || response.statusText);
         throw new Error(data.message || 'Profil güncellenemedi');
       }
       
       // Güncel kullanıcı bilgilerini kaydet
       await AsyncStorage.setItem('user', JSON.stringify(data));
       
+      console.log('Profil başarıyla güncellendi:', data);
       return data;
     } catch (error) {
       console.error('Profil güncelleme hatası:', error);
@@ -361,12 +617,11 @@ export const fieldService = {
       return data;
     } catch (error) {
       console.error('Halı saha getirme hatası:', error);
-      console.log('Örnek halı saha verileri kullanılıyor');
-      return sampleFields;
+      return []; // Boş dizi döndür
     }
   },
   
-  // ID'ye göre halı saha getir (getFieldById ve getById birleştirildi)
+  // ID'ye göre halı saha getir
   getById: async (id: string) => {
     try {
       const headers = await getAuthHeaders();
@@ -384,17 +639,6 @@ export const fieldService = {
       return data;
     } catch (error: any) {
       console.error('Get field details error:', error);
-      // Hata durumunda örnek veri kullanmayı dene
-      try {
-        const sampleField = sampleFields.find(field => field._id === id);
-        if (sampleField) {
-          console.log('Örnek halı saha verisi kullanılıyor:', id);
-          return sampleField;
-        }
-      } catch (e) {
-        console.error('Örnek veri bulunamadı:', e);
-      }
-      
       throw new Error(error.message || 'Halı saha detaylarını getirirken bir hata oluştu');
     }
   }
@@ -431,8 +675,8 @@ export const eventService = {
         
         // Boş yanıt kontrolü
         if (!responseText || responseText.trim() === '') {
-          console.log('API boş yanıt döndü, örnek veriler kullanılıyor');
-          return sampleEvents;
+          console.log('API boş yanıt döndü');
+          return [];
         }
         
         // JSON parse etmeyi dene
@@ -442,8 +686,7 @@ export const eventService = {
           return data;
         } catch (parseError) {
           console.error('JSON parse hatası:', responseText.substring(0, 100));
-          console.log('Örnek etkinlik verileri kullanılıyor');
-          return sampleEvents;
+          return [];
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
@@ -451,31 +694,7 @@ export const eventService = {
       }
     } catch (error: any) {
       console.error('Get events error:', error);
-      // Örnek veriler döndür
-      return [
-        {
-          id: '1',
-          title: 'Dostluk Maçı',
-          description: 'Haftalık dostluk maçımıza davetlisiniz',
-          location: 'Yıldız Halı Saha, Kadıköy',
-          date: '28 Nisan 2025',
-          time: '19:00',
-          image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
-          participants: 8,
-          maxParticipants: 14
-        },
-        {
-          id: '2',
-          title: 'Amatör Turnuva',
-          description: 'Ödüllü amatör futbol turnuvası',
-          location: 'Gol Park, Beyoğlu',
-          date: '5 Mayıs 2025',
-          time: '16:00',
-          image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1364&auto=format&fit=crop',
-          participants: 24,
-          maxParticipants: 32
-        }
-      ];
+      return []; // Boş dizi döndür
     }
   },
   
@@ -507,54 +726,57 @@ export const videoService = {
   // Tüm videoları getir
   getAll: async () => {
     try {
+      console.log('Videolar getiriliyor...');
       const headers = await getAuthHeaders();
+      
+      // Abort Controller ile timeout kontrolü
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye timeout
+      
+      try {
       const response = await fetch(`${API_URL}/videos`, {
         method: 'GET',
-        headers
-      });
-      
-      // Önce response'un içeriğini text olarak al
-      const responseText = await response.text();
-      
-      // JSON parse etmeyi dene
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse hatası:', responseText.substring(0, 100));
-        throw new Error('Sunucu yanıtı geçerli JSON formatında değil');
-      }
+          headers,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId); // Zamanı iptal et
       
       if (!response.ok) {
-        throw new Error(data.message || 'Videoları getirme başarısız');
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Videoları getirme başarısız');
       }
       
+        const data = await response.json();
       return data;
+      } catch (error) {
+        const fetchError = error as Error;
+        
+        // AbortError (timeout) durumunda boş dizi döndür
+        if (fetchError.name === 'AbortError') {
+          console.log('Video isteği zaman aşımına uğradı, varsayılan veriler kullanılıyor');
+          return [];
+        }
+        
+        // Network hatalarında boş dizi döndür
+        if (fetchError.message === 'Network request failed') {
+          console.log('Ağ hatası, varsayılan veriler kullanılıyor');
+          return [];
+        }
+        
+        console.error('Video getirme hatası:', fetchError);
+        return [];
+      }
     } catch (error: any) {
       console.error('Get videos error:', error);
-      // Örnek videolar döndür
-      return [
-        {
-          id: '1',
-          title: 'Futbol Teknikleri',
-          description: 'Bu videoda temel futbol tekniklerini gösteriyorum.',
-          url: 'https://assets.mixkit.co/videos/preview/mixkit-soccer-player-dribbling-a-ball-in-a-stadium-42520-large.mp4',
-          thumbnail: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1470&auto=format&fit=crop',
-          userId: '1',
-          username: 'teknikdirektor',
-          createdAt: '2025-04-25T12:00:00Z'
-        },
-        {
-          id: '2',
-          title: 'Penaltı Atışı Teknikleri',
-          description: 'Penaltı atışlarında başarılı olmak için ipucu ve teknikler.',
-          url: 'https://assets.mixkit.co/videos/preview/mixkit-soccer-player-scoring-a-goal-42524-large.mp4',
-          thumbnail: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1470&auto=format&fit=crop',
-          userId: '2',
-          username: 'futbolcu23',
-          createdAt: '2025-04-26T14:30:00Z'
-        }
-      ];
+      
+      // Network hatasında boş dizi döndür
+      if (error.message === 'Network request failed') {
+        console.log('Ağ hatası, varsayılan veriler kullanılıyor');
+        return [];
+      }
+      
+      return []; // Boş dizi döndür
     }
   },
   
@@ -669,7 +891,7 @@ export const postService = {
         // Başarılı yanıt kontrolü
         if (!response.ok) {
           console.error(`API hatası: ${response.status} ${response.statusText}`);
-          throw new Error(`Gönderileri getirme başarısız: ${response.statusText}`);
+          return []; // Hata durumunda boş dizi döndür
         }
         
         // Önce response'un içeriğini text olarak al
@@ -678,7 +900,7 @@ export const postService = {
         // Boş yanıt kontrolü
         if (!responseText || responseText.trim() === '') {
           console.log('API boş yanıt döndü, örnek gönderiler kullanılıyor');
-          return samplePosts;
+          return [];
         }
         
         // JSON parse etmeyi dene
@@ -688,77 +910,193 @@ export const postService = {
           return data;
         } catch (parseError) {
           console.error('JSON parse hatası:', responseText.substring(0, 100));
-          console.log('Örnek gönderi verileri kullanılıyor');
-          return samplePosts;
+          return [];
         }
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        throw fetchError;
+      } catch (error) {
+        const fetchError = error as Error;
+        
+        // AbortError (timeout) durumunda boş dizi döndür
+        if (fetchError.name === 'AbortError') {
+          console.log('Gönderi isteği zaman aşımına uğradı, varsayılan veriler kullanılıyor');
+          return [];
+        }
+        
+        // Network hatalarında boş dizi döndür
+        if (fetchError.message === 'Network request failed') {
+          console.log('Ağ hatası, varsayılan veriler kullanılıyor');
+          return [];
+        }
+        
+        console.error('Gönderi getirme hatası:', fetchError);
+        return [];
       }
     } catch (error: any) {
       console.error('Get posts error:', error);
-      // Örnek veriler döndür
-      return [
-        {
-          id: '1',
-          username: 'futbolcu23',
-          userAvatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-          content: 'Bugün harika bir maç oldu! Takım olarak mükemmel oynadık.',
-          image: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?q=80&w=1449&auto=format&fit=crop',
-          likes: 24,
-          comments: 5,
-          timestamp: '2 saat önce',
-          tags: ['futbol', 'maç', 'galibiyet'],
-          location: 'Yıldız Halı Saha'
-        },
-        {
-          id: '2',
-          username: 'teknikdirektor',
-          userAvatar: 'https://randomuser.me/api/portraits/men/45.jpg',
-          content: 'Yeni antrenman programımızı paylaşıyorum. Bu hareketleri günlük rutininize ekleyin!',
-          video: 'https://assets.mixkit.co/videos/preview/mixkit-man-training-with-a-soccer-ball-in-a-stadium-42529-large.mp4',
-          image: 'https://images.unsplash.com/photo-1526232761682-d26e03ac148e?q=80&w=1469&auto=format&fit=crop',
-          likes: 56,
-          comments: 8,
-          timestamp: '5 saat önce',
-          tags: ['futbol', 'dostlukmaçı'],
-          location: 'Gol Park'
-        },
-        {
-          id: '3',
-          username: 'futbolsever',
-          userAvatar: 'https://randomuser.me/api/portraits/women/28.jpg',
-          content: 'Kadınlar ligi maçından kareler. Mükemmel bir atmosferdi!',
-          image: 'https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?q=80&w=1470&auto=format&fit=crop',
-          likes: 102,
-          comments: 14,
-          timestamp: '1 gün önce',
-          location: 'Kadıköy Stadyumu'
-        }
-      ];
+      return []; // Boş dizi döndür
     }
   },
   
-  // Gönderi oluştur
-  create: async (postData: any) => {
+  // Gönderi paylaş (yeni)
+  create: async (postData: FormData) => {
     try {
+      console.log('Gönderi paylaşma isteği gönderiliyor...');
+      console.log('Kullanılan API URL:', API_URL);
+      
+      // Token al
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        throw new Error('Oturum açık değil, lütfen giriş yapın');
+      }
+      
+      // Retry mekanizması
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      const attemptUpload = async (): Promise<any> => {
+        // XHR oluştur
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `${API_URL}/posts`);
+          
+          // Authorization header'i ekle
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+          
+          // Daha uzun timeout ayarla
+          xhr.timeout = 60000; // 60 saniye
+          
+          // Yükleme tamamlandığında
+          xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                console.log('Gönderi başarıyla paylaşıldı:', data);
+                resolve(data);
+              } catch (e) {
+                console.error('JSON parse hatası:', xhr.responseText.substring(0, 100));
+                reject(new Error('Sunucu yanıtı geçerli JSON formatında değil'));
+              }
+            } else {
+              try {
+                const errorData = JSON.parse(xhr.responseText);
+                reject(new Error(errorData.message || 'Gönderi paylaşma başarısız'));
+              } catch (e) {
+                reject(new Error(`HTTP hata kodu: ${xhr.status}`));
+              }
+            }
+          };
+          
+          // Timeout durumunda
+          xhr.ontimeout = function() {
+            console.error('XHR isteği zaman aşımına uğradı');
+            if (retryCount < maxRetries) {
+              console.log(`Yükleme tekrar deneniyor (${retryCount + 1}/${maxRetries})...`);
+              retryCount++;
+              setTimeout(() => {
+                attemptUpload().then(resolve).catch(reject);
+              }, 1000);
+            } else {
+              reject(new Error('Gönderi yükleme zaman aşımına uğradı. Lütfen daha güçlü bir ağ bağlantısında tekrar deneyin.'));
+            }
+          };
+          
+          // Hata durumunda
+          xhr.onerror = function() {
+            console.error('XHR hatası');
+            if (retryCount < maxRetries) {
+              console.log(`Bağlantı hatası sonrası yükleme tekrar deneniyor (${retryCount + 1}/${maxRetries})...`);
+              retryCount++;
+              setTimeout(() => {
+                attemptUpload().then(resolve).catch(reject);
+              }, 1000);
+            } else {
+              reject(new Error('Ağ bağlantısı hatası. Lütfen internet bağlantınızı kontrol ediniz.'));
+            }
+          };
+          
+          // Yükleme ilerleme durumu
+          xhr.upload.onprogress = function(event) {
+            if (event.lengthComputable) {
+              const percentComplete = Math.round((event.loaded / event.total) * 100);
+              console.log(`Yükleme ilerlemesi: %${percentComplete}`);
+            }
+          };
+          
+          // İsteği gönder
+          xhr.send(postData);
+        });
+      };
+      
+      return await attemptUpload();
+    } catch (error: any) {
+      console.error('Upload post error:', error);
+      throw new Error(error.message || 'Gönderi paylaşılırken bir hata oluştu');
+    }
+  },
+  
+  // Kullanıcının gönderilerini getir
+  getUserPosts: async (userId: string) => {
+    try {
+      console.log(`${userId} ID'li kullanıcının gönderileri getiriliyor...`);
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/posts`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(postData),
+      
+      const response = await fetch(`${API_URL}/posts/user/${userId}`, {
+        method: 'GET',
+        headers
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Gönderi oluşturma başarısız');
+        throw new Error(errorData.message || 'Kullanıcı gönderilerini getirme başarısız');
       }
       
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error('Create post error:', error);
-      throw new Error(error.message || 'Gönderi oluşturulurken bir hata oluştu');
+      console.error('Get user posts error:', error);
+      return []; // Boş dizi döndür
     }
   },
+  
+  // Gönderi beğen
+  likePost: async (postId: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+        method: 'POST',
+        headers
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Gönderi beğenme başarısız');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error('Like post error:', error);
+      throw new Error(error.message || 'Gönderi beğenirken bir hata oluştu');
+    }
+  },
+  
+  // Gönderiyi sil
+  deletePost: async (postId: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_URL}/posts/${postId}`, {
+        method: 'DELETE',
+        headers
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Gönderi silme başarısız');
+      }
+      
+      return true;
+    } catch (error: any) {
+      console.error('Delete post error:', error);
+      throw new Error(error.message || 'Gönderi silinirken bir hata oluştu');
+    }
+  }
 };

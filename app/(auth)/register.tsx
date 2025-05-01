@@ -19,6 +19,10 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [location, setLocation] = useState('');
+  const [level, setLevel] = useState('');
+  const [position, setPosition] = useState('');
+  const [footPreference, setFootPreference] = useState('');
 
   const primaryColor = '#4CAF50'; // Ana yeşil renk
   const backgroundColor = colorScheme === 'dark' ? '#121212' : '#FFFFFF';
@@ -57,11 +61,31 @@ export default function RegisterScreen() {
     }
 
     setIsLoading(true);
-    console.log('Kayıt işlemi başlatılıyor:', { fullName, username, email });
+    console.log('Kayıt işlemi başlatılıyor:', { 
+      fullName, 
+      username, 
+      email,
+      location,
+      level,
+      position,
+      footPreference
+    });
     
     try {
       // AuthContext'in register fonksiyonunu kullan
-      const success = await register(fullName, username, email, password);
+      const success = await register(fullName, username, email, password, {
+        location,
+        level,
+        position,
+        footPreference,
+        stats: {
+          matches: 0,
+          goals: 0,
+          assists: 0,
+          playHours: 0,
+          rating: 0
+        }
+      });
       
       if (success) {
         console.log('Kayıt başarılı');
@@ -202,6 +226,54 @@ export default function RegisterScreen() {
                 color={placeholderColor} 
               />
             </TouchableOpacity>
+          </View>
+
+          {/* Futbol profil bilgileri ekleniyor */}
+          <ThemedText style={styles.sectionTitle}>Futbol Profil Bilgileri</ThemedText>
+          <ThemedText style={styles.sectionSubtitle}>Bu bilgileri daha sonra profilinizden düzenleyebilirsiniz</ThemedText>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="location" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Konum (İlçe, Şehir)"
+              placeholderTextColor={placeholderColor}
+              value={location}
+              onChangeText={setLocation}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="chart.bar" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Seviye (Amatör, Orta, İleri)"
+              placeholderTextColor={placeholderColor}
+              value={level}
+              onChangeText={setLevel}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="person.fill" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Pozisyon (Kaleci, Defans, Orta Saha, Forvet)"
+              placeholderTextColor={placeholderColor}
+              value={position}
+              onChangeText={setPosition}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="figure.walk" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Ayak Tercihi (Sağ, Sol, Her ikisi)"
+              placeholderTextColor={placeholderColor}
+              value={footPreference}
+              onChangeText={setFootPreference}
+            />
           </View>
 
           <TouchableOpacity 
@@ -365,5 +437,20 @@ const styles = StyleSheet.create({
   termsLink: {
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
   },
 });

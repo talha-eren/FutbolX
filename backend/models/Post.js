@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 
 const postSchema = new mongoose.Schema({
+  // Author alanı - kullanıcı referansı
+  author: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  // Geriye dönük uyumluluk için user alanı korundu
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -25,6 +32,11 @@ const postSchema = new mongoose.Schema({
   video: {
     type: String,
     default: null
+  },
+  contentType: {
+    type: String,
+    enum: ['text', 'image', 'video'],
+    default: 'text'
   },
   likes: {
     type: Number,

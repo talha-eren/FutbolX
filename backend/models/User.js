@@ -33,6 +33,29 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team'
   }],
+  // İstatistikler
+  stats: {
+    matches: {
+      type: Number,
+      default: 0
+    },
+    goals: {
+      type: Number,
+      default: 0
+    },
+    assists: {
+      type: Number,
+      default: 0
+    },
+    playHours: {
+      type: Number,
+      default: 0
+    },
+    rating: {
+      type: Number,
+      default: 0
+    }
+  },
   // Şifre sıfırlama alanları
   resetPasswordCode: {
     type: String
@@ -56,6 +79,30 @@ const userSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  bio: {
+    type: String,
+    default: ''
+  },
+  location: {
+    type: String,
+    default: ''
+  },
+  phone: {
+    type: String,
+    default: ''
+  },
+  level: {
+    type: String,
+    default: ''
+  },
+  position: {
+    type: String,
+    default: ''
+  },
+  footPreference: {
+    type: String,
+    default: ''
   }
 });
 

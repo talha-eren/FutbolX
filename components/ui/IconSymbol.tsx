@@ -51,6 +51,25 @@ const MAPPING = {
   'turkishlirasign.circle': 'monetization-on', // En yakın para birimi ikonu
   'film': 'movie', // Eksik film ikonu eklendi
   'lock.fill': 'lock',
+  // Yeni eksik ikonlar (hata mesajında görülen)
+  'video.badge.plus': 'video-call',
+  'square.grid.2x2': 'apps',
+  'plus': 'add',
+  'calendar.badge.exclamationmark': 'event-busy',
+  'doc.text.fill': 'description',
+  'medal': 'military-tech',
+  'figure.walk': 'directions-walk',
+  'rectangle.portrait.and.arrow.right': 'logout',
+  'gear': 'settings',
+  'chevron.left': 'chevron-left',
+  'exclamationmark.triangle': 'warning',
+  // Yeni eklenen eksik ikonlar (hata mesajlarında görülenler)
+  'person.2': 'people', // Birden fazla kişi ikonu
+  'photo': 'photo',
+  'doc.text': 'description',
+  'trash': 'delete',
+  'xmark.circle.fill': 'cancel',
+  'checkmark.circle': 'check-circle',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

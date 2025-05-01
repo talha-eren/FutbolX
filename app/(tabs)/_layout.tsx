@@ -8,9 +8,11 @@ import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { FutbolXLogo } from '@/components/FutbolXLogo';
 import { useAuth } from '@/context/AuthContext';
+import CreateMatchScreen from './create-match';
+import SharePostScreen from './sharePost';
 
 // Sekme tipini tanımla
-type TabType = 'home' | 'upload' | 'profile' | 'feed' | 'matches';
+type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'admin';
 
 // Hover props tipini tanımla
 type HoverableProps = {
@@ -55,13 +57,16 @@ export default function TabLayout() {
   const isWeb = Platform.OS === 'web';
   const primaryColor = '#4CAF50';
   const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   
   // Hover durumları için state
   const [hoveredTab, setHoveredTab] = useState<TabType | null>(null);
   
   // Aktif sekme durumu için state tanımla
   const [activeTab, setActiveTab] = useState<TabType>('home');
+  
+  // Admin yetkisi kontrolü
+  const isAdmin = user?.isAdmin || false;
   
   // Misafir kullanıcıları login'e yönlendirme
   const handleRestrictedAction = () => {
@@ -75,11 +80,28 @@ export default function TabLayout() {
     );
   };
   
+  // Admin olmayan kullanıcıları yönlendirme
+  const handleAdminRestrictedAction = () => {
+    Alert.alert(
+      "Yetkisiz Erişim",
+      "Bu sayfaya erişim yetkiniz bulunmamaktadır.",
+      [
+        { text: "Tamam", style: "default" }
+      ]
+    );
+  };
+  
   // Sekme değiştirme fonksiyonu
   const changeTab = (tab: TabType) => {
     // Eğer kullanıcı giriş yapmamışsa ve ev sayfası dışında bir sayfaya gitmeye çalışıyorsa
     if (!isLoggedIn && tab !== 'home') {
       handleRestrictedAction();
+      return;
+    }
+    
+    // Admin sekmesi için yetkiyi kontrol et
+    if (tab === 'admin' && !isAdmin) {
+      handleAdminRestrictedAction();
       return;
     }
     
@@ -91,16 +113,16 @@ export default function TabLayout() {
         router.push('/(tabs)' as any);
         break;
       case 'upload':
-        router.push('/(tabs)/upload' as any);
+        router.push('/(tabs)/sharePost' as any);
         break;
       case 'profile':
         router.push('/(tabs)/profile' as any);
         break;
-      case 'explore':
-        router.push('/(tabs)/explore' as any);
-        break;
       case 'matches':
         router.push('/(tabs)/matches' as any);
+        break;
+      case 'admin':
+        router.push('/(tabs)/admin' as any);
         break;
     }
   };
@@ -121,11 +143,14 @@ export default function TabLayout() {
         headerShadowVisible: false,
         contentStyle: { backgroundColor: colorScheme === 'dark' ? '#121212' : '#F5F5F5' }
       }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="feed" />
+        <Stack.Screen name="index" options={{ title: 'Keşfet' }} />
         <Stack.Screen name="matches" />
+        <Stack.Screen name="find-match" options={{ title: 'Maç Bul' }} />
+        <Stack.Screen name="create-match" options={{ presentation: 'modal', title: 'Yeni Maç Oluştur' }} />
         <Stack.Screen name="profile" />
-        <Stack.Screen name="upload" />
+        <Stack.Screen name="sharePost" options={{ title: 'Gönderi Paylaş' }} />
+        <Stack.Screen name="admin" options={{ title: 'Admin Paneli' }} />
+        <Stack.Screen name="settings" options={{ title: 'Ayarlar' }} />
       </Stack>
       
       {/* Custom Footer Navigation - Her sayfada görünecek */}
@@ -141,13 +166,13 @@ export default function TabLayout() {
             activeTab === 'home' && styles.activeIconWrapper,
             hoveredTab === 'home' && styles.hoveredIconWrapper
           ]}>
-            <IconSymbol name="house.fill" size={22} color="#FFFFFF" />
+            <IconSymbol name="square.grid.2x2" size={22} color="#FFFFFF" />
           </View>
           <ThemedText style={[
             styles.footerTabText, 
             activeTab === 'home' && styles.activeFooterTabText,
             hoveredTab === 'home' && styles.hoveredFooterTabText
-          ]}>Ana Sayfa</ThemedText>
+          ]}>Keşfet</ThemedText>
         </HoverableTouchable>
         
         <HoverableTouchable 
@@ -161,13 +186,13 @@ export default function TabLayout() {
             activeTab === 'upload' && styles.activeIconWrapper,
             hoveredTab === 'upload' && styles.hoveredIconWrapper
           ]}>
-            <IconSymbol name="plus.circle" size={22} color="#FFFFFF" />
+            <IconSymbol name="square.and.arrow.up" size={22} color="#FFFFFF" />
           </View>
           <ThemedText style={[
             styles.footerTabText, 
             activeTab === 'upload' && styles.activeFooterTabText,
             hoveredTab === 'upload' && styles.hoveredFooterTabText
-          ]}>Yükle</ThemedText>
+          ]}>Paylaş</ThemedText>
         </HoverableTouchable>
         
         <HoverableTouchable 
@@ -192,26 +217,6 @@ export default function TabLayout() {
         
         <HoverableTouchable 
           style={styles.footerTab}
-          onPress={() => changeTab('feed')}
-          onHoverIn={() => setHoveredTab('feed')}
-          onHoverOut={() => setHoveredTab(null)}
-        >
-          <View style={[
-            styles.iconWrapper, 
-            activeTab === 'feed' && styles.activeIconWrapper,
-            hoveredTab === 'feed' && styles.hoveredIconWrapper
-          ]}>
-            <IconSymbol name="film" size={22} color="#FFFFFF" />
-          </View>
-          <ThemedText style={[
-            styles.footerTabText, 
-            activeTab === 'feed' && styles.activeFooterTabText,
-            hoveredTab === 'feed' && styles.hoveredFooterTabText
-          ]}>Akış</ThemedText>
-        </HoverableTouchable>
-        
-        <HoverableTouchable 
-          style={styles.footerTab}
           onPress={() => changeTab('matches')}
           onHoverIn={() => setHoveredTab('matches')}
           onHoverOut={() => setHoveredTab(null)}
@@ -229,6 +234,29 @@ export default function TabLayout() {
             hoveredTab === 'matches' && styles.hoveredFooterTabText
           ]}>Maçlar</ThemedText>
         </HoverableTouchable>
+        
+        {/* Admin sekmesi sadece admin kullanıcılara gösterilir */}
+        {isAdmin && (
+          <HoverableTouchable 
+            style={styles.footerTab}
+            onPress={() => changeTab('admin')}
+            onHoverIn={() => setHoveredTab('admin')}
+            onHoverOut={() => setHoveredTab(null)}
+          >
+            <View style={[
+              styles.iconWrapper, 
+              activeTab === 'admin' && styles.activeIconWrapper,
+              hoveredTab === 'admin' && styles.hoveredIconWrapper
+            ]}>
+              <IconSymbol name="gear" size={22} color="#FFFFFF" />
+            </View>
+            <ThemedText style={[
+              styles.footerTabText, 
+              activeTab === 'admin' && styles.activeFooterTabText,
+              hoveredTab === 'admin' && styles.hoveredFooterTabText
+            ]}>Admin</ThemedText>
+          </HoverableTouchable>
+        )}
       </View>
     </View>
   );

@@ -22,7 +22,7 @@ router.get('/profile', auth, async (req, res) => {
 // Kullanıcı profil bilgilerini güncelle
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { name, email, profilePicture, favoriteTeams } = req.body;
+    const { name, email, profilePicture, favoriteTeams, bio, location, phone, level, position, footPreference, stats } = req.body;
     
     // Güncelleme nesnesi oluştur
     const updateData = {};
@@ -30,7 +30,25 @@ router.put('/profile', auth, async (req, res) => {
     if (email) updateData.email = email;
     if (profilePicture) updateData.profilePicture = profilePicture;
     if (favoriteTeams) updateData.favoriteTeams = favoriteTeams;
+    if (bio !== undefined) updateData.bio = bio;
+    if (location !== undefined) updateData.location = location;
+    if (phone !== undefined) updateData.phone = phone;
+    if (level !== undefined) updateData.level = level;
+    if (position !== undefined) updateData.position = position;
+    if (footPreference !== undefined) updateData.footPreference = footPreference;
     updateData.updatedAt = Date.now();
+    
+    // Stats alanının güncellemesi
+    if (stats) {
+      updateData.stats = {};
+      if (stats.matches !== undefined) updateData.stats.matches = stats.matches;
+      if (stats.goals !== undefined) updateData.stats.goals = stats.goals;
+      if (stats.assists !== undefined) updateData.stats.assists = stats.assists;
+      if (stats.playHours !== undefined) updateData.stats.playHours = stats.playHours;
+      if (stats.rating !== undefined) updateData.stats.rating = stats.rating;
+    }
+    
+    console.log('Kullanıcı profili güncelleniyor:', updateData);
     
     // Kullanıcıyı güncelle
     const updatedUser = await User.findByIdAndUpdate(
