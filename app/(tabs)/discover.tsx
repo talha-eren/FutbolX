@@ -10,7 +10,8 @@ import {
   Dimensions, 
   RefreshControl,
   Pressable,
-  Modal
+  Modal,
+  Platform
 } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -85,6 +86,7 @@ type ContentItem = (Post | Video) & {
   likes: number;
   comments: number;
   timestamp: string;
+  mediaType?: 'video' | 'image' | 'text';
 };
 
 // Video modal için tip
@@ -101,6 +103,9 @@ export default function DiscoverScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoModalProps | null>(null);
   const [videoModalVisible, setVideoModalVisible] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'videos' | 'images' | 'text'>('all');
+  const [sortBy, setSortBy] = useState<'latest' | 'popular'>('latest');
+  const [filterVisible, setFilterVisible] = useState(false);
   
   const { isLoggedIn } = useAuth();
   const router = useRouter();
@@ -116,16 +121,13 @@ export default function DiscoverScreen() {
     setError(null);
     
     try {
-      console.log('Tüm içerikler getiriliyor...');
+      // console.log('Tüm içerikler getiriliyor...');
       
       // Paralel olarak verileri çek
       const [postsResponse, videosResponse] = await Promise.all([
         postService.getAll(),
         videoService.getAll()
       ]);
-      
-      console.log('Gönderiler:', postsResponse?.length || 0, 'adet');
-      console.log('Videolar:', videosResponse?.length || 0, 'adet');
       
       // Verileri kontrol et ve boş değilse güncelle
       if (Array.isArray(postsResponse)) {
@@ -166,6 +168,17 @@ export default function DiscoverScreen() {
   const combineContent = (): ContentItem[] => {
     // Postları dönüştür
     const formattedPosts = posts.map(post => {
+      // Resim URL'sini düzelt
+      let imageUrl = post.image;
+      
+      // Resim varsa ve http ile başlamıyorsa URL'yi düzelt
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        // Yerel dosya yolu ise, tam URL oluştur
+        const baseUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+        imageUrl = `${baseUrl}${imageUrl}`;
+        // console.log('Düzeltilmiş resim URL:', imageUrl);
+      }
+      
       // Post verilerini kontrol et ve eksik alanları tamamla
       const postWithDefaults = {
         ...post,
@@ -174,8 +187,15 @@ export default function DiscoverScreen() {
         userAvatar: post.userAvatar || (post.user?.profilePicture) || '',
         likes: post.likes || 0,
         comments: post.comments || 0,
-        timestamp: post.timestamp || post.createdAt || new Date().toISOString()
+        timestamp: post.timestamp || post.createdAt || new Date().toISOString(),
+        // Post tipini belirle (resimli veya metin)
+        mediaType: post.image ? ('image' as const) : ('text' as const),
+        // Düzeltilmiş resim URL'sini kullan
+        image: imageUrl
       };
+      
+      // Debug için gönderi bilgilerini yazdır
+      // console.log(`Gönderi işleniyor: ${post._id}, Resim: ${imageUrl}`);
       
       return postWithDefaults;
     });
@@ -192,22 +212,41 @@ export default function DiscoverScreen() {
         comments: Array.isArray(video.comments) ? video.comments.length : (typeof video.comments === 'number' ? video.comments : 0),
         timestamp: video.timestamp || video.createdAt || video.uploadDate || new Date().toISOString(),
         // Video thumbnail'ı için varsayılan değer
-        thumbnail: video.thumbnail || 'https://via.placeholder.com/300/CCCCCC/808080?text=Video'
+        thumbnail: video.thumbnail || 'https://via.placeholder.com/300/CCCCCC/808080?text=Video',
+        mediaType: 'video' as const
       };
       
       return videoWithDefaults;
     });
     
-    // Tüm içerikleri birleştir ve tarihe göre sırala
-    const allContent = [...formattedPosts, ...formattedVideos];
+    // Tüm içerikleri birleştir
+    let allContent = [...formattedPosts, ...formattedVideos];
     
-    console.log('Birleştirilmiş içerik sayısı:', allContent.length);
+    // İçerikleri filtrele
+    if (filterType !== 'all') {
+      allContent = allContent.filter(item => {
+        if (filterType === 'videos' && item.contentType === 'video') return true;
+        if (filterType === 'images' && item.mediaType === 'image') return true;
+        if (filterType === 'text' && item.mediaType === 'text') return true;
+        return false;
+      });
+    }
     
-    return allContent.sort((a, b) => {
-      const timeA = getTimestamp(a);
-      const timeB = getTimestamp(b);
-      return timeB - timeA; // Yeniden eskiye sırala
+    // İçerikleri sırala
+    allContent.sort((a, b) => {
+      if (sortBy === 'latest') {
+        const timeA = getTimestamp(a);
+        const timeB = getTimestamp(b);
+        return timeB - timeA; // Yeniden eskiye sırala
+      } else if (sortBy === 'popular') {
+        return b.likes - a.likes; // Beğeni sayısına göre sırala
+      }
+      return 0;
     });
+    
+    // console.log('Birleştirilmiş içerik sayısı:', allContent.length);
+    
+    return allContent;
   };
   
   // Farklı tarih alanlarını kontrol et ve varsayılan değer kullan
@@ -310,16 +349,78 @@ export default function DiscoverScreen() {
   // Ana render fonksiyonu
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.discoverHeader}>
-        <ThemedText style={styles.discoverTitle}>Keşfet</ThemedText>
+      <View style={styles.header}>
+        <ThemedText style={styles.headerTitle}>Keşfet</ThemedText>
         <TouchableOpacity 
-          onPress={isLoggedIn ? () => router.push("/videoUpload" as any) : handleRestrictedAction}
-          activeOpacity={0.7}
-          style={styles.uploadButton}
+          style={styles.filterButton}
+          onPress={() => setFilterVisible(!filterVisible)}
         >
-          <IconSymbol name="plus" size={22} color="#FFF" />
+          <IconSymbol name="list.bullet" size={22} color="#4CAF50" />
+          <ThemedText style={styles.filterButtonText}>Filtrele</ThemedText>
         </TouchableOpacity>
       </View>
+      
+      {filterVisible && (
+        <View style={styles.filterContainer}>
+          <View style={styles.filterSection}>
+            <ThemedText style={styles.filterSectionTitle}>İçerik Türü</ThemedText>
+            <View style={styles.filterOptions}>
+              <TouchableOpacity 
+                style={[styles.filterOption, filterType === 'all' && styles.filterOptionActive]}
+                onPress={() => setFilterType('all')}
+              >
+                <ThemedText style={[styles.filterOptionText, filterType === 'all' && styles.filterOptionTextActive]}>Tümü</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.filterOption, filterType === 'videos' && styles.filterOptionActive]}
+                onPress={() => setFilterType('videos')}
+              >
+                <ThemedText style={[styles.filterOptionText, filterType === 'videos' && styles.filterOptionTextActive]}>Videolar</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.filterOption, filterType === 'images' && styles.filterOptionActive]}
+                onPress={() => setFilterType('images')}
+              >
+                <ThemedText style={[styles.filterOptionText, filterType === 'images' && styles.filterOptionTextActive]}>Görseller</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.filterOption, filterType === 'text' && styles.filterOptionActive]}
+                onPress={() => setFilterType('text')}
+              >
+                <ThemedText style={[styles.filterOptionText, filterType === 'text' && styles.filterOptionTextActive]}>Metin</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={styles.filterSection}>
+            <ThemedText style={styles.filterSectionTitle}>Sıralama</ThemedText>
+            <View style={styles.filterOptions}>
+              <TouchableOpacity 
+                style={[styles.filterOption, sortBy === 'latest' && styles.filterOptionActive]}
+                onPress={() => setSortBy('latest')}
+              >
+                <ThemedText style={[styles.filterOptionText, sortBy === 'latest' && styles.filterOptionTextActive]}>En Yeni</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.filterOption, sortBy === 'popular' && styles.filterOptionActive]}
+                onPress={() => setSortBy('popular')}
+              >
+                <ThemedText style={[styles.filterOptionText, sortBy === 'popular' && styles.filterOptionTextActive]}>Popüler</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.applyFilterButton}
+            onPress={() => {
+              setFilterVisible(false);
+              // Filtreleme zaten state değişikliği ile otomatik uygulanıyor
+            }}
+          >
+            <ThemedText style={styles.applyFilterButtonText}>Uygula</ThemedText>
+          </TouchableOpacity>
+        </View>
+      )}
       
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
@@ -356,8 +457,8 @@ export default function DiscoverScreen() {
               numColumns={3}
               keyExtractor={(item, index) => `discover-${item._id || item.id || index}`}
               renderItem={({ item, index }) => {
-                // Doğrudan IP adresi kullan
-                const directIP = 'http://192.168.1.27:5000';
+                // Kullanılan platforma göre API URL'si belirle
+                const apiBaseUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
                 const itemSize = getItemSize(index);
                 
                 // İçerik türüne göre görsel URL'si belirle
@@ -369,8 +470,15 @@ export default function DiscoverScreen() {
                   // Video thumbnail'i oluştur
                   imageUrl = item.thumbnail || 'https://via.placeholder.com/300/CCCCCC/808080?text=Video';
                 } else if (item.image) {
-                  // Post resmi
-                  imageUrl = item.image.startsWith('http') ? item.image : `${directIP}${item.image}`;
+                  // Post resmi - eğer item.image zaten http ile başlıyorsa, onu kullan
+                  if (item.image.startsWith('http')) {
+                    imageUrl = item.image;
+                    // console.log('HTTP ile başlayan resim URL:', imageUrl);
+                  } else {
+                    // Eğer göreli yol ise (örn: /uploads/posts/...), tam URL oluştur
+                    imageUrl = `${apiBaseUrl}${item.image}`;
+                    // console.log('Oluşturulan resim URL:', imageUrl);
+                  }
                 } else {
                   // Varsayılan resim
                   imageUrl = 'https://via.placeholder.com/300/EFEFEF/808080?text=FutbolX';
@@ -384,7 +492,8 @@ export default function DiscoverScreen() {
                     ]}
                     onPress={() => {
                       if (isVideo) {
-                        handleVideoPress(item);
+                        // Video detay sayfasına yönlendir
+                        router.push(`/video/${item._id || item.id}` as any);
                       } else {
                         isLoggedIn 
                           ? router.push(`/post/${item._id || item.id}` as any) 
@@ -457,33 +566,88 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
-  discoverHeader: {
+  header: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  discoverTitle: {
+  headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#212121',
   },
-  uploadButton: {
-    backgroundColor: primaryColor,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
+  filterButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  filterButtonText: {
+    marginLeft: 4,
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  filterContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  filterSection: {
+    marginBottom: 16,
+  },
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  filterOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  filterOptionActive: {
+    backgroundColor: '#4CAF50',
+  },
+  filterOptionText: {
+    fontSize: 14,
+    color: '#757575',
+  },
+  filterOptionTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  applyFilterButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  applyFilterButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
   },
   loadingContainer: {
     flex: 1,

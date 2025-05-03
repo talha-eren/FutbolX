@@ -44,8 +44,11 @@ const SharePostScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [previewVisible, setPreviewVisible] = useState(false);
   const { user, isLoggedIn, token } = useAuth();
   const router = useRouter();
+  const videoRef = React.useRef<Video>(null);
 
   // User tipini any olarak belirleme
   const currentUser = user as any;
@@ -103,6 +106,8 @@ const SharePostScreen = () => {
         setMedia(result.assets[0]);
         setMediaType('video');
         console.log('Seçilen video:', result.assets[0]);
+        // Video seçildiğinde önizleme modalını aç
+        setPreviewVisible(true);
       }
     } catch (error) {
       console.error('Video seçme hatası:', error);
@@ -118,8 +123,8 @@ const SharePostScreen = () => {
 
   // Gönderi paylaş
   const sharePost = async () => {
-    if (!content.trim()) {
-      Alert.alert('Lütfen açıklama girin', 'Gönderi açıklaması zorunlu bir alandır');
+    if (!content.trim() && !media) {
+      Alert.alert('Hata', 'Lütfen bir içerik veya medya ekleyin');
       return;
     }
     
@@ -129,22 +134,35 @@ const SharePostScreen = () => {
     }
     
     setUploading(true);
+    setUploadProgress(0);
     
-    // Retry mekanizması için sayaç
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    const attemptUpload = async () => {
+    const attemptUpload = async (retryCount = 0, maxRetries = 3) => {
       try {
+        // İlerleme simülasyonu
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev < 90) return prev + 5;
+            return prev;
+          });
+        }, 500);
+        
         // FormData oluştur
         const formData = new FormData();
         
-        // İçerik ve tür ekle
+        // İçerik ekle
         formData.append('content', content);
-        formData.append('contentType', mediaType ? (mediaType === 'video' ? 'video' : 'image') : 'text');
         
-        // Medya dosyasını ekle (varsa)
+        // Medya ekle (varsa)
         if (media && media.uri) {
+          // Dosya bilgilerini kontrol et
+          console.log('Medya bilgileri:', {
+            uri: media.uri,
+            name: media.name,
+            size: media.size,
+            mimeType: media.mimeType,
+            type: mediaType
+          });
+          
           let mediaUri = media.uri;
           if (Platform.OS === 'ios' && mediaUri.startsWith('file://')) {
             mediaUri = mediaUri.replace('file://', '');
@@ -239,28 +257,25 @@ const SharePostScreen = () => {
         
         console.log('Gönderi başarıyla paylaşıldı:', data);
         
-        // İlerleme alertı otomatik kapanacak
+        // İlerleme tamamlandı
+        clearInterval(progressInterval);
+        setUploadProgress(100);
         
+        // Başarılı mesajı göster
         setUploadSuccess(true);
-        Alert.alert(
-          'Başarılı', 
-          'Gönderi başarıyla paylaşıldı.',
-          [
-            { 
-              text: 'Tamam', 
-              onPress: () => {
-                // Ana sayfaya yönlendir
-                router.replace('/(tabs)');
-              }
-            }
-          ]
-        );
+        setTimeout(() => setUploadSuccess(false), 3000);
         
-        // Formu sıfırla
+        // Formu temizle
         setMedia(null);
         setMediaType(null);
         setContent('');
+        setPreviewVisible(false);
         
+        // Gönderileri yeniden yükle
+        fetchPosts();
+        
+        // Başarılı mesajı göster
+        Alert.alert('Başarılı', 'Gönderi başarıyla paylaşıldı');
       } catch (err: any) {
         console.error('Gönderi paylaşma hatası:', err);
         
@@ -288,7 +303,7 @@ const SharePostScreen = () => {
             [{ text: 'Tamam' }]
           );
           await new Promise(resolve => setTimeout(resolve, 2000)); // Kısa bir bekletme
-          return attemptUpload(); // Tekrar dene
+          return attemptUpload(retryCount, maxRetries); // Tekrar dene
         }
         
         // Kullanıcı dostu hata mesajı
@@ -432,30 +447,46 @@ const SharePostScreen = () => {
             )}
           </View>
           
-          {media && (
+          {media && mediaType === 'video' && (
             <View style={styles.selectedMedia}>
-              <IconSymbol name="checkmark.circle" size={20} color="#4CAF50" />
-              <ThemedText style={styles.selectedText}>
-                {mediaType === 'image' ? 'Görsel seçildi' : 'Video seçildi'}: {media.name}
+              <Ionicons name="videocam" size={24} color="#4CAF50" />
+              <ThemedText style={styles.selectedText} numberOfLines={1} ellipsizeMode="middle">
+                {media.name || 'Seçilen video'} ({media.size ? (media.size / (1024 * 1024)).toFixed(2) : '?'} MB)
               </ThemedText>
+              <TouchableOpacity 
+                style={styles.previewButton} 
+                onPress={() => setPreviewVisible(true)}
+              >
+                <Ionicons name="eye" size={16} color="#388E3C" />
+                <ThemedText style={styles.previewButtonText}>Önizle</ThemedText>
+              </TouchableOpacity>
             </View>
           )}
         </View>
         
         <TouchableOpacity
-          style={[styles.shareButton, (!content.trim()) && styles.disabledButton]}
+          style={[styles.shareButton, (uploading || (!content.trim() && !media)) && styles.disabledButton]}
           onPress={sharePost}
-          disabled={uploading || !content.trim()}
+          disabled={uploading || (!content.trim() && !media)}
         >
           {uploading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <>
+              <ActivityIndicator color="#FFFFFF" size="small" style={{ marginRight: 8 }} />
+              <ThemedText style={styles.shareButtonText}>Paylaşılıyor... {uploadProgress}%</ThemedText>
+            </>
           ) : (
             <>
-              <IconSymbol name="arrow.right.square" size={22} color="#FFFFFF" />
-              <ThemedText style={styles.shareButtonText}>Gönderiyi Paylaş</ThemedText>
+              <IconSymbol name="square.and.arrow.up" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.shareButtonText}>Paylaş</ThemedText>
             </>
           )}
         </TouchableOpacity>
+        
+        {uploading && (
+          <View style={styles.progressBarContainer}>
+            <View style={[styles.progressBar, { width: `${uploadProgress}%` }]} />
+          </View>
+        )}
         
         <View style={styles.recentPostsSection}>
           <ThemedText style={styles.sectionTitle}>Son Gönderileriniz</ThemedText>
@@ -516,17 +547,17 @@ const SharePostScreen = () => {
       
       {/* Video Modal */}
       <Modal
-        visible={modalVisible}
-        transparent={true}
         animationType="fade"
+        transparent={false}
+        visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.closeButton}
             onPress={() => setModalVisible(false)}
           >
-            <IconSymbol name="xmark.circle.fill" size={32} color="#FFFFFF" />
+            <Ionicons name="close" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           
           {selectedVideoUrl && (
@@ -538,6 +569,62 @@ const SharePostScreen = () => {
               shouldPlay
             />
           )}
+        </View>
+      </Modal>
+      
+      {/* Video önizleme modalı */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={previewVisible && !!media && mediaType === 'video'}
+        onRequestClose={() => setPreviewVisible(false)}
+      >
+        <View style={styles.previewModalContainer}>
+          <View style={styles.previewHeader}>
+            <ThemedText style={styles.previewTitle}>Video Önizleme</ThemedText>
+            <TouchableOpacity
+              style={styles.closePreviewButton}
+              onPress={() => setPreviewVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          
+          {media && mediaType === 'video' && (
+            <Video
+              ref={videoRef}
+              source={{ uri: media.uri }}
+              rate={1.0}
+              volume={1.0}
+              isMuted={false}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay
+              useNativeControls
+              style={styles.previewVideo}
+            />
+          )}
+          
+          <View style={styles.previewActions}>
+            <TouchableOpacity
+              style={styles.previewActionButton}
+              onPress={() => setPreviewVisible(false)}
+            >
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.previewActionText}>Geri Dön</ThemedText>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.previewActionButton, styles.uploadActionButton]}
+              onPress={() => {
+                setPreviewVisible(false);
+                sharePost();
+              }}
+              disabled={uploading || !content.trim()}
+            >
+              <Ionicons name="cloud-upload" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.previewActionText}>Paylaş</ThemedText>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </ThemedView>
@@ -747,6 +834,84 @@ const styles = StyleSheet.create({
   videoPlayer: {
     width: '100%',
     height: 300,
+  },
+  previewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  previewButtonText: {
+    color: '#388E3C',
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 3,
+    marginTop: 12,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 3,
+  },
+  previewModalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#212121',
+  },
+  closePreviewButton: {
+    padding: 4,
+  },
+  previewVideo: {
+    width: '100%',
+    height: 300,
+    backgroundColor: '#000',
+  },
+  previewActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  previewActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#757575',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    minWidth: 120,
+  },
+  uploadActionButton: {
+    backgroundColor: '#4CAF50',
+  },
+  previewActionText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 8,
   },
 });
 

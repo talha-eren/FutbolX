@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-  reservationButtonText: {
+  reservationButtonText2: {
     color: COLORS.white,
     fontWeight: 'bold',
     fontSize: 15,

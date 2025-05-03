@@ -82,7 +82,7 @@ export default function ProfileScreen() {
   
   // Profil verilerini çek - çevrimdışı mod desteği ile
   const fetchUserProfile = async () => {
-    setLoading(true);
+        setLoading(true);
     try {
       // Çevrimdışı mod kontrolü
       const offline = await checkOfflineMode();
@@ -121,21 +121,21 @@ export default function ProfileScreen() {
       }
       
       // Çevrimiçi mod - gerçek API'den verileri çek
-      const profileData = await userService.getProfile();
+            const profileData = await userService.getProfile();
       console.log('Profil verileri:', profileData);
       
       // Gelen verileri UserProfile formatına dönüştür
       const stats = profileData.stats || {};
-      const formattedData: UserProfile = {
-        id: profileData._id || profileData.id,
-        name: profileData.name,
-        username: profileData.username,
-        email: profileData.email,
+            const formattedData: UserProfile = {
+              id: profileData._id || profileData.id,
+              name: profileData.name,
+              username: profileData.username,
+              email: profileData.email,
         profilePicture: profileData.profilePicture || DEFAULT_PROFILE_IMAGE,
         bio: profileData.bio || '',
         location: profileData.location || '',
         phone: profileData.phone || '',
-        favoriteTeams: profileData.favoriteTeams || [],
+              favoriteTeams: profileData.favoriteTeams || [],
         level: profileData.level || '',
         position: profileData.position || '',
         footPreference: profileData.footPreference || '',
@@ -146,14 +146,14 @@ export default function ProfileScreen() {
           playHours: stats.playHours || 0,
           rating: stats.rating || 0
         },
-        // Doğrudan erişim için ek alanlar
+              // Doğrudan erişim için ek alanlar
         matches: stats.matches || 0,
         goals: stats.goals || 0,
         assists: stats.assists || 0,
         playHours: stats.playHours || 0
-      };
-      
-      setUserData(formattedData);
+            };
+            
+            setUserData(formattedData);
       
     } catch (error) {
       console.error('Profil yüklenirken hata:', error);
@@ -178,7 +178,7 @@ export default function ProfileScreen() {
         location: 'İstanbul',
         level: offlineUser.level || 'Orta',
         position: offlineUser.position || 'Forvet',
-        footPreference: 'Sağ',
+            footPreference: 'Sağ',
         stats: offlineUser.stats || {
           matches: 15,
           goals: 8,
@@ -192,10 +192,10 @@ export default function ProfileScreen() {
         playHours: 30
       };
       setUserData(formattedOfflineUser);
-    } finally {
-      setLoading(false);
-    }
-  };
+      } finally {
+        setLoading(false);
+      }
+    };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -324,30 +324,30 @@ export default function ProfileScreen() {
               
               <View style={styles.userBadges}>
                 {userData.level && (
-                  <View style={styles.userLevel}>
-                    <IconSymbol name="medal" size={16} color="#FFFFFF" />
-                    <ThemedText style={styles.userLevelText}>
+                <View style={styles.userLevel}>
+                  <IconSymbol name="medal" size={16} color="#FFFFFF" />
+                  <ThemedText style={styles.userLevelText}>
                       {userData.level}
-                    </ThemedText>
-                  </View>
+                  </ThemedText>
+                </View>
                 )}
                 
                 {userData.position && (
-                  <View style={styles.userPosition}>
-                    <IconSymbol name="person.fill" size={16} color="#FFFFFF" />
-                    <ThemedText style={styles.userPositionText}>
+                <View style={styles.userPosition}>
+                  <IconSymbol name="person.fill" size={16} color="#FFFFFF" />
+                  <ThemedText style={styles.userPositionText}>
                       {userData.position}
-                    </ThemedText>
-                  </View>
+                  </ThemedText>
+                </View>
                 )}
                 
                 {userData.footPreference && (
-                  <View style={styles.userFootPreference}>
-                    <IconSymbol name="figure.walk" size={16} color="#FFFFFF" />
-                    <ThemedText style={styles.userFootPreferenceText}>
+                <View style={styles.userFootPreference}>
+                  <IconSymbol name="figure.walk" size={16} color="#FFFFFF" />
+                  <ThemedText style={styles.userFootPreferenceText}>
                       {userData.footPreference}
-                    </ThemedText>
-                  </View>
+                  </ThemedText>
+                </View>
                 )}
               </View>
             </View>
@@ -521,7 +521,7 @@ export default function ProfileScreen() {
               <IconSymbol name="medal" size={24} color={tintColor} />
               <ThemedText style={styles.characteristicLabel}>Seviye</ThemedText>
               <ThemedText style={[styles.characteristicValue, { color: tintColor }]}>{userData.level || '-'}</ThemedText>
-            </View>
+        </View>
             
             <View style={[styles.characteristicItem, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
               <IconSymbol name="person.fill" size={24} color={tintColor} />
@@ -533,7 +533,7 @@ export default function ProfileScreen() {
               <IconSymbol name="figure.walk" size={24} color={tintColor} />
               <ThemedText style={styles.characteristicLabel}>Ayak Tercihi</ThemedText>
               <ThemedText style={[styles.characteristicValue, { color: tintColor }]}>{userData.footPreference || '-'}</ThemedText>
-            </View>
+          </View>
           </View>
         </View>
         

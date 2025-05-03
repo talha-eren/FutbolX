@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
  */
 const VideoUploadScreen = () => {
   const router = useRouter();
-  
+
   // Component mount olunca yönlendirme yap
   useEffect(() => {
     // Kısa bir gecikme ile yönlendirme yap (Flash ekranını önlemek için)

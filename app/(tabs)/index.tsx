@@ -432,7 +432,7 @@ export default function IndexScreen() {
       ) : (
         <View style={styles.eventsContainer}>
           {events.map((event, index) => (
-            <Pressable 
+            <Pressable
               key={`event-${event.id || index}`}
               style={styles.eventCard}
               onPress={isLoggedIn ? () => router.push(`/event/${event.id}` as any) : handleRestrictedAction}
@@ -444,11 +444,11 @@ export default function IndexScreen() {
                   <View style={styles.eventDetailItem}>
                     <IconSymbol name="calendar" size={14} color="#777" />
                     <ThemedText style={styles.eventDetailText}>{event.date} • {event.time}</ThemedText>
-                  </View>
+                </View>
                   <View style={styles.eventDetailItem}>
                     <IconSymbol name="mappin" size={14} color="#777" />
                     <ThemedText style={styles.eventDetailText}>{event.location}</ThemedText>
-                  </View>
+                </View>
                   <View style={styles.eventDetailItem}>
                     <IconSymbol name="person.2" size={14} color="#777" />
                     <ThemedText style={styles.eventDetailText}>{event.participants}/{event.maxParticipants} Katılımcı</ThemedText>
@@ -572,97 +572,97 @@ export default function IndexScreen() {
                   // Video render
                   return (
                     <View key={itemKey} style={styles.contentCard}>
-                      <TouchableOpacity 
-                        style={styles.contentCard}
-                        onPress={() => {
-                          console.log('Video seçildi:', item);
-                          // URL'yi düzgün şekilde oluştur
-                          let videoUrl = '';
-                          
-                          // Bilgisayarın IP adresini doğrudan kullan (Kullanıcının IP adresi: 192.168.1.27)
-                          const directIP = 'http://192.168.1.27:5000';
-                          
-                          if (item.url) {
-                            // Eğer tam URL ise doğrudan kullan
-                            if (item.url.startsWith('http')) {
-                              videoUrl = item.url;
-                            } else {
-                              // Relatif URL ise doğrudan IP adresi ile birleştir
-                              videoUrl = `${directIP}${item.url}`;
-                            }
-                          } else if (item.filename) {
-                            // Filename varsa tam yolu oluştur
-                            videoUrl = `${directIP}/uploads/videos/${item.filename}`;
-                          }
-                          
-                          console.log('API_URL:', API_URL);
-                          console.log('Doğrudan IP:', directIP);
-                          console.log('Video URL oluşturuldu:', videoUrl);
-                          
-                          if (videoUrl) {
-                            console.log('Video URL (düzeltilmiş):', videoUrl);
-                            // Video modalini aç
-                            setSelectedVideo({
-                              url: videoUrl,
-                              title: item.title || 'Video'
-                            });
-                            setVideoModalVisible(true);
+                    <TouchableOpacity 
+                      style={styles.contentCard}
+                      onPress={() => {
+                        console.log('Video seçildi:', item);
+                        // URL'yi düzgün şekilde oluştur
+                        let videoUrl = '';
+                        
+                        // Bilgisayarın IP adresini doğrudan kullan (Kullanıcının IP adresi: 192.168.1.27)
+                        const directIP = 'http://192.168.1.27:5000';
+                        
+                        if (item.url) {
+                          // Eğer tam URL ise doğrudan kullan
+                          if (item.url.startsWith('http')) {
+                            videoUrl = item.url;
                           } else {
-                            Alert.alert('Hata', 'Video URL bulunamadı');
+                            // Relatif URL ise doğrudan IP adresi ile birleştir
+                            videoUrl = `${directIP}${item.url}`;
                           }
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <View style={styles.contentHeader}>
-                          <View style={styles.userInfo}>
-                            <View style={styles.userAvatar}>
-                              <IconSymbol name="person.circle.fill" size={30} color="#777" />
-                            </View>
-                            <View>
-                              <ThemedText style={styles.username}>
-                                {item.user?.username || item.username || 'Kullanıcı'}
-                              </ThemedText>
-                              <ThemedText style={styles.timestamp}>
-                                {item.uploadDate ? new Date(item.uploadDate).toLocaleDateString('tr-TR') : 
-                                 item.createdAt ? new Date(item.createdAt).toLocaleDateString('tr-TR') : 
-                                 'Tarih bilgisi yok'}
-                              </ThemedText>
-                            </View>
+                        } else if (item.filename) {
+                          // Filename varsa tam yolu oluştur
+                          videoUrl = `${directIP}/uploads/videos/${item.filename}`;
+                        }
+                        
+                        console.log('API_URL:', API_URL);
+                        console.log('Doğrudan IP:', directIP);
+                        console.log('Video URL oluşturuldu:', videoUrl);
+                        
+                        if (videoUrl) {
+                          console.log('Video URL (düzeltilmiş):', videoUrl);
+                          // Video modalini aç
+                          setSelectedVideo({
+                            url: videoUrl,
+                            title: item.title || 'Video'
+                          });
+                          setVideoModalVisible(true);
+                        } else {
+                          Alert.alert('Hata', 'Video URL bulunamadı');
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.contentHeader}>
+                        <View style={styles.userInfo}>
+                          <View style={styles.userAvatar}>
+                            <IconSymbol name="person.circle.fill" size={30} color="#777" />
                           </View>
-                          <View style={styles.contentBadge}>
-                            <IconSymbol name="video.fill" size={12} color="#FFF" />
-                            <ThemedText style={styles.contentBadgeText}>Video</ThemedText>
+                          <View>
+                            <ThemedText style={styles.username}>
+                              {item.user?.username || item.username || 'Kullanıcı'}
+                            </ThemedText>
+                            <ThemedText style={styles.timestamp}>
+                              {item.uploadDate ? new Date(item.uploadDate).toLocaleDateString('tr-TR') : 
+                               item.createdAt ? new Date(item.createdAt).toLocaleDateString('tr-TR') : 
+                               'Tarih bilgisi yok'}
+                            </ThemedText>
                           </View>
                         </View>
-                        
-                        <ThemedText style={styles.contentTitle}>{item.title || 'Video Başlığı'}</ThemedText>
-                        {item.description && (
-                          <ThemedText style={styles.contentDescription} numberOfLines={2}>
-                            {item.description}
-                          </ThemedText>
-                        )}
-                        
-                        <View style={styles.videoThumbnail}>
-                          <View style={styles.videoThumbnailPlaceholder}>
-                            <IconSymbol name="play.circle.fill" size={40} color="#FFF" />
-                          </View>
+                        <View style={styles.contentBadge}>
+                          <IconSymbol name="video.fill" size={12} color="#FFF" />
+                          <ThemedText style={styles.contentBadgeText}>Video</ThemedText>
                         </View>
-                        
-                        <View style={styles.contentFooter}>
-                          <View style={styles.contentStats}>
-                            <IconSymbol name="eye" size={16} color="#777" />
-                            <ThemedText style={styles.statsText}>{item.views || 0}</ThemedText>
-                          </View>
-                          <View style={styles.contentStats}>
-                            <IconSymbol name="heart" size={16} color="#777" />
-                            <ThemedText style={styles.statsText}>{Array.isArray(item.likes) ? item.likes.length : (typeof item.likes === 'number' ? item.likes : 0)}</ThemedText>
-                          </View>
-                          <View style={styles.contentStats}>
-                            <IconSymbol name="bubble.right" size={16} color="#777" />
-                            <ThemedText style={styles.statsText}>{Array.isArray(item.comments) ? item.comments.length : (typeof item.comments === 'number' ? item.comments : 0)}</ThemedText>
-                          </View>
+                      </View>
+                      
+                      <ThemedText style={styles.contentTitle}>{item.title || 'Video Başlığı'}</ThemedText>
+                      {item.description && (
+                        <ThemedText style={styles.contentDescription} numberOfLines={2}>
+                          {item.description}
+                        </ThemedText>
+                      )}
+                      
+                      <View style={styles.videoThumbnail}>
+                        <View style={styles.videoThumbnailPlaceholder}>
+                          <IconSymbol name="play.circle.fill" size={40} color="#FFF" />
                         </View>
-                      </TouchableOpacity>
+                      </View>
+                      
+                      <View style={styles.contentFooter}>
+                        <View style={styles.contentStats}>
+                          <IconSymbol name="eye" size={16} color="#777" />
+                          <ThemedText style={styles.statsText}>{item.views || 0}</ThemedText>
+                        </View>
+                        <View style={styles.contentStats}>
+                          <IconSymbol name="heart" size={16} color="#777" />
+                          <ThemedText style={styles.statsText}>{Array.isArray(item.likes) ? item.likes.length : (typeof item.likes === 'number' ? item.likes : 0)}</ThemedText>
+                        </View>
+                        <View style={styles.contentStats}>
+                          <IconSymbol name="bubble.right" size={16} color="#777" />
+                          <ThemedText style={styles.statsText}>{Array.isArray(item.comments) ? item.comments.length : (typeof item.comments === 'number' ? item.comments : 0)}</ThemedText>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
                     </View>
                   );
                 } else {
@@ -692,59 +692,59 @@ export default function IndexScreen() {
                   
                   return (
                     <View key={itemKey} style={styles.contentCard}>
-                      <Pressable 
-                        style={styles.contentCard}
+                    <Pressable 
+                      style={styles.contentCard}
                         onPress={() => router.push(`/post/${item._id || item.id}` as any)}
-                      >
-                        <View style={styles.contentHeader}>
-                          <View style={styles.userInfo}>
-                            {userImage ? (
-                              <Image 
-                                source={{ uri: userImage.startsWith('http') ? userImage : `${directIP}${userImage}` }} 
-                                style={styles.userAvatarImage} 
-                              />
-                            ) : (
-                              <View style={styles.userAvatar}>
-                                <IconSymbol name="person.circle.fill" size={30} color="#777" />
-                              </View>
-                            )}
-                            <View>
-                              <ThemedText style={styles.username}>{username}</ThemedText>
-                              <ThemedText style={styles.timestamp}>{formattedDate}</ThemedText>
-                            </View>
-                          </View>
-                          <View style={styles.contentBadge}>
-                            <IconSymbol name="doc.text.fill" size={12} color="#FFF" />
-                            <ThemedText style={styles.contentBadgeText}>Paylaşım</ThemedText>
-                          </View>
-                        </View>
-                        
-                        <ThemedText style={styles.contentText}>{content}</ThemedText>
-                        
-                        {item.image && (
-                          <Image 
-                            source={{ uri: item.image.startsWith('http') ? item.image : `${directIP}${item.image}` }} 
-                            style={styles.contentImage} 
-                          />
-                        )}
-                        
-                        <View style={styles.contentFooter}>
-                          <View style={styles.contentStats}>
-                            <IconSymbol name="heart" size={16} color="#777" />
-                            <ThemedText style={styles.statsText}>{item.likes}</ThemedText>
-                          </View>
-                          <View style={styles.contentStats}>
-                            <IconSymbol name="bubble.right" size={16} color="#777" />
-                            <ThemedText style={styles.statsText}>{item.comments}</ThemedText>
-                          </View>
-                          {item.location && (
-                            <View style={styles.contentStats}>
-                              <IconSymbol name="mappin" size={16} color="#777" />
-                              <ThemedText style={styles.statsText}>{item.location}</ThemedText>
+                    >
+                      <View style={styles.contentHeader}>
+                        <View style={styles.userInfo}>
+                          {userImage ? (
+                            <Image 
+                              source={{ uri: userImage.startsWith('http') ? userImage : `${directIP}${userImage}` }} 
+                              style={styles.userAvatarImage} 
+                            />
+                          ) : (
+                            <View style={styles.userAvatar}>
+                              <IconSymbol name="person.circle.fill" size={30} color="#777" />
                             </View>
                           )}
+                          <View>
+                            <ThemedText style={styles.username}>{username}</ThemedText>
+                            <ThemedText style={styles.timestamp}>{formattedDate}</ThemedText>
+                          </View>
                         </View>
-                      </Pressable>
+                        <View style={styles.contentBadge}>
+                          <IconSymbol name="doc.text.fill" size={12} color="#FFF" />
+                          <ThemedText style={styles.contentBadgeText}>Paylaşım</ThemedText>
+                        </View>
+                      </View>
+                      
+                      <ThemedText style={styles.contentText}>{content}</ThemedText>
+                      
+                      {item.image && (
+                        <Image 
+                          source={{ uri: item.image.startsWith('http') ? item.image : `${directIP}${item.image}` }} 
+                          style={styles.contentImage} 
+                        />
+                      )}
+                      
+                      <View style={styles.contentFooter}>
+                        <View style={styles.contentStats}>
+                          <IconSymbol name="heart" size={16} color="#777" />
+                          <ThemedText style={styles.statsText}>{item.likes}</ThemedText>
+                        </View>
+                        <View style={styles.contentStats}>
+                          <IconSymbol name="bubble.right" size={16} color="#777" />
+                          <ThemedText style={styles.statsText}>{item.comments}</ThemedText>
+                        </View>
+                        {item.location && (
+                          <View style={styles.contentStats}>
+                            <IconSymbol name="mappin" size={16} color="#777" />
+                            <ThemedText style={styles.statsText}>{item.location}</ThemedText>
+                          </View>
+                        )}
+                      </View>
+                    </Pressable>
                     </View>
                   );
                 }
@@ -875,9 +875,9 @@ export default function IndexScreen() {
                 style={styles.postCard}
                 activeOpacity={0.8}
                 onPress={() => router.push(`/post/${post._id || post.id}` as any)}
-              >
-                <View style={styles.postHeader}>
-                  <Image 
+          >
+            <View style={styles.postHeader}>
+                <Image 
                     source={{ 
                       uri: getImageUrl(
                         post.userImage || 
@@ -886,8 +886,8 @@ export default function IndexScreen() {
                           : undefined)
                       )
                     }} 
-                    style={styles.avatarImage}
-                  />
+                  style={styles.avatarImage}
+                />
                   <View style={styles.postUserInfo}>
                     <ThemedText style={styles.postUsername}>
                       {post.username || 
@@ -899,8 +899,8 @@ export default function IndexScreen() {
                       {post.timestamp || post.createdAt 
                         ? new Date(post.timestamp || post.createdAt || Date.now()).toLocaleDateString('tr-TR') 
                         : 'Bilinmeyen zaman'}
-                    </ThemedText>
-                  </View>
+                  </ThemedText>
+                </View>
                 </View>
                 
                 <ThemedText style={styles.postContent}>{post.content || ''}</ThemedText>
@@ -926,7 +926,7 @@ export default function IndexScreen() {
                   >
                     <View style={styles.videoThumbnailOverlay}>
                       <IconSymbol name="play.circle.fill" size={40} color="#FFF" />
-                    </View>
+                  </View>
                   </TouchableOpacity>
                 )}
                 
@@ -934,11 +934,11 @@ export default function IndexScreen() {
                   <View style={styles.postStat}>
                     <IconSymbol name="heart" size={16} color="#777" />
                     <ThemedText style={styles.postStatText}>{post.likes || 0}</ThemedText>
-                  </View>
+              </View>
                   <View style={styles.postStat}>
                     <IconSymbol name="message" size={16} color="#777" />
                     <ThemedText style={styles.postStatText}>{post.comments || 0}</ThemedText>
-                  </View>
+            </View>
                 </View>
               </TouchableOpacity>
             );

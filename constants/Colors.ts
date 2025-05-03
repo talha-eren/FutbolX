@@ -4,10 +4,12 @@
  */
 
 // Ana renkler
-const primaryColor = '#4CAF50';     // Yeşil - Futbol çimini temsil eden ana renk
-const secondaryColor = '#388E3C';   // Koyu yeşil - Vurgu rengi
+export const primaryColor = '#4CAF50';     // Yeşil - Futbol çimini temsil eden ana renk
+export const secondaryColor = '#388E3C';   // Koyu yeşil - Vurgu rengi
 const accentColor = '#8BC34A';      // Açık yeşil - İkincil vurgu rengi
 const neutralColor = '#F5F5F5';     // Açık gri - Nötr arka plan rengi
+export const backgroundColor = '#FFFFFF';  // Beyaz - Ana arka plan rengi
+export const textColor = '#212121';       // Koyu gri - Ana metin rengi
 
 // Metin renkleri
 const darkText = '#212121';         // Koyu metin rengi

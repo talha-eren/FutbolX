@@ -70,6 +70,8 @@ const MAPPING = {
   'trash': 'delete',
   'xmark.circle.fill': 'cancel',
   'checkmark.circle': 'check-circle',
+  'person.circle.fill': 'account-circle',
+  'football': 'sports-soccer',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

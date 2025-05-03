@@ -4,6 +4,9 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
 
+// JWT_SECRET sabit değerini tanımla
+const JWT_SECRET = 'futbolx-secret-key-2025';
+
 // Kullanıcı Kaydı
 router.post('/register', async (req, res) => {
   try {
@@ -52,7 +55,7 @@ router.post('/register', async (req, res) => {
     // JWT token oluştur
     const token = jwt.sign(
       { id: user.id },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -174,7 +177,7 @@ router.post('/login', async (req, res) => {
     // JWT token oluştur
     const token = jwt.sign(
       { id: user.id },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -354,7 +357,7 @@ router.post('/google-login', async (req, res) => {
     // JWT token oluştur
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      process.env.JWT_SECRET || 'jwt-secret',
+      JWT_SECRET,
       { expiresIn: '1d' }
     );
     
@@ -428,7 +431,7 @@ router.post('/facebook-login', async (req, res) => {
     // JWT token oluştur
     const token = jwt.sign(
       { id: user.id },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '1d' }
     );
     

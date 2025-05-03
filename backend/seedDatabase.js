@@ -607,8 +607,8 @@ async function seedDatabase() {
         user: users[3]._id,
         username: users[3].username,
         userAvatar: users[3].profilePicture
-      },
-      {
+          },
+          {
         content: 'Beslenme düzenim ve futbolcu olarak performansıma etkileri hakkında düşüncelerim...',
         author: users[4]._id,
         user: users[4]._id,

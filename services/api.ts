@@ -28,10 +28,14 @@ try {
   // Bu IP, telefonun ve bilgisayarın aynı ağda olduğunu varsayar
   const METRO_IP = '192.168.1.49'; // Expo loglarında görünen IP
   
-  if (Platform.OS === 'android' || Platform.OS === 'ios') {
-    // Mobil cihazlar için Expo Metro sunucusunun IP'sini kullan
+  if (Platform.OS === 'android') {
+    // Android emülatör için özel IP kullan
+    API_URL = `http://10.0.2.2:${BACKEND_PORT}/api`;
+    console.log(`Android emülatör tespit edildi, 10.0.2.2 IP kullanılıyor`);
+  } else if (Platform.OS === 'ios') {
+    // iOS için Metro IP'sini kullan
     API_URL = `http://${METRO_IP}:${BACKEND_PORT}/api`;
-    console.log(`${Platform.OS} platformu tespit edildi, Metro IP kullanılıyor: ${METRO_IP}`);
+    console.log(`iOS platformu tespit edildi, Metro IP kullanılıyor: ${METRO_IP}`);
   } else if (Platform.OS === 'web') {
     // Web için localhost
     API_URL = `http://localhost:${BACKEND_PORT}/api`;
@@ -872,67 +876,84 @@ export const postService = {
   // Tüm gönderileri getir
   getAll: async () => {
     try {
-      console.log('Gönderiler getiriliyor...');
+      // console.log('Gönderiler getiriliyor...');
       const headers = await getAuthHeaders();
       
       // Güvenli fetch işlemi
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 saniye timeout (artırıldı)
       
-      try {
-        const response = await fetch(`${API_URL}/posts`, {
-          method: 'GET',
-          headers,
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        // Başarılı yanıt kontrolü
-        if (!response.ok) {
-          console.error(`API hatası: ${response.status} ${response.statusText}`);
-          return []; // Hata durumunda boş dizi döndür
-        }
-        
-        // Önce response'un içeriğini text olarak al
-        const responseText = await response.text();
-        
-        // Boş yanıt kontrolü
-        if (!responseText || responseText.trim() === '') {
-          console.log('API boş yanıt döndü, örnek gönderiler kullanılıyor');
-          return [];
-        }
-        
-        // JSON parse etmeyi dene
-        try {
-          const data = JSON.parse(responseText);
-          console.log('Gönderiler başarıyla alındı:', data.length || 'Veri yok');
-          return data;
-        } catch (parseError) {
-          console.error('JSON parse hatası:', responseText.substring(0, 100));
-          return [];
-        }
-      } catch (error) {
-        const fetchError = error as Error;
-        
-        // AbortError (timeout) durumunda boş dizi döndür
-        if (fetchError.name === 'AbortError') {
-          console.log('Gönderi isteği zaman aşımına uğradı, varsayılan veriler kullanılıyor');
-          return [];
-        }
-        
-        // Network hatalarında boş dizi döndür
-        if (fetchError.message === 'Network request failed') {
-          console.log('Ağ hatası, varsayılan veriler kullanılıyor');
-          return [];
-        }
-        
-        console.error('Gönderi getirme hatası:', fetchError);
-        return [];
+      // Denenecek URL'ler
+      const urlsToTry = [];
+      
+      // Platform'a göre URL'leri hazırla
+      if (Platform.OS === 'android') {
+        urlsToTry.push(`http://10.0.2.2:${BACKEND_PORT}/api/posts`);
+        urlsToTry.push(`http://10.0.2.2:5000/api/posts`);
+      } else {
+        urlsToTry.push(`${API_URL}/posts`);
+        urlsToTry.push(`http://localhost:5000/api/posts`);
       }
-    } catch (error: any) {
-      console.error('Get posts error:', error);
-      return []; // Boş dizi döndür
+      
+      // IP adresine göre alternatif URL'ler
+      urlsToTry.push(`http://192.168.1.27:${BACKEND_PORT}/api/posts`);
+      urlsToTry.push(`http://192.168.1.27:5000/api/posts`);
+      
+      // Her URL'yi sırayla dene
+      let lastError: any = null;
+      
+      for (const url of urlsToTry) {
+        try {
+          // console.log('Gönderi API URL deneniyor:', url);
+          
+          const response = await fetch(url, {
+            method: 'GET',
+            headers,
+            signal: controller.signal
+          });
+          
+          // Başarılı yanıt kontrolü
+          if (!response.ok) {
+            // console.log(`URL ${url} için API hatası: ${response.status} ${response.statusText}`);
+            continue; // Sonraki URL'yi dene
+          }
+          
+          // Önce response'un içeriğini text olarak al
+          const responseText = await response.text();
+          
+          // Boş yanıt kontrolü
+          if (!responseText || responseText.trim() === '') {
+            // console.log(`URL ${url} için API boş yanıt döndü, sonraki deneniyor`);
+            continue; // Sonraki URL'yi dene
+          }
+          
+          // JSON parse etmeyi dene
+          try {
+            const data = JSON.parse(responseText);
+            // console.log('Gönderiler başarıyla alındı:', data.length || 'Veri yok');
+            // console.log('Gönderiler başarıyla yüklendi:', data.length);
+            
+            // Başarılı olduğunda timeout'u temizle
+            clearTimeout(timeoutId);
+            return data;
+          } catch (parseError) {
+            // console.error(`URL ${url} için JSON parse hatası:`, responseText.substring(0, 100));
+            continue; // Sonraki URL'yi dene
+          }
+        } catch (error) {
+          lastError = error;
+          // console.log(`URL ${url} için fetch hatası:`, (error as Error).message);
+          continue; // Sonraki URL'yi dene
+        }
+      }
+      
+      // Tüm URL'ler denendikten sonra hala başarısızsa
+      clearTimeout(timeoutId);
+      console.error('Gönderi listeleme hatası:', lastError);
+      throw new Error('Gönderiler alınamadı');
+    } catch (error) {
+      console.error('Gönderi listeleme hatası:', error);
+      return [];
     }
   },
   

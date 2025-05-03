@@ -315,16 +315,23 @@ export const videoService = {
         return [];
       }
       
-      // Calisan API URL'yi bul
-      let apiBaseUrl = WORKING_API_URL || BASE_API_URL;
-      
-      // Eger daha once calisan bir URL yoksa, calisani bulmaya calis
-      if (!WORKING_API_URL) {
-        try {
-          apiBaseUrl = await findWorkingApiUrl();
-          console.log('Calisan API URL bulundu ve kullaniliyor:', apiBaseUrl);
-        } catch (err) {
-          console.warn('Calisan API URL bulunamadi, varsayilan kullaniliyor');
+      // Android emülatör için özel URL kullan
+      let apiBaseUrl;
+      if (Platform.OS === 'android') {
+        apiBaseUrl = `http://10.0.2.2:${PORT}/api`;
+        console.log('Android emülatör için özel URL kullanılıyor:', apiBaseUrl);
+      } else {
+        // Calisan API URL'yi bul
+        apiBaseUrl = WORKING_API_URL || BASE_API_URL;
+        
+        // Eger daha once calisan bir URL yoksa, calisani bulmaya calis
+        if (!WORKING_API_URL) {
+          try {
+            apiBaseUrl = await findWorkingApiUrl();
+            console.log('Calisan API URL bulundu ve kullaniliyor:', apiBaseUrl);
+          } catch (err) {
+            console.warn('Calisan API URL bulunamadi, varsayilan kullaniliyor');
+          }
         }
       }
       
@@ -354,29 +361,35 @@ export const videoService = {
       } catch (error: any) {
         console.warn(`${videosUrl} ile baglanti basarisiz: ${error.message}`);
         
-        // Dogrudan IP adresi kullanarak dene
-        const directUrl = `http://${COMPUTER_IP}:${PORT}/api/videos`;
-        console.log(`Dogrudan IP ile deneniyor: ${directUrl}`);
+        // Alternatif URL'leri dene
+        const alternativeUrls = [
+          `http://10.0.2.2:${PORT}/api/videos`,      // Android emülatör
+          `http://${COMPUTER_IP}:${PORT}/api/videos`, // Bilgisayar IP'si
+          `http://localhost:${PORT}/api/videos`,      // Localhost
+          `http://127.0.0.1:${PORT}/api/videos`        // Localhost alternatifi
+        ];
         
-        try {
-          const response = await axiosInstance.get(directUrl, { headers });
-          console.log('Dogrudan IP ile videolar alindi:', response.data.length || 0, 'video');
-          // Calisan URL'yi kaydet
-          WORKING_API_URL = `http://${COMPUTER_IP}:${PORT}/api`;
-          return response.data;
-        } catch (directError: any) {
-          console.warn(`Dogrudan IP ile baglanti basarisiz: ${directError.message}`);
-          
-          // Son care olarak alternatif URL'leri dene
-          console.log('Alternatif URLler deneniyor...');
+        // Tüm alternatif URL'leri sırayla dene
+        for (const url of alternativeUrls) {
           try {
-            return await videoService.tryAlternativeUrls('/videos');
-          } catch (altError) {
-            console.error('Tum alternatifler basarisiz oldu');
-            throw new Error('Video verileri alinamadi: Sunucuya baglanilamiyor');
+            console.log(`Alternatif URL deneniyor: ${url}`);
+            const response = await axiosInstance.get(url, { headers });
+            console.log(`${url} ile videolar alindi:`, response.data.length || 0, 'video');
+            
+            // Calisan URL'yi kaydet
+            WORKING_API_URL = url.replace('/videos', '');
+            return response.data;
+          } catch (altError: any) {
+            console.warn(`${url} ile baglanti basarisiz:`, altError.message);
+            // Bir sonraki URL'yi dene
+            continue;
           }
         }
-      }
+        
+        // Tüm alternatifler başarısız olduysa, boş dizi döndür
+        console.error('Tum alternatif URLler basarisiz oldu');
+        return [];
+      }  
     } catch (error: any) {
       console.error('Videolari getirme hatasi:', error.message);
       if (axios.isAxiosError(error)) {

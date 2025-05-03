@@ -75,12 +75,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await AsyncStorage.getItem('user');
         const savedToken = await AsyncStorage.getItem('token');
         
+        console.log('AuthContext: Kullanıcı verileri yükleniyor...');
+        console.log('Token durumu:', savedToken ? 'Token mevcut' : 'Token yok');
+        
         if (userData) {
-          setUser(JSON.parse(userData));
+          const parsedUser = JSON.parse(userData);
+          console.log('Kullanıcı bilgileri yüklendi:', { id: parsedUser.id, username: parsedUser.username });
+          setUser(parsedUser);
         }
         
         if (savedToken) {
+          console.log('Token yüklendi:', savedToken.substring(0, 15) + '...');
           setToken(savedToken);
+        } else {
+          console.warn('Token bulunamadı! Kullanıcı oturum açmamış olabilir.');
         }
       } catch (error) {
         console.error('Kullanıcı verileri yüklenirken hata:', error);
@@ -276,14 +284,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user,
-        isLoading,
-        isLoggedIn: !!user,
-        error,
+    user,
+    isLoading,
+    isLoggedIn: !!user,
+    error,
         token,
-        login,
-        register,
-        logout,
+    login,
+    register,
+    logout,
         refreshUserData,
       }}
     >

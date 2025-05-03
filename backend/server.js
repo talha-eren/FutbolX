@@ -1,6 +1,14 @@
 // Çevre değişkenlerini yükle
 require('dotenv').config();
 
+// JWT_SECRET için kontrol
+if (!process.env.JWT_SECRET) {
+  console.warn('UYARI: JWT_SECRET .env dosyasında tanımlanmamış, varsayılan değer kullanılıyor!');
+  process.env.JWT_SECRET = 'futbolx-secret-key-2025';
+} else {
+  console.log('JWT_SECRET .env dosyasından okundu');
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -18,6 +26,8 @@ const fieldRoutes = require('./routes/field');
 const eventRoutes = require('./routes/event');
 const postRoutes = require('./routes/post');
 const matchRoutes = require('./routes/match');
+const commentRoutes = require('./routes/comment');
+const reservationRoutes = require('./routes/reservation');
 
 const app = express();
 
@@ -115,6 +125,8 @@ app.use('/api/fields', fieldRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/matches', matchRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/reservations', reservationRoutes);
 
 // Basit bir test endpoint'i
 app.get('/api/test', (req, res) => {
