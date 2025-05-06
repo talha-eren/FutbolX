@@ -1,0 +1,456 @@
+import React, { useState } from 'react';
+import { View, StyleSheet, Image, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { ThemedText } from '@/components/ThemedText';
+import { useRouter } from 'expo-router';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useAuth } from '@/context/AuthContext';
+import { FutbolXLogo } from '@/components/FutbolXLogo';
+
+export default function RegisterScreen() {
+  const colorScheme = useColorScheme();
+  const router = useRouter();
+  const { register, isLoading: authLoading } = useAuth();
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [location, setLocation] = useState('');
+  const [level, setLevel] = useState('');
+  const [position, setPosition] = useState('');
+  const [footPreference, setFootPreference] = useState('');
+
+  const primaryColor = '#4CAF50'; // Ana yeşil renk
+  const backgroundColor = colorScheme === 'dark' ? '#121212' : '#FFFFFF';
+  const textColor = colorScheme === 'dark' ? '#FFFFFF' : '#333333';
+  const inputBackgroundColor = colorScheme === 'dark' ? '#333' : '#F5F5F5';
+  const placeholderColor = colorScheme === 'dark' ? '#AAA' : '#999';
+
+  // Kayıt fonksiyonu
+  const handleRegister = async () => {
+    // Form doğrulama
+    if (!fullName || !username || !email || !password || !confirmPassword) {
+      Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Hata', 'Şifreler eşleşmiyor.');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Hata', 'Şifre en az 6 karakter olmalıdır.');
+      return;
+    }
+
+    if (username.length < 3) {
+      Alert.alert('Hata', 'Kullanıcı adı en az 3 karakter olmalıdır.');
+      return;
+    }
+
+    // Email formatını kontrol et
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Hata', 'Geçerli bir e-posta adresi girin.');
+      return;
+    }
+
+    setIsLoading(true);
+    console.log('Kayıt işlemi başlatılıyor:', { 
+      fullName, 
+      username, 
+      email,
+      location,
+      level,
+      position,
+      footPreference
+    });
+    
+    try {
+      // AuthContext'in register fonksiyonunu kullan
+      const success = await register(fullName, username, email, password, {
+        location,
+        level,
+        position,
+        footPreference,
+        stats: {
+          matches: 0,
+          goals: 0,
+          assists: 0,
+          playHours: 0,
+          rating: 0
+        }
+      });
+      
+      if (success) {
+        console.log('Kayıt başarılı');
+        Alert.alert(
+          'Başarılı', 
+          'Kaydınız başarıyla oluşturuldu. Şimdi giriş yapabilirsiniz.',
+          [{ text: 'Tamam', onPress: () => router.push('/login') }]
+        );
+      } else {
+        console.log('Kayıt başarısız');
+        Alert.alert('Hata', 'Kayıt sırasında bir sorun oluştu. Lütfen tekrar deneyin.');
+      }
+    } catch (error: any) {
+      console.error('Kayıt hatası:', error);
+      
+      // Hata mesajını analiz et
+      let errorMessage = 'Kayıt yapılırken bir hata oluştu.';
+      
+      // API yanıtından hata mesajını almaya çalış
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Response içinde bir hata mesajı varsa onu kullan
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      console.log('Hata mesajı:', errorMessage);
+      
+      // Kullanıcı adı veya email zaten kullanılıyorsa özel mesaj göster
+      if (errorMessage.includes('zaten kullanılıyor') || 
+          errorMessage.includes('already') || 
+          errorMessage.includes('duplicate')) {
+        Alert.alert(
+          'Kullanıcı Mevcut', 
+          'Bu kullanıcı adı veya e-posta adresi zaten kullanılıyor. Lütfen farklı bilgilerle tekrar deneyin.',
+          [{ text: 'Tamam', style: 'default' }]
+        );
+      } else {
+        Alert.alert('Kayıt Hatası', errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Giriş sayfasına geçiş
+  const goToLogin = () => {
+    router.push('/login');
+  };
+
+  return (
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView 
+        contentContainerStyle={[styles.container, { backgroundColor }]} 
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.logoContainer}>
+          <FutbolXLogo size={150} showText={false} />
+          <ThemedText style={styles.title}>FutbolX'e Katılın</ThemedText>
+          <ThemedText style={styles.subtitle}>Futbol dünyasında yeni bir macera sizi bekliyor</ThemedText>
+        </View>
+
+        <View style={styles.formContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="person" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Ad Soyad"
+              placeholderTextColor={placeholderColor}
+              value={fullName}
+              onChangeText={setFullName}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="at" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Kullanıcı Adı"
+              placeholderTextColor={placeholderColor}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="envelope" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="E-posta Adresi"
+              placeholderTextColor={placeholderColor}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="lock" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Şifre"
+              placeholderTextColor={placeholderColor}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <IconSymbol 
+                name={showPassword ? "eye.slash" : "eye"} 
+                size={20} 
+                color={placeholderColor} 
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="lock" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Şifre Tekrarı"
+              placeholderTextColor={placeholderColor}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
+            />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+              <IconSymbol 
+                name={showConfirmPassword ? "eye.slash" : "eye"} 
+                size={20} 
+                color={placeholderColor} 
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Futbol profil bilgileri ekleniyor */}
+          <ThemedText style={styles.sectionTitle}>Futbol Profil Bilgileri</ThemedText>
+          <ThemedText style={styles.sectionSubtitle}>Bu bilgileri daha sonra profilinizden düzenleyebilirsiniz</ThemedText>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="location" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Konum (İlçe, Şehir)"
+              placeholderTextColor={placeholderColor}
+              value={location}
+              onChangeText={setLocation}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="chart.bar" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Seviye (Amatör, Orta, İleri)"
+              placeholderTextColor={placeholderColor}
+              value={level}
+              onChangeText={setLevel}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="person.fill" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Pozisyon (Kaleci, Defans, Orta Saha, Forvet)"
+              placeholderTextColor={placeholderColor}
+              value={position}
+              onChangeText={setPosition}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+            <IconSymbol name="figure.walk" size={20} color={placeholderColor} />
+            <TextInput 
+              style={[styles.input, { color: textColor }]}
+              placeholder="Ayak Tercihi (Sağ, Sol, Her ikisi)"
+              placeholderTextColor={placeholderColor}
+              value={footPreference}
+              onChangeText={setFootPreference}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.button, { backgroundColor: primaryColor, opacity: isLoading || authLoading ? 0.7 : 1 }]}
+            onPress={handleRegister}
+            disabled={isLoading || authLoading}
+          >
+            <ThemedText style={styles.buttonText}>
+              {isLoading || authLoading ? 'Kaydolunuyor...' : 'Kaydol'}
+            </ThemedText>
+          </TouchableOpacity>
+
+          <View style={styles.loginContainer}>
+            <ThemedText style={styles.loginText}>Zaten hesabınız var mı? </ThemedText>
+            <TouchableOpacity onPress={goToLogin}>
+              <ThemedText style={[styles.loginLink, { color: primaryColor }]}>
+                Giriş Yapın
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.separator}>
+            <View style={[styles.separatorLine, { backgroundColor: placeholderColor }]} />
+            <ThemedText style={styles.separatorText}>veya</ThemedText>
+            <View style={[styles.separatorLine, { backgroundColor: placeholderColor }]} />
+          </View>
+
+          <View style={styles.socialLoginContainer}>
+            <TouchableOpacity 
+              style={[styles.socialButton, { backgroundColor: '#4267B2' }]}
+            >
+              <ThemedText style={styles.socialButtonText}>Facebook ile Kaydol</ThemedText>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.socialButton, { backgroundColor: '#DB4437' }]}
+            >
+              <ThemedText style={styles.socialButtonText}>Google ile Kaydol</ThemedText>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.termsContainer}>
+            <ThemedText style={styles.termsText}>
+              Kaydolarak, FutbolX'in {' '}
+              <ThemedText style={[styles.termsLink, { color: primaryColor }]}>
+                Kullanım Şartları
+              </ThemedText>
+              {' '} ve {' '}
+              <ThemedText style={[styles.termsLink, { color: primaryColor }]}>
+                Gizlilik Politikası
+              </ThemedText>
+              'nı kabul etmiş olursunuz.
+            </ThemedText>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    padding: 20,
+    justifyContent: 'center',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    opacity: 0.8,
+  },
+  formContainer: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    height: 55,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    fontSize: 16,
+  },
+  button: {
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loginContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  loginText: {
+    fontSize: 14,
+  },
+  loginLink: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  separator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 25,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+  },
+  separatorText: {
+    paddingHorizontal: 10,
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  socialLoginContainer: {
+    gap: 15,
+  },
+  socialButton: {
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  socialButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  termsContainer: {
+    marginTop: 25,
+    marginBottom: 10,
+  },
+  termsText: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    opacity: 0.7,
+  },
+  termsLink: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+  },
+});
