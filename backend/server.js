@@ -1,10 +1,19 @@
 // Çevre değişkenlerini yükle
 require('dotenv').config();
 
-// Çevre değişkenlerini manuel olarak ayarla (eğer .env dosyasından okunamazsa)
-process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://talhaeren:talhaeren@cluster0.86ovh.mongodb.net/futbolx?retryWrites=true&w=majority&appName=Cluster0';
+// Çevre değişkenlerini kontrol et
+if (!process.env.MONGODB_URI) {
+  console.error('HATA: MONGODB_URI çevre değişkeni tanımlanmamış!');
+  console.error('Lütfen .env dosyasını oluşturun ve gerekli değişkenleri tanımlayın.');
+  process.exit(1); // Hata kodu ile çık
+}
+
+// Diğer çevre değişkenleri için varsayılan değerler
 process.env.PORT = process.env.PORT || 5000;
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'futbolx-secret-key';
+
+if (!process.env.JWT_SECRET) {
+  console.warn('UYARI: JWT_SECRET çevre değişkeni tanımlanmamış! Güvenlik için .env dosyasında tanımlanması önerilir.');
+}
 
 console.log('Çevre değişkenleri ayarlandı');
 console.log(`PORT: ${process.env.PORT}`);
@@ -83,9 +92,10 @@ const upload = multer({ storage: storage });
 
 // MongoDB bağlantısı
 // .env dosyasından MongoDB URI'yi çek
-const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://bilikcitalha:talhaeren@cluster0.86ovh.mongodb.net/futbolx?retryWrites=true&w=majority&appName=Cluster0';
+const mongoURI = process.env.MONGODB_URI;
 
 // MongoDB URI'nin doğru şekilde yüklenip yüklenmediğini kontrol et
+// (Bu kontrol daha önce yapıldı, ancak güvenlik için burada da bırakıyoruz)
 if (!mongoURI) {
   console.error('.env dosyasından MONGODB_URI yüklenemedi!');
   process.exit(1); // Hata kodu ile çık

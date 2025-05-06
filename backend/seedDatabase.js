@@ -12,7 +12,14 @@ const Video = require('./models/Video');
 const Match = require('./models/Match');
 
 // MongoDB bağlantısı
-const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://bilikcitalha:talhaeren@cluster0.86ovh.mongodb.net/futbolx?retryWrites=true&w=majority&appName=Cluster0';
+const mongoURI = process.env.MONGODB_URI;
+
+// MongoDB URI kontrolü
+if (!mongoURI) {
+  console.error('HATA: MONGODB_URI çevre değişkeni tanımlanmamış!');
+  console.error('Lütfen .env dosyasını oluşturun ve gerekli değişkenleri tanımlayın.');
+  process.exit(1); // Hata kodu ile çık
+}
 
 mongoose.connect(mongoURI)
   .then(() => {

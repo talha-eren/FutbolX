@@ -39,7 +39,7 @@ if (fs.existsSync(envPath)) {
   console.log('.env dosyası bulunamadı. Yeni bir .env dosyası oluşturalım.');
   
   // Örnek .env içeriği
-  const sampleEnvContent = `MONGODB_URI=mongodb+srv://kullaniciadi:sifre@cluster0.86ovh.mongodb.net/futbolx?retryWrites=true&w=majority&appName=Cluster0
+  const sampleEnvContent = `MONGODB_URI=mongodb+srv://kullaniciadi:sifre@cluster.mongodb.net/veritabani?retryWrites=true&w=majority
 PORT=5000
 JWT_SECRET=futbolx-secret-key`;
   
