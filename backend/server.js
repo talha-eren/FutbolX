@@ -1,13 +1,18 @@
 // Çevre değişkenlerini yükle
 require('dotenv').config();
 
-// JWT_SECRET için kontrol
-if (!process.env.JWT_SECRET) {
-  console.warn('UYARI: JWT_SECRET .env dosyasında tanımlanmamış, varsayılan değer kullanılıyor!');
-  process.env.JWT_SECRET = 'futbolx-secret-key-2025';
-} else {
-  console.log('JWT_SECRET .env dosyasından okundu');
-}
+// Çevre değişkenlerini manuel olarak ayarla (eğer .env dosyasından okunamazsa)
+process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://talhaeren:talhaeren@cluster0.86ovh.mongodb.net/futbolx?retryWrites=true&w=majority&appName=Cluster0';
+process.env.PORT = process.env.PORT || 5000;
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'futbolx-secret-key';
+
+console.log('Çevre değişkenleri ayarlandı');
+console.log(`PORT: ${process.env.PORT}`);
+// Güvenlik için MongoDB URI'yi maskele
+const maskedURI = process.env.MONGODB_URI.replace(/:([^:@]+)@/, ':****@');
+console.log(`MongoDB URI: ${maskedURI}`);
+console.log(`JWT_SECRET: ${process.env.JWT_SECRET ? 'Ayarlandı' : 'Ayarlanmadı'}`);
+
 
 const express = require('express');
 const mongoose = require('mongoose');
