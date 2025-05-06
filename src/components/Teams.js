@@ -10,10 +10,12 @@ import {
   Bolt, Shield, Public, LocalFireDepartment
 } from '@mui/icons-material';
 
+// Takım isimleri ve özellikleri için rastgele veri üreten fonksiyon
 const generateRandomTeams = () => {
   const teamNames = [
     'Yıldızlar FC', 'Kartallar Spor', 'Aslanlar SK', 'Şimşekler',
-    'Boğalar United', 'Atmacalar City', 'Kaplanlar', 'Kartallar'
+    'Boğalar United', 'Atmacalar City', 'Kaplanlar', 'Kartallar',
+    'Galatasaray', 'Fenerbahçe', 'Beşiktaş', 'Trabzonspor'
   ];
 
   const formations = ['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2'];
