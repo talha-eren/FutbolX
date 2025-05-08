@@ -14,7 +14,6 @@ import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 
 function Navbar() {
-  const [notificationAnchor, setNotificationAnchor] = useState(null);
   const [profileAnchor, setProfileAnchor] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeButton, setActiveButton] = useState('/');
@@ -182,27 +181,45 @@ function Navbar() {
           {/* Sağ Bölüm */}
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <LanguageSwitcher />
-            <IconButton size="large">
-              <Search sx={{ color: '#555' }} />
-            </IconButton>
             
             {isLoggedIn ? (
-              <>
-                <IconButton 
-                  onClick={(e) => setNotificationAnchor(e.currentTarget)}
-                >
-                  <Badge badgeContent={3} color="error">
-                    <Notifications sx={{ color: '#555' }} />
-                  </Badge>
-                </IconButton>
-                
+              <Box 
+                sx={{ 
+                  ml: 2,
+                  position: 'relative',
+                  cursor: 'pointer',
+                  borderRadius: '50%',
+                  transition: 'all 0.3s ease'
+                }}
+              >
                 <IconButton 
                   onClick={(e) => setProfileAnchor(e.currentTarget)}
-                  sx={{ ml: 1 }}
+                  sx={{ 
+                    p: 0.5, 
+                    backgroundColor: 'rgba(76, 175, 80, 0.08)',
+                    '&:hover': { 
+                      backgroundColor: 'rgba(76, 175, 80, 0.15)',
+                      transform: 'translateY(-2px)'
+                    },
+                    transition: 'all 0.3s'
+                  }}
                 >
-                  <Avatar sx={{ bgcolor: '#4CAF50', width: 32, height: 32 }}>S</Avatar>
+                  <Avatar 
+                    sx={{ 
+                      bgcolor: '#4CAF50', 
+                      width: 38, 
+                      height: 38,
+                      border: '2px solid white',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                      }
+                    }}
+                  >
+                    S
+                  </Avatar>
                 </IconButton>
-              </>
+              </Box>
             ) : (
               <Button
                 component={Link}
@@ -227,51 +244,63 @@ function Navbar() {
             )}
           </Box>
 
-          {/* Bildirim Menüsü */}
-          <Menu
-            anchorEl={notificationAnchor}
-            open={Boolean(notificationAnchor)}
-            onClose={() => setNotificationAnchor(null)}
-            sx={{ mt: 2 }}
-          >
-            <MenuItem sx={{ minWidth: 250 }}>
-              <Box>
-                <Typography variant="subtitle2">Yeni Rezervasyon Talebi</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Ali seni maça davet etti
-                </Typography>
-              </Box>
-            </MenuItem>
-            <MenuItem sx={{ minWidth: 250 }}>
-              <Box>
-                <Typography variant="subtitle2">Maç Hatırlatması</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Yarın 18:00'de maçın var
-                </Typography>
-              </Box>
-            </MenuItem>
-            <MenuItem sx={{ minWidth: 250 }}>
-              <Box>
-                <Typography variant="subtitle2">Yeni Yorum</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Mehmet golünü beğendi
-                </Typography>
-              </Box>
-            </MenuItem>
-          </Menu>
-
           {/* Profil Menüsü */}
           <Menu
             anchorEl={profileAnchor}
             open={Boolean(profileAnchor)}
             onClose={() => setProfileAnchor(null)}
-            sx={{ mt: 2 }}
+            sx={{ 
+              mt: 2,
+              '& .MuiMenu-paper': {
+                borderRadius: '12px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                minWidth: '200px',
+                overflow: 'hidden'
+              },
+              '& .MuiMenuItem-root': {
+                px: 2,
+                py: 1.5,
+                transition: 'all 0.2s',
+                '&:hover': {
+                  backgroundColor: 'rgba(76, 175, 80, 0.08)'
+                }
+              }
+            }}
           >
-            <MenuItem component={Link} to="/profile">
-              <AccountCircle sx={{ mr: 1 }} /> Profilim
+            <Box sx={{ 
+              bgcolor: '#4CAF50', 
+              color: 'white', 
+              p: 2,
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <Avatar sx={{ bgcolor: 'white', color: '#4CAF50', mr: 1.5 }}>S</Avatar>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                  Kullanıcı Adı
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  Futbolcu
+                </Typography>
+              </Box>
+            </Box>
+            <MenuItem component={Link} to="/profile" sx={{ mt: 1 }}>
+              <AccountCircle sx={{ mr: 1.5, color: '#555' }} /> 
+              <Typography variant="body1">Profilim</Typography>
             </MenuItem>
-            <MenuItem>Ayarlar</MenuItem>
-            <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>Çıkış Yap</MenuItem>
+            <Divider sx={{ my: 1, opacity: 0.6 }} />
+            <MenuItem>
+              <Person sx={{ mr: 1.5, color: '#555' }} /> 
+              <Typography variant="body1">Hesap Ayarları</Typography>
+            </MenuItem>
+            <MenuItem onClick={handleLogout} sx={{ color: 'error.main', mb: 1 }}>
+              <Box sx={{ mr: 1.5, width: 24, height: 24, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" height="18" width="18" viewBox="0 0 24 24" fill="#f44336">
+                  <path d="M5 21q-.825 0-1.413-.587Q3 19.825 3 19V5q0-.825.587-1.413Q4.175 3 5 3h7v2H5v14h7v2Zm11-4l-1.375-1.45l2.55-2.55H9v-2h8.175l-2.55-2.55L16 7l5 5Z"/>
+                </svg>
+              </Box>
+              <Typography variant="body1">Çıkış Yap</Typography>
+            </MenuItem>
           </Menu>
         </Toolbar>
       </Container>

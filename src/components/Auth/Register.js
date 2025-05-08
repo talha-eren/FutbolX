@@ -11,7 +11,13 @@ import {
   Grid,
   FormControlLabel,
   Checkbox,
-  CircularProgress
+  CircularProgress,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  FormHelperText,
+  Divider
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import axios from 'axios';
@@ -24,6 +30,13 @@ function Register() {
     email: '',
     password: '',
     confirmPassword: '',
+    position: '',
+    height: '',
+    weight: '',
+    preferredFoot: 'Sağ',
+    favoriteTeam: '',
+    birthDate: '',
+    location: '',
     agreeTerms: false
   });
   const [error, setError] = useState('');
@@ -46,7 +59,7 @@ function Register() {
     // Doğrulama kontrolleri
     if (!formData.firstName || !formData.lastName || !formData.username || 
         !formData.email || !formData.password || !formData.confirmPassword) {
-      setError('Lütfen tüm alanları doldurun');
+      setError('Lütfen tüm zorunlu alanları doldurun');
       setLoading(false);
       return;
     }
@@ -69,7 +82,14 @@ function Register() {
         email: formData.email,
         password: formData.password,
         firstName: formData.firstName,
-        lastName: formData.lastName
+        lastName: formData.lastName,
+        position: formData.position,
+        height: formData.height ? Number(formData.height) : 0,
+        weight: formData.weight ? Number(formData.weight) : 0,
+        preferredFoot: formData.preferredFoot,
+        favoriteTeam: formData.favoriteTeam,
+        birthDate: formData.birthDate,
+        location: formData.location
       });
       
       // Backend API'ye kayıt isteği gönder
@@ -78,7 +98,14 @@ function Register() {
         email: formData.email,
         password: formData.password,
         firstName: formData.firstName,
-        lastName: formData.lastName
+        lastName: formData.lastName,
+        position: formData.position,
+        height: formData.height ? Number(formData.height) : 0,
+        weight: formData.weight ? Number(formData.weight) : 0,
+        preferredFoot: formData.preferredFoot,
+        favoriteTeam: formData.favoriteTeam,
+        birthDate: formData.birthDate,
+        location: formData.location
       }, {
         headers: {
           'Content-Type': 'application/json'
@@ -87,8 +114,20 @@ function Register() {
       
       console.log('API yanıtı:', response.data);
       
-      // Kayıt başarılı ise giriş sayfasına yönlendir
-      navigate('/login', { state: { message: 'Kayıt başarılı! Şimdi giriş yapabilirsiniz.' } });
+      // Başarılı kayıt - token'ı ve kullanıcı bilgilerini sakla
+      localStorage.setItem('userToken', response.data.token);
+      localStorage.setItem('userInfo', JSON.stringify({
+        id: response.data._id,
+        username: response.data.username,
+        email: response.data.email,
+        firstName: response.data.firstName,
+        lastName: response.data.lastName,
+        profilePicture: response.data.profilePicture
+      }));
+      localStorage.setItem('isLoggedIn', 'true');
+      
+      // Kayıt başarılı ise profil sayfasına yönlendir
+      navigate('/profile');
     } catch (err) {
       console.error('Kayıt hatası:', err);
       
@@ -182,6 +221,130 @@ function Register() {
                 disabled={loading}
               />
             </Grid>
+            
+            {/* Futbol bilgileri bölümü */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                Futbol Bilgileri
+              </Typography>
+              <Divider />
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel id="position-label">Pozisyon</InputLabel>
+                <Select
+                  labelId="position-label"
+                  id="position"
+                  name="position"
+                  value={formData.position}
+                  label="Pozisyon"
+                  onChange={handleChange}
+                  disabled={loading}
+                >
+                  <MenuItem value="">Seçiniz</MenuItem>
+                  <MenuItem value="Kaleci">Kaleci</MenuItem>
+                  <MenuItem value="Defans">Defans</MenuItem>
+                  <MenuItem value="Orta Saha">Orta Saha</MenuItem>
+                  <MenuItem value="Forvet">Forvet</MenuItem>
+                </Select>
+                <FormHelperText>Oynadığınız pozisyon</FormHelperText>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel id="preferred-foot-label">Tercih Edilen Ayak</InputLabel>
+                <Select
+                  labelId="preferred-foot-label"
+                  id="preferredFoot"
+                  name="preferredFoot"
+                  value={formData.preferredFoot}
+                  label="Tercih Edilen Ayak"
+                  onChange={handleChange}
+                  disabled={loading}
+                >
+                  <MenuItem value="Sağ">Sağ</MenuItem>
+                  <MenuItem value="Sol">Sol</MenuItem>
+                  <MenuItem value="Her İkisi">Her İkisi</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="height"
+                label="Boy (cm)"
+                name="height"
+                type="number"
+                value={formData.height}
+                onChange={handleChange}
+                disabled={loading}
+                InputProps={{ inputProps: { min: 0, max: 250 } }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="weight"
+                label="Kilo (kg)"
+                name="weight"
+                type="number"
+                value={formData.weight}
+                onChange={handleChange}
+                disabled={loading}
+                InputProps={{ inputProps: { min: 0, max: 150 } }}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                id="favoriteTeam"
+                label="Favori Takım"
+                name="favoriteTeam"
+                value={formData.favoriteTeam}
+                onChange={handleChange}
+                disabled={loading}
+              />
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="birthDate"
+                label="Doğum Tarihi"
+                name="birthDate"
+                type="date"
+                value={formData.birthDate}
+                onChange={handleChange}
+                disabled={loading}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="location"
+                label="Konum"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                disabled={loading}
+              />
+            </Grid>
+            
+            {/* Şifre bölümü */}
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                Hesap Bilgileri
+              </Typography>
+              <Divider />
+            </Grid>
+            
             <Grid item xs={12}>
               <TextField
                 required

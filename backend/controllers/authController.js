@@ -13,7 +13,20 @@ const generateToken = (userId) => {
 exports.register = async (req, res) => {
   try {
     console.log('Kayıt isteği alındı:', req.body);
-    const { username, email, password, firstName, lastName } = req.body;
+    const { 
+      username, 
+      email, 
+      password, 
+      firstName, 
+      lastName,
+      position,
+      favoriteTeam,
+      height,
+      weight,
+      preferredFoot,
+      birthDate,
+      location
+    } = req.body;
 
     // Kullanıcı adı veya email zaten kullanılıyor mu kontrol et
     const existingUser = await User.findOne({ 
@@ -33,6 +46,13 @@ exports.register = async (req, res) => {
       password,
       firstName,
       lastName,
+      position,
+      favoriteTeam,
+      height,
+      weight,
+      preferredFoot,
+      birthDate,
+      location,
       bio: `Merhaba, ben ${firstName} ${lastName}!`
     });
 
@@ -51,6 +71,17 @@ exports.register = async (req, res) => {
       firstName: newUser.firstName,
       lastName: newUser.lastName,
       profilePicture: newUser.profilePicture,
+      position: newUser.position,
+      favoriteTeam: newUser.favoriteTeam,
+      height: newUser.height,
+      weight: newUser.weight,
+      preferredFoot: newUser.preferredFoot,
+      birthDate: newUser.birthDate,
+      location: newUser.location,
+      matchesPlayed: newUser.matchesPlayed,
+      goalsScored: newUser.goalsScored,
+      assists: newUser.assists,
+      bio: newUser.bio,
       token
     });
   } catch (error) {
@@ -86,7 +117,16 @@ exports.login = async (req, res) => {
       _id: user._id,
       username: user.username,
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
       profilePicture: user.profilePicture,
+      position: user.position,
+      favoriteTeam: user.favoriteTeam,
+      height: user.height,
+      weight: user.weight,
+      preferredFoot: user.preferredFoot,
+      birthDate: user.birthDate,
+      location: user.location,
       token
     });
   } catch (error) {
@@ -97,14 +137,23 @@ exports.login = async (req, res) => {
 // Kullanıcı profili getirme
 exports.getProfile = async (req, res) => {
   try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Yetkilendirme başarısız. Lütfen tekrar giriş yapın.' });
+    }
+    
+    console.log('Profil isteniyor, kullanıcı ID:', req.user.id);
+    
     const user = await User.findById(req.user.id).select('-password');
     
     if (!user) {
       return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
     }
     
+    console.log('Kullanıcı bulundu:', user.username);
+    
     res.json(user);
   } catch (error) {
+    console.error('Profil getirme hatası:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -112,12 +161,44 @@ exports.getProfile = async (req, res) => {
 // Kullanıcı profili güncelleme
 exports.updateProfile = async (req, res) => {
   try {
-    const { username, email, bio, favoriteTeam, position } = req.body;
+    const {
+      username,
+      email,
+      firstName,
+      lastName,
+      bio,
+      position,
+      favoriteTeam,
+      height,
+      weight,
+      preferredFoot,
+      birthDate,
+      location,
+      matchesPlayed,
+      goalsScored,
+      assists
+    } = req.body;
     
     // Kullanıcıyı bul ve güncelle
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
-      { username, email, bio, favoriteTeam, position },
+      {
+        username,
+        email,
+        firstName,
+        lastName,
+        bio,
+        position,
+        favoriteTeam,
+        height,
+        weight,
+        preferredFoot,
+        birthDate,
+        location,
+        matchesPlayed,
+        goalsScored,
+        assists
+      },
       { new: true, runValidators: true }
     ).select('-password');
     
@@ -126,6 +207,112 @@ exports.updateProfile = async (req, res) => {
     }
     
     res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Kullanıcı maçlarını güncelleme
+exports.updateMatches = async (req, res) => {
+  try {
+    const { matches } = req.body;
+    
+    // Kullanıcıyı bul ve maçlarını güncelle
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { matches, updatedAt: Date.now() },
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    res.json(updatedUser.matches);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Kullanıcı maçı ekleme
+exports.addMatch = async (req, res) => {
+  try {
+    const match = req.body;
+    
+    // Kullanıcıyı bul
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    // Maçı ekle
+    user.matches.push(match);
+    user.updatedAt = Date.now();
+    
+    // Kullanıcı istatistiklerini güncelle
+    if (!user.stats) {
+      user.stats = { matches: 0, goals: 0, assists: 0, rating: 0 };
+    }
+    
+    user.stats.matches += 1;
+    user.stats.goals += match.performance?.goals || 0;
+    user.stats.assists += match.performance?.assists || 0;
+    
+    // Ortalama puanı güncelle
+    const totalMatches = user.stats.matches;
+    const currentRating = user.stats.rating || 0;
+    const newMatchRating = match.performance?.rating || 0;
+    user.stats.rating = ((currentRating * (totalMatches - 1)) + newMatchRating) / totalMatches;
+    
+    await user.save();
+    
+    res.status(201).json(user.matches[user.matches.length - 1]);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Kullanıcı öne çıkanlarını güncelleme
+exports.updateHighlights = async (req, res) => {
+  try {
+    const { highlights } = req.body;
+    
+    // Kullanıcıyı bul ve öne çıkanlarını güncelle
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { highlights, updatedAt: Date.now() },
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    res.json(updatedUser.highlights);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Kullanıcı öne çıkan ekleme
+exports.addHighlight = async (req, res) => {
+  try {
+    const highlight = req.body;
+    
+    // Kullanıcıyı bul
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    // Öne çıkanı ekle
+    user.highlights.push(highlight);
+    user.updatedAt = Date.now();
+    await user.save();
+    
+    res.status(201).json(user.highlights[user.highlights.length - 1]);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -1,13 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   Container, Box, Typography, Card, CardContent,
   Avatar, Chip, Grid, IconButton, Button, Divider,
-  Rating
+  Rating, Alert, CircularProgress
 } from '@mui/material';
 import {
   SportsSoccer, EmojiEvents, Star, Place,
   ThumbUp, Comment, Share, CalendarToday
 } from '@mui/icons-material';
+
+// API URL
+const API_URL = 'http://localhost:5000/api';
+
+// Token'ı localStorage'dan al
+const getToken = () => {
+  return localStorage.getItem('userToken');
+};
+
+// API isteği için config oluştur
+const getConfig = () => {
+  const token = getToken();
+  if (!token) {
+    console.error('Token bulunamadı');
+    return null;
+  }
+  
+  return {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  };
+};
 
 const generateRandomMatches = () => {
   const teams = [
@@ -56,12 +81,130 @@ const generateRandomMatches = () => {
 function MatchResults() {
   const [matches, setMatches] = useState(generateRandomMatches());
   const [filter, setFilter] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [userData, setUserData] = useState(null);
+
+  // Kullanıcı verilerini çek
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const config = getConfig();
+      
+      if (!config) {
+        setError('Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.');
+        setLoading(false);
+        // 2 saniye sonra login sayfasına yönlendir
+        setTimeout(() => {
+          window.location.href = '/login?redirect=/matches';
+        }, 2000);
+        return;
+      }
+      
+      console.log('Profil isteği gönderiliyor, config:', config);
+      const response = await axios.get(`${API_URL}/auth/profile`, config);
+      console.log('Profil yanıtı:', response.data);
+      
+      setUserData(response.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Kullanıcı verileri çekilirken hata oluştu:', error);
+      
+      if (error.response && error.response.status === 401) {
+        setError('Oturumunuz sonlanmış görünüyor. Lütfen tekrar giriş yapın.');
+        // Token'ı temizle ve kullanıcıyı login sayfasına yönlendir
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userInfo');
+        
+        // 2 saniye sonra login sayfasına yönlendir
+        setTimeout(() => {
+          window.location.href = '/login?redirect=/matches';
+        }, 2000);
+      } else {
+        setError('Kullanıcı verileri yüklenirken bir hata oluştu.');
+      }
+      
+      setLoading(false);
+    }
+  };
+
+  // Sayfa yüklendiğinde kullanıcı verilerini çek
+  useEffect(() => {
+    fetchUserData();
+  }, []);
 
   const filteredMatches = matches.filter(match => {
     if (filter === 'high-scoring') return match.totalGoals >= 5;
     if (filter === 'recent') return new Date(match.date) > new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     return true;
   });
+
+  // Profil güncellemesi işlemi
+  const handleSaveProfile = async (profileData) => {
+    try {
+      setLoading(true);
+      const config = getConfig();
+      
+      if (!config) {
+        setError('Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Gönderilen profil verileri:', profileData);
+      
+      // API'ye gönder
+      const response = await axios.put(
+        `${API_URL}/auth/profile`,
+        profileData,
+        config
+      );
+      
+      console.log('Profil güncelleme yanıtı:', response.data);
+      setUserData(response.data);
+      setLoading(false);
+      
+      return true;
+    } catch (error) {
+      console.error('Profil güncellenirken hata oluştu:', error);
+      
+      if (error.response && error.response.status === 401) {
+        setError('Oturumunuz sonlanmış. Lütfen tekrar giriş yapın.');
+        
+        // Token'ı temizle ve kullanıcıyı login sayfasına yönlendir
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userInfo');
+        
+        // 2 saniye sonra login sayfasına yönlendir
+        setTimeout(() => {
+          window.location.href = '/login?redirect=/matches';
+        }, 2000);
+      } else {
+        setError('Profil güncellenirken bir hata oluştu.');
+      }
+      
+      setLoading(false);
+      return false;
+    }
+  };
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 10, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 10 }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 10, mb: 4 }}>
