@@ -15,6 +15,9 @@
     "settings": "Settings",
     "language": "Language"
   },
+  "navbar": {
+    "videoShare": "Share Video"
+  },
   "home": {
     "discover": "Discover",
     "about": "About",

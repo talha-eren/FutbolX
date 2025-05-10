@@ -317,3 +317,33 @@ exports.addHighlight = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Şifre değiştirme
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    // Kullanıcıyı bul
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    // Mevcut şifreyi kontrol et
+    const isMatch = await user.comparePassword(currentPassword);
+    
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Mevcut şifre yanlış' });
+    }
+    
+    // Yeni şifreyi ayarla
+    user.password = newPassword;
+    await user.save();
+    
+    res.json({ message: 'Şifre başarıyla değiştirildi' });
+  } catch (error) {
+    console.error('Şifre değiştirme hatası:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

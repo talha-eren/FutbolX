@@ -17,11 +17,13 @@ import Reservation from './components/Reservation';
 import Profile from './components/Profile';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
+import Stats from './pages/Stats';
+import Settings from './pages/Settings';
 
 // Video Bileşenleri
 import VideoList from './components/Video/VideoList';
 import VideoDetail from './components/Video/VideoDetail';
-import UploadVideo from './components/Video/UploadVideo';
+import UploadPost from './components/Video/UploadVideo';
 
 // Özel tema oluşturma
 const theme = createTheme({
@@ -129,13 +131,23 @@ function App() {
                       <Profile />
                     </ProtectedRoute>
                   } />
+                  <Route path="/stats" element={
+                    <ProtectedRoute>
+                      <Stats />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/settings" element={
+                    <ProtectedRoute>
+                      <Settings />
+                    </ProtectedRoute>
+                  } />
                   
                   {/* Video Rotaları */}
                   <Route path="/videos" element={<VideoList />} />
                   <Route path="/videos/:id" element={<VideoDetail />} />
-                  <Route path="/upload-video" element={
+                  <Route path="/upload-post" element={
                     <ProtectedRoute>
-                      <UploadVideo />
+                      <UploadPost />
                     </ProtectedRoute>
                   } />
                 </Routes>

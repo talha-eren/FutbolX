@@ -8,7 +8,8 @@ const {
   updateMatches,
   addMatch,
   updateHighlights,
-  addHighlight
+  addHighlight,
+  changePassword
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -27,5 +28,8 @@ router.post('/profile/matches', protect, addMatch);
 // Korumalı rotalar - Öne Çıkanlar
 router.put('/profile/highlights', protect, updateHighlights);
 router.post('/profile/highlights', protect, addHighlight);
+
+// Şifre değiştirme
+router.put('/change-password', protect, changePassword);
 
 module.exports = router;

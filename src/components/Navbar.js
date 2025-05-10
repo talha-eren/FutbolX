@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Button, IconButton,
   Box, Badge, Menu, MenuItem, Avatar, Tooltip,
-  Container, Divider
+  Container, Divider, ListItemIcon
 } from '@mui/material';
 import {
   SportsSoccer, People, EventNote, Home,
@@ -17,6 +17,7 @@ function Navbar() {
   const [profileAnchor, setProfileAnchor] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeButton, setActiveButton] = useState('/');
+  const [userInfo, setUserInfo] = useState({ username: '', firstName: '', lastName: '' });
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -25,6 +26,17 @@ function Navbar() {
   useEffect(() => {
     const loggedInStatus = localStorage.getItem('isLoggedIn');
     setIsLoggedIn(loggedInStatus === 'true');
+    
+    // Kullanıcı bilgilerini localStorage'dan al
+    const storedUserInfo = localStorage.getItem('userInfo');
+    if (storedUserInfo) {
+      try {
+        const parsedUserInfo = JSON.parse(storedUserInfo);
+        setUserInfo(parsedUserInfo);
+      } catch (error) {
+        console.error('Kullanıcı bilgileri ayrıştırılamadı:', error);
+      }
+    }
     
     // URL'den aktif butonu belirleme
     const path = location.pathname;
@@ -52,6 +64,8 @@ function Navbar() {
   // Çıkış işlemi
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('userInfo');
     setIsLoggedIn(false);
     setProfileAnchor(null);
     navigate('/login');
@@ -73,38 +87,68 @@ function Navbar() {
     return {
       color: isActive ? '#fff' : '#555',
       backgroundColor: isActive ? '#4CAF50' : 'transparent',
-      mx: 1,
-      borderRadius: '6px',
-      padding: '6px 18px',
-      fontSize: '1rem',
-      fontWeight: 500,
+      mx: 0.7,
+      borderRadius: '28px',
+      padding: isActive ? '8px 18px' : '6px 16px',
+      fontSize: '0.95rem',
+      fontWeight: isActive ? 600 : 500,
       letterSpacing: 0.2,
       textTransform: 'capitalize',
-      boxShadow: isActive ? '0 2px 8px rgba(76,175,80,0.08)' : 'none',
-      transition: 'all 0.2s',
+      boxShadow: isActive ? '0 4px 12px rgba(76,175,80,0.2)' : 'none',
+      transition: 'all 0.3s ease',
       minWidth: 90,
+      border: isActive ? 'none' : 'none',
       '&:hover': {
         backgroundColor: isActive ? '#43a047' : 'rgba(76, 175, 80, 0.08)',
         color: isActive ? '#fff' : '#388e3c',
-        boxShadow: '0 2px 8px rgba(76,175,80,0.14)'
+        boxShadow: isActive ? '0 6px 14px rgba(76,175,80,0.25)' : '0 2px 8px rgba(76,175,80,0.1)',
+        transform: 'translateY(-2px)'
       }
     };
   };
 
+  // Kullanıcının baş harfini al
+  const getUserInitial = () => {
+    if (userInfo && userInfo.firstName && userInfo.firstName.length > 0) {
+      return userInfo.firstName.charAt(0).toUpperCase();
+    } else if (userInfo && userInfo.username && userInfo.username.length > 0) {
+      return userInfo.username.charAt(0).toUpperCase();
+    }
+    return 'K';
+  };
+
   return (
-    <AppBar position="fixed" sx={{ backgroundColor: 'white', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+    <AppBar position="fixed" sx={{ 
+      backgroundColor: 'white', 
+      boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+      borderBottom: '1px solid rgba(0,0,0,0.06)' 
+    }}>
       <Container maxWidth="lg">
-        <Toolbar>
+        <Toolbar sx={{ py: 0.5 }}>
           {/* Logo */}
           <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }} onClick={() => handleButtonClick('/')}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <SportsSoccer sx={{ color: '#4CAF50', fontSize: 24, mr: 1 }} />
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              mr: 1,
+              transition: 'transform 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.05)'
+              }
+            }}>
+              <SportsSoccer sx={{ 
+                color: '#4CAF50', 
+                fontSize: 28, 
+                mr: 1,
+                filter: 'drop-shadow(0 2px 4px rgba(76,175,80,0.2))'
+              }} />
               <Typography 
                 variant="h6" 
                 sx={{ 
                   color: '#4CAF50', 
                   fontWeight: 'bold', 
-                  fontSize: '1.2rem' 
+                  fontSize: '1.3rem',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
                 FutbolX
@@ -113,7 +157,14 @@ function Navbar() {
           </Link>
 
           {/* Menü - Ana Sayfa ve diğerleri yan yana */}
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ 
+            flexGrow: 1, 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            gap: 0.5,
+            ml: 2
+          }}>
             <Button
               component={Link}
               to="/"
@@ -148,7 +199,16 @@ function Navbar() {
               onClick={() => handleButtonClick('/reservations', true)}
               sx={{
                 ...getButtonStyle('/reservations'),
-                border: activeButton === '/reservations' ? 'none' : '1px solid #4CAF50'
+                border: activeButton === '/reservations' ? 'none' : '1px solid #4CAF50',
+                backgroundColor: activeButton === '/reservations' ? '#4CAF50' : 'rgba(76, 175, 80, 0.08)',
+                color: activeButton === '/reservations' ? '#fff' : '#388e3c',
+                fontWeight: 600,
+                '&:hover': {
+                  backgroundColor: activeButton === '/reservations' ? '#43a047' : 'rgba(76, 175, 80, 0.15)',
+                  color: activeButton === '/reservations' ? '#fff' : '#388e3c',
+                  boxShadow: '0 4px 12px rgba(76,175,80,0.2)',
+                  transform: 'translateY(-2px)'
+                }
               }}
             >
               {t('common.reservation')}
@@ -165,21 +225,30 @@ function Navbar() {
             {isLoggedIn && (
               <Button
                 component={Link}
-                to="/upload-video"
+                to="/upload-post"
                 startIcon={<CloudUpload />}
-                onClick={() => handleButtonClick('/upload-video', true)}
+                onClick={() => handleButtonClick('/upload-post', true)}
                 sx={{
-                  ...getButtonStyle('/upload-video'),
-                  border: activeButton === '/upload-video' ? 'none' : '1px solid #4CAF50'
+                  ...getButtonStyle('/upload-post'),
+                  border: activeButton === '/upload-post' ? 'none' : '1px solid #4CAF50',
+                  backgroundColor: activeButton === '/upload-post' ? '#4CAF50' : 'rgba(76, 175, 80, 0.08)',
+                  color: activeButton === '/upload-post' ? '#fff' : '#388e3c',
+                  fontWeight: 600,
+                  '&:hover': {
+                    backgroundColor: activeButton === '/upload-post' ? '#43a047' : 'rgba(76, 175, 80, 0.15)',
+                    color: activeButton === '/upload-post' ? '#fff' : '#388e3c',
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 6px 20px rgba(76,175,80,0.15)'
+                  }
                 }}
               >
-                {t('common.uploadVideo')}
+                {t('navbar.postShare')}
               </Button>
             )}
           </Box>
 
           {/* Sağ Bölüm */}
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <LanguageSwitcher />
             
             {isLoggedIn ? (
@@ -196,27 +265,33 @@ function Navbar() {
                   onClick={(e) => setProfileAnchor(e.currentTarget)}
                   sx={{ 
                     p: 0.5, 
-                    backgroundColor: 'rgba(76, 175, 80, 0.08)',
+                    backgroundColor: 'rgba(76, 175, 80, 0.12)',
+                    border: '2px solid rgba(255, 255, 255, 0.8)',
                     '&:hover': { 
-                      backgroundColor: 'rgba(76, 175, 80, 0.15)',
-                      transform: 'translateY(-2px)'
+                      backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                      transform: 'translateY(-3px)',
+                      boxShadow: '0 6px 15px rgba(76, 175, 80, 0.25)'
                     },
-                    transition: 'all 0.3s'
+                    transition: 'all 0.3s',
+                    boxShadow: '0 4px 10px rgba(76, 175, 80, 0.15)'
                   }}
                 >
                   <Avatar 
                     sx={{ 
                       bgcolor: '#4CAF50', 
-                      width: 38, 
-                      height: 38,
+                      width: 40, 
+                      height: 40,
                       border: '2px solid white',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      backgroundImage: 'linear-gradient(45deg, #4CAF50, #2E7D32)',
                       '&:hover': {
                         boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
                       }
                     }}
                   >
-                    S
+                    <Typography sx={{ fontWeight: 'bold', color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
+                      {getUserInitial()}
+                    </Typography>
                   </Avatar>
                 </IconButton>
               </Box>
@@ -228,14 +303,20 @@ function Navbar() {
                 onClick={() => handleButtonClick('/login')}
                 sx={{
                   color: activeButton === '/login' ? '#fff' : '#4CAF50',
-                  backgroundColor: activeButton === '/login' ? '#4CAF50' : 'transparent',
-                  borderColor: '#4CAF50',
+                  backgroundColor: activeButton === '/login' ? '#4CAF50' : 'rgba(76,175,80,0.1)',
                   ml: 1,
-                  borderRadius: '4px',
-                  padding: '6px 16px',
+                  borderRadius: '28px',
+                  padding: '8px 20px',
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  boxShadow: activeButton === '/login' ? '0 4px 12px rgba(76,175,80,0.2)' : 'none',
+                  border: 'none',
+                  transition: 'all 0.3s ease',
                   '&:hover': { 
-                    backgroundColor: activeButton === '/login' ? '#4CAF50' : 'rgba(76, 175, 80, 0.08)',
-                    color: activeButton === '/login' ? '#fff' : '#4CAF50'
+                    backgroundColor: activeButton === '/login' ? '#43a047' : 'rgba(76, 175, 80, 0.2)',
+                    color: activeButton === '/login' ? '#fff' : '#388e3c',
+                    boxShadow: '0 4px 12px rgba(76,175,80,0.2)',
+                    transform: 'translateY(-2px)'
                   }
                 }}
               >
@@ -268,39 +349,99 @@ function Navbar() {
             }}
           >
             <Box sx={{ 
-              bgcolor: '#4CAF50', 
+              bgcolor: 'rgba(76, 175, 80, 0.85)', 
               color: 'white', 
-              p: 2,
+              p: 2.5,
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              backgroundImage: 'linear-gradient(to right, #4CAF50, #2E7D32)',
+              position: 'relative'
             }}>
-              <Avatar sx={{ bgcolor: 'white', color: '#4CAF50', mr: 1.5 }}>S</Avatar>
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                  Kullanıcı Adı
+              <Box 
+                sx={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  right: 0, 
+                  height: '100%',
+                  background: 'url(https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=400&auto=format&fit=crop)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  opacity: 0.15,
+                  zIndex: 0
+                }}
+              />
+              <Avatar 
+                sx={{ 
+                  bgcolor: 'white', 
+                  color: '#4CAF50', 
+                  mr: 1.5, 
+                  width: 48, 
+                  height: 48,
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                  zIndex: 1
+                }}
+              >
+                {getUserInitial()}
+              </Avatar>
+              <Box sx={{ zIndex: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                  {userInfo.username || 'Kullanıcı'}
                 </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                  Futbolcu
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box 
+                    sx={{ 
+                      bgcolor: 'rgba(255,255,255,0.2)', 
+                      px: 1.5, 
+                      py: 0.3, 
+                      borderRadius: 10, 
+                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <SportsSoccer sx={{ fontSize: 14, mr: 0.5 }} /> Futbolcu
+                  </Box>
+                </Box>
               </Box>
             </Box>
-            <MenuItem component={Link} to="/profile" sx={{ mt: 1 }}>
-              <AccountCircle sx={{ mr: 1.5, color: '#555' }} /> 
-              <Typography variant="body1">Profilim</Typography>
-            </MenuItem>
-            <Divider sx={{ my: 1, opacity: 0.6 }} />
-            <MenuItem>
-              <Person sx={{ mr: 1.5, color: '#555' }} /> 
-              <Typography variant="body1">Hesap Ayarları</Typography>
-            </MenuItem>
-            <MenuItem onClick={handleLogout} sx={{ color: 'error.main', mb: 1 }}>
-              <Box sx={{ mr: 1.5, width: 24, height: 24, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" height="18" width="18" viewBox="0 0 24 24" fill="#f44336">
-                  <path d="M5 21q-.825 0-1.413-.587Q3 19.825 3 19V5q0-.825.587-1.413Q4.175 3 5 3h7v2H5v14h7v2Zm11-4l-1.375-1.45l2.55-2.55H9v-2h8.175l-2.55-2.55L16 7l5 5Z"/>
-                </svg>
-              </Box>
-              <Typography variant="body1">Çıkış Yap</Typography>
-            </MenuItem>
+            
+            <Box sx={{ py: 1 }}>
+              <MenuItem component={Link} to="/profile" sx={{ mt: 0.5 }}>
+                <ListItemIcon>
+                  <AccountCircle sx={{ color: '#666' }} /> 
+                </ListItemIcon>
+                <Typography variant="body1">Profilim</Typography>
+              </MenuItem>
+              
+              <MenuItem component={Link} to="/stats" sx={{ my: 0.5 }}>
+                <ListItemIcon>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#666">
+                    <path d="M3 3v17a1 1 0 0 0 1 1h17v-2H5V3H3z"/>
+                    <path d="M15.293 14.707a.999.999 0 0 0 1.414 0l5-5-1.414-1.414L16 12.586l-2.293-2.293a.999.999 0 0 0-1.414 0l-5 5 1.414 1.414L13 12.414l2.293 2.293z"/>
+                  </svg>
+                </ListItemIcon>
+                <Typography variant="body1">İstatistiklerim</Typography>
+              </MenuItem>
+
+              <Divider sx={{ my: 1, opacity: 0.6 }} />
+              
+              <MenuItem component={Link} to="/settings" sx={{ my: 0.5 }}>
+                <ListItemIcon>
+                  <Person sx={{ color: '#666' }} /> 
+                </ListItemIcon>
+                <Typography variant="body1">Hesap Ayarları</Typography>
+              </MenuItem>
+              
+              <MenuItem onClick={handleLogout} sx={{ color: '#E53935', my: 0.5, mb: 0.5 }}>
+                <ListItemIcon>
+                  <svg xmlns="http://www.w3.org/2000/svg" height="20" width="20" viewBox="0 0 24 24" fill="#E53935">
+                    <path d="M5 21q-.825 0-1.413-.587Q3 19.825 3 19V5q0-.825.587-1.413Q4.175 3 5 3h7v2H5v14h7v2Zm11-4l-1.375-1.45l2.55-2.55H9v-2h8.175l-2.55-2.55L16 7l5 5Z"/>
+                  </svg>
+                </ListItemIcon>
+                <Typography variant="body1" fontWeight="medium">Çıkış Yap</Typography>
+              </MenuItem>
+            </Box>
           </Menu>
         </Toolbar>
       </Container>

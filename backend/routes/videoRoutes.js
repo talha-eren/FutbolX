@@ -8,14 +8,26 @@ const fs = require('fs');
 
 // Video yükleme için klasörü oluştur
 const videoUploadDir = path.join(__dirname, '../public/uploads/videos');
+const imageUploadDir = path.join(__dirname, '../public/uploads/images');
+
+// Yükleme klasörlerini oluştur
 if (!fs.existsSync(videoUploadDir)) {
   fs.mkdirSync(videoUploadDir, { recursive: true });
+}
+if (!fs.existsSync(imageUploadDir)) {
+  fs.mkdirSync(imageUploadDir, { recursive: true });
 }
 
 // Multer storage ayarları
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
+    const postType = req.body.post_type || 'video';
+    
+    if (postType === 'image') {
+      cb(null, imageUploadDir);
+    } else {
     cb(null, videoUploadDir);
+    }
   },
   filename: function(req, file, cb) {
     // Dosya adını benzersiz yap
@@ -24,8 +36,11 @@ const storage = multer.diskStorage({
   }
 });
 
-// Dosya filtreleme (sadece video dosyalarını kabul et)
+// Dosya filtreleme (video ve görsel dosyalarını kabul et)
 const fileFilter = (req, file, cb) => {
+  const postType = req.body.post_type || 'video';
+  
+  if (postType === 'video') {
   // Kabul edilen video formatları
   const allowedTypes = /mp4|mov|avi|wmv|flv|mkv|webm/;
   
@@ -36,19 +51,54 @@ const fileFilter = (req, file, cb) => {
   if (extname && mimetype) {
     return cb(null, true);
   } else {
-    cb(new Error('Sadece video dosyaları yüklenebilir!'));
+      return cb(new Error('Sadece video dosyaları yüklenebilir!'));
+  }
+  } else if (postType === 'image') {
+    // Kabul edilen görsel formatları
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+
+    // Dosya türünü kontrol et
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = /image/.test(file.mimetype);
+    
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      return cb(new Error('Sadece görsel dosyaları (JPEG, PNG, GIF, WEBP) yüklenebilir!'));
+    }
+  } else {
+    // Text içerik için dosya gerekmez
+    return cb(null, true);
   }
 };
 
-// Multer upload ayarları
-const upload = multer({ 
+// Upload ayarlarını yapılandır - daha esnek olması için any() kullanıyoruz
+const postUpload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
-});
+  limits: { 
+    fileSize: 100 * 1024 * 1024 // 100MB limit for videos
+  }
+}).any();
 
-// Video yükleme rotası
-router.post('/upload', protect, upload.single('video'), videoController.uploadVideo);
+// Post yükleme rotası
+router.post('/upload', protect, (req, res, next) => {
+  postUpload(req, res, function(err) {
+    if (err instanceof multer.MulterError) {
+      // Multer dosya yükleme hatası
+      return res.status(400).json({ 
+        message: `Dosya yükleme hatası: ${err.message}` 
+      });
+    } else if (err) {
+      // Diğer hatalar
+      return res.status(400).json({ 
+        message: `Dosya yükleme hatası: ${err.message}` 
+      });
+    }
+    // Her şey yolunda
+    next();
+  });
+}, videoController.uploadVideo);
 
 // Tüm videoları getir
 router.get('/', videoController.getAllVideos);

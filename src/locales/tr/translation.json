@@ -1,11 +1,11 @@
 {
   "common": {
-    "home": "Ana Sayfa",
+    "home": "Keşfet",
     "matches": "Maçlar",
     "teams": "Takımlar",
     "reservation": "Rezervasyon",
-    "videos": "Videolar",
-    "uploadVideo": "Video Yükle",
+    "videos": "Gönderiler",
+    "uploadVideo": "Gönderi Paylaş",
     "login": "Giriş Yap",
     "register": "Kaydol",
     "logout": "Çıkış Yap",
@@ -14,6 +14,10 @@
     "notifications": "Bildirimler",
     "settings": "Ayarlar",
     "language": "Dil"
+  },
+  "navbar": {
+    "videoShare": "Gönderi Paylaş",
+    "postShare": "Gönderi Paylaş"
   },
   "home": {
     "discover": "Keşfet",
@@ -34,18 +38,20 @@
     "bookNow": "Rezervasyon Yap"
   },
   "videos": {
-    "uploadTitle": "Video Yükle",
-    "videoTitle": "Video Başlığı",
+    "uploadTitle": "Gönderi Paylaş",
+    "videoTitle": "Gönderi Başlığı",
     "description": "Açıklama",
     "category": "Kategori",
     "tags": "Etiketler (virgülle ayırın)",
     "tagsExample": "Örnek: futbol, gol, penaltı",
     "isPublic": "Herkese açık",
-    "upload": "Videoyu Yükle",
+    "upload": "Gönderiyi Paylaş",
     "selectVideo": "Video Dosyası Seç",
+    "selectImage": "Görsel Dosyası Seç",
     "videoSelected": "Video Seçildi:",
-    "uploadSuccess": "Video başarıyla yüklendi!",
-    "uploadError": "Video yüklenirken bir hata oluştu",
+    "imageSelected": "Görsel Seçildi:",
+    "uploadSuccess": "Gönderi başarıyla paylaşıldı!",
+    "uploadError": "Gönderi paylaşılırken bir hata oluştu",
     "duration": "Video Süresi:",
     "views": "görüntülenme",
     "comments": "Yorumlar",
@@ -60,7 +66,9 @@
     "interview": "Röportaj",
     "other": "Diğer",
     "all": "Tümü",
-    "noVideos": "Bu kategoride henüz video bulunmuyor."
+    "noVideos": "Bu kategoride henüz gönderi bulunmuyor.",
+    "posts": "Gönderiler",
+    "textContent": "Metin İçeriği"
   },
   "profile": {
     "editProfile": "Profili Düzenle",

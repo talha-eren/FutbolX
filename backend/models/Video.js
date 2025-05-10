@@ -12,11 +12,15 @@ const videoSchema = new mongoose.Schema({
   },
   fileName: {
     type: String,
-    required: true
+    required: function() {
+      return this.postType === 'video' || this.postType === 'image';
+    }
   },
   filePath: {
     type: String,
-    required: true
+    required: function() {
+      return this.postType === 'video' || this.postType === 'image';
+    }
   },
   thumbnail: {
     type: String,
@@ -30,6 +34,17 @@ const videoSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  postType: {
+    type: String,
+    enum: ['video', 'image', 'text'],
+    default: 'video'
+  },
+  textContent: {
+    type: String,
+    required: function() {
+      return this.postType === 'text';
+    }
   },
   category: {
     type: String,

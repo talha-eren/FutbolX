@@ -2,34 +2,64 @@ const Video = require('../models/Video');
 const fs = require('fs');
 const path = require('path');
 
-// Video yükleme
+// Video/Gönderi yükleme
 exports.uploadVideo = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'Lütfen bir video dosyası yükleyin' });
-    }
-
-    const { title, description, category, tags, isPublic, duration } = req.body;
+    const { title, description, category, tags, isPublic, post_type, textContent } = req.body;
+    const postType = post_type || 'video';
     
-    console.log('Video süresi:', duration);
+    console.log('Gönderi yükleme isteği alındı. Tür:', postType);
+    console.log('Request files:', req.files);
+    console.log('Request body:', req.body);
     
     // Etiketleri diziye çevir
     const tagArray = tags ? tags.split(',').map(tag => tag.trim()) : [];
     
-    // Yeni video oluştur
+    let fileName = null;
+    let filePath = null;
+    
+    // Dosya kontrolü (video veya görsel için)
+    if ((postType === 'video' || postType === 'image') && (!req.files || req.files.length === 0)) {
+      return res.status(400).json({ 
+        message: postType === 'video' 
+          ? 'Lütfen bir video dosyası yükleyin' 
+          : 'Lütfen bir görsel dosyası yükleyin' 
+      });
+    }
+    
+    // Dosya bilgilerini ayarla (video veya görsel için)
+    if (postType === 'video' || postType === 'image') {
+      const file = req.files[0];  // Dosya bilgisini al
+      fileName = file.filename;
+      
+      if (postType === 'video') {
+        filePath = `/uploads/videos/${file.filename}`;
+      } else if (postType === 'image') {
+        filePath = `/uploads/images/${file.filename}`;
+      }
+    }
+    
+    // Metin içerik kontrolü
+    if (postType === 'text' && !textContent) {
+      return res.status(400).json({ message: 'Lütfen metin içeriği girin' });
+    }
+    
+    // Yeni gönderi oluştur
     const newVideo = new Video({
       title,
       description,
-      fileName: req.file.filename,
-      filePath: `/uploads/videos/${req.file.filename}`,
+      fileName,
+      filePath,
       uploadedBy: req.user._id,
       category: category || 'diğer',
       tags: tagArray,
-      duration: duration || '0:00',
-      isPublic: isPublic === 'true'
+      duration: postType === 'video' ? req.body.duration || '0:00' : null,
+      isPublic: isPublic === 'true' || isPublic === true,
+      postType: postType,
+      textContent: postType === 'text' ? textContent : null
     });
 
-    // Videoyu kaydet
+    // Gönderiyi kaydet
     await newVideo.save();
     
     res.status(201).json({
@@ -37,12 +67,12 @@ exports.uploadVideo = async (req, res) => {
       video: newVideo
     });
   } catch (error) {
-    console.error('Video yükleme hatası:', error);
+    console.error('Gönderi yükleme hatası:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Tüm videoları getir
+// Tüm gönderileri getir
 exports.getAllVideos = async (req, res) => {
   try {
     const videos = await Video.find({ isPublic: true })
@@ -51,7 +81,7 @@ exports.getAllVideos = async (req, res) => {
     
     res.status(200).json(videos);
   } catch (error) {
-    console.error('Videoları getirme hatası:', error);
+    console.error('Gönderileri getirme hatası:', error);
     res.status(500).json({ message: error.message });
   }
 };
