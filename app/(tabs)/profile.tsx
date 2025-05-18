@@ -82,7 +82,7 @@ export default function ProfileScreen() {
   
   // Profil verilerini çek - çevrimdışı mod desteği ile
   const fetchUserProfile = async () => {
-        setLoading(true);
+    setLoading(true);
     try {
       // Çevrimdışı mod kontrolü
       const offline = await checkOfflineMode();
@@ -120,25 +120,56 @@ export default function ProfileScreen() {
         return;
       }
       
+      // AuthContext'ten mevcut kullanıcı bilgilerini al
+      // Bu genellikle daha hızlı erişim sağlar ve API yanıt vermediğinde yedek veri kaynağı olur
+      if (user) {
+        console.log('Mevcut kullanıcı bilgileri kullanılıyor:', user.username);
+        const userStats = user.stats || {matches: 0, goals: 0, assists: 0, playHours: 0, rating: 0};
+        const formattedUserData: UserProfile = {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          profilePicture: user.profilePicture || DEFAULT_PROFILE_IMAGE,
+          bio: user.bio || '',
+          location: user.location || '',
+          level: user.level || '',
+          position: user.position || '',
+          footPreference: user.footPreference || '',
+          stats: {
+            matches: userStats.matches || 0,
+            goals: userStats.goals || 0,
+            assists: userStats.assists || 0,
+            playHours: userStats.playHours || 0,
+            rating: userStats.rating || 0
+          },
+          matches: userStats.matches || 0,
+          goals: userStats.goals || 0,
+          assists: userStats.assists || 0,
+          playHours: userStats.playHours || 0
+        };
+        setUserData(formattedUserData);
+      }
+      
       // Çevrimiçi mod - gerçek API'den verileri çek
-            const profileData = await userService.getProfile();
+      const profileData = await userService.getProfile();
       console.log('Profil verileri:', profileData);
       
       // Gelen verileri UserProfile formatına dönüştür
       const stats = profileData.stats || {};
-            const formattedData: UserProfile = {
-              id: profileData._id || profileData.id,
-              name: profileData.name,
-              username: profileData.username,
-              email: profileData.email,
-        profilePicture: profileData.profilePicture || DEFAULT_PROFILE_IMAGE,
-        bio: profileData.bio || '',
-        location: profileData.location || '',
+      const formattedData: UserProfile = {
+        id: profileData._id || profileData.id,
+        name: profileData.name || user?.name || '',
+        username: profileData.username || user?.username || '',
+        email: profileData.email || user?.email || '',
+        profilePicture: profileData.profilePicture || user?.profilePicture || DEFAULT_PROFILE_IMAGE,
+        bio: profileData.bio || user?.bio || '',
+        location: profileData.location || user?.location || '',
         phone: profileData.phone || '',
-              favoriteTeams: profileData.favoriteTeams || [],
-        level: profileData.level || '',
-        position: profileData.position || '',
-        footPreference: profileData.footPreference || '',
+        favoriteTeams: profileData.favoriteTeams || [],
+        level: profileData.level || user?.level || '',
+        position: profileData.position || user?.position || '',
+        footPreference: profileData.footPreference || user?.footPreference || '',
         stats: {
           matches: stats.matches || 0,
           goals: stats.goals || 0,
@@ -146,17 +177,24 @@ export default function ProfileScreen() {
           playHours: stats.playHours || 0,
           rating: stats.rating || 0
         },
-              // Doğrudan erişim için ek alanlar
+        // Doğrudan erişim için ek alanlar
         matches: stats.matches || 0,
         goals: stats.goals || 0,
         assists: stats.assists || 0,
         playHours: stats.playHours || 0
-            };
-            
-            setUserData(formattedData);
+      };
+      
+      setUserData(formattedData);
       
     } catch (error) {
       console.error('Profil yüklenirken hata:', error);
+      
+      // Eğer halihazırda userData varsa (önce context'ten alındıysa), hata gösterme ve mevcut verileri kullan
+      if (userData) {
+        console.log('API hatası, mevcut önbellek verileri kullanılıyor');
+        return;
+      }
+      
       Alert.alert(
         'Bağlantı Hatası', 
         'Profil bilgileri yüklenemedi. Çevrimdışı mod etkinleştiriliyor.',
@@ -165,6 +203,37 @@ export default function ProfileScreen() {
       
       // Hata durumunda çevrimdışı moda geç
       setIsOffline(true);
+      
+      // Context'ten alınan kullanıcı bilgilerini kullan (yedek)
+      if (user) {
+        console.log('Hata durumunda context verileri kullanılıyor:', user.username);
+        const userStats = user.stats || {matches: 0, goals: 0, assists: 0, playHours: 0, rating: 0};
+        const backupUserData: UserProfile = {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          profilePicture: user.profilePicture || DEFAULT_PROFILE_IMAGE,
+          bio: user.bio || '',
+          location: user.location || '',
+          level: user.level || '',
+          position: user.position || '',
+          footPreference: user.footPreference || '',
+          stats: {
+            matches: userStats.matches || 0,
+            goals: userStats.goals || 0,
+            assists: userStats.assists || 0,
+            playHours: userStats.playHours || 0,
+            rating: userStats.rating || 0
+          },
+          matches: userStats.matches || 0,
+          goals: userStats.goals || 0,
+          assists: userStats.assists || 0,
+          playHours: userStats.playHours || 0
+        };
+        setUserData(backupUserData);
+        return;
+      }
       
       // Örnek profil verilerini UserProfile formatına dönüştür
       const offlineUser = OFFLINE_DATA.user;
@@ -178,7 +247,7 @@ export default function ProfileScreen() {
         location: 'İstanbul',
         level: offlineUser.level || 'Orta',
         position: offlineUser.position || 'Forvet',
-            footPreference: 'Sağ',
+        footPreference: 'Sağ',
         stats: offlineUser.stats || {
           matches: 15,
           goals: 8,
@@ -192,10 +261,10 @@ export default function ProfileScreen() {
         playHours: 30
       };
       setUserData(formattedOfflineUser);
-      } finally {
-        setLoading(false);
-      }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {

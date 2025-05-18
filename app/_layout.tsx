@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '@/context/AuthContext';
+import { BackendConnectionProvider } from '../context/BackendConnectionContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -46,17 +47,19 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          {userLoggedIn ? (
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          ) : (
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          )}
-          <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
-        </Stack>
-      </AuthProvider>
-    </ThemeProvider>
+    <BackendConnectionProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AuthProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            {userLoggedIn ? (
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            ) : (
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            )}
+            <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+          </Stack>
+        </AuthProvider>
+      </ThemeProvider>
+    </BackendConnectionProvider>
   );
 }

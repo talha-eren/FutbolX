@@ -6,7 +6,7 @@ import { useThemeColor } from '../../hooks/useThemeColor';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { API_URL } from '@/services/api';
+import { getApiUrl } from '@/services/networkConfig';
 
 // DateTimePicker'ı koşullu import
 let DateTimePicker: any = null;
@@ -107,7 +107,10 @@ function CreateMatchScreen() {
         isPrivate
       };
       
-      const response = await fetch(`${API_URL}/matches`, {
+      const apiUrl = await getApiUrl('/matches');
+      console.log('Maç oluşturma isteği URL:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,11 +120,12 @@ function CreateMatchScreen() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { message?: string };
         throw new Error(errorData.message || 'Maç oluşturulurken bir hata oluştu');
       }
       
-      await response.json();
+      const data = await response.json();
+      console.log('Maç başarıyla oluşturuldu:', data);
       
       Alert.alert(
         'Başarılı',

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { getApiUrl, getApiBaseUrl } from './networkConfig';
 
 // API URL'sini platform bazlı tanımlıyoruz
 export let API_URL = '';
@@ -158,7 +159,7 @@ const testApiConnection = async () => {
       try {
         const response = await fetch(`${lastWorkingApi}/health`, {
           method: 'GET',
-          signal: controller.signal
+          signal: controller.signal as any
         });
         
         clearTimeout(timeoutId);
@@ -186,7 +187,7 @@ const testApiConnection = async () => {
     
     const response = await fetch(`http://${METRO_IP}:${BACKEND_PORT}/api/health`, {
       method: 'GET',
-      signal: controller.signal
+      signal: controller.signal as any
     });
     
     clearTimeout(timeoutId);
@@ -228,7 +229,7 @@ const testApiConnection = async () => {
       
       const response = await fetch(testUrl, { 
         method: 'GET', 
-        signal: controller.signal 
+        signal: controller.signal as any
       });
       
       clearTimeout(timeoutId);
@@ -282,15 +283,17 @@ export const checkOfflineMode = async () => {
   // Sunucuya ping at
   try {
     console.log('Çevrimdışı mod kontrolü yapılıyor...');
-    console.log('Kontrol için kullanılan API URL:', API_URL);
+    
+    const baseUrl = await getApiBaseUrl();
+    console.log('Kontrol için kullanılan API URL:', baseUrl);
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000); // Timeout süresini 8 saniyeye çıkardık
     
     try {
-      const response = await fetch(`${API_URL}/health`, {
+      const response = await fetch(`${baseUrl}/health`, {
         method: 'GET',
-        signal: controller.signal,
+        signal: controller.signal as any,
         // Önbelleği devre dışı bırak
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -308,20 +311,15 @@ export const checkOfflineMode = async () => {
       } else {
         console.log('API sunucusu yanıt verdi ama durum kodu başarısız:', response.status);
         // Alternatif IP'leri tekrar dene
-        const connectionResult = await testApiConnection();
-        IS_OFFLINE_MODE = !connectionResult;
-        return !connectionResult;
+        IS_OFFLINE_MODE = true;
+        return true;
       }
     } catch (error) {
       clearTimeout(timeoutId);
       console.log('API bağlantı hatası:', error);
       
-      // API test ile alternatif IP'leri dene
-      console.log('Alternatif IP adreslerini deniyorum...');
-      const connectionResult = await testApiConnection();
-      
-      IS_OFFLINE_MODE = !connectionResult;
-      return !connectionResult;
+      IS_OFFLINE_MODE = true;
+      return true;
     }
   } catch (error) {
     console.log('Sunucu bağlantısı yok, çevrimdışı mod etkinleştirildi');
@@ -398,7 +396,7 @@ export const authService = {
   // Kullanıcı Girişi
   login: async (username: string, password: string) => {
     try {
-      console.log(`API isteği gönderiliyor: ${API_URL}/auth/login`);
+      console.log(`API isteği gönderiliyor: /auth/login`);
       console.log('Giriş verileri:', { username, passwordLength: password?.length });
       
       // İsteği göndermeden önce parametreleri kontrol et
@@ -414,8 +412,9 @@ export const authService = {
       }
       
       // API isteğini gönder
-      console.log('Fetch isteği gönderiliyor:', `${API_URL}/auth/login`);
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const url = await getApiUrl('/auth/login');
+      console.log('Fetch isteği gönderiliyor:', url);
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -425,7 +424,12 @@ export const authService = {
 
       // Yanıtı işle
       console.log('Yanıt alındı, JSON parse ediliyor');
-      const data = await response.json();
+      const data = await response.json() as {
+        token?: string;
+        user?: any;
+        message?: string;
+      };
+      
       console.log('Sunucu yanıtı:', { 
         status: response.status, 
         ok: response.ok, 
@@ -458,7 +462,7 @@ export const authService = {
   // Kullanıcı Kaydı
   register: async (username: string, email: string, password: string, name: string, profileData?: any) => {
     try {
-      console.log(`API isteği gönderiliyor: ${API_URL}/auth/register`);
+      console.log(`API isteği gönderiliyor: /auth/register`);
       console.log('Kayıt verileri:', { username, email, name, profileData });
       
       // Profil bilgilerini ekle
@@ -481,7 +485,8 @@ export const authService = {
         }
       };
       
-      const data = await fetchAPI(`${API_URL}/auth/register`, {
+      const url = await getApiUrl('/auth/register');
+      const data = await fetchAPI(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -531,92 +536,13 @@ export const authService = {
   }
 };
 
-// Halı Saha Servisleri - Burada tanımlama yapılmayacak, aşağıda tanımlanacak
-
-// Etkinlik Servisleri - Aşağıda yeniden tanımlanacak
-
-// Gönderi Servisleri - Aşağıda yeniden tanımlanacak
-
-// Kullanıcı Profil Servisleri
-export const userService = {
-  // Profil Bilgilerini Getir
-  getProfile: async () => {
-    try {
-      const headers = await getAuthHeaders();
-      const data = await fetchAPI(`${API_URL}/users/profile`, {
-        method: 'GET',
-        headers
-      });
-      return data;
-    } catch (error) {
-      console.error('Profil getirme hatası:', error);
-      throw error;
-    }
-  },
-
-  // Profil Bilgilerini Güncelle
-  updateProfile: async (profileData: any) => {
-    try {
-      const headers = await getAuthHeaders();
-      
-      console.log('Profil güncelleniyor:', profileData);
-      
-      // Önce token kontrolü yapalım
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        throw new Error('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.');
-      }
-      
-      // stats alanı için özel işlem yapalım
-      const updatedData = { ...profileData };
-      
-      // İsteği yapalım
-      const response = await fetch(`${API_URL}/users/profile`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(updatedData)
-      });
-
-      // Önce response'un içeriğini text olarak al
-      const responseText = await response.text();
-      
-      // Boş yanıt kontrolü
-      if (!responseText || responseText.trim() === '') {
-        throw new Error('Sunucudan yanıt alınamadı');
-      }
-      
-      // JSON parse etmeyi dene
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse hatası:', responseText.substring(0, 100));
-        throw new Error('Sunucu yanıtı geçerli JSON formatında değil');
-      }
-      
-      if (!response.ok) {
-        console.error('Profil güncelleme başarısız:', data.message || response.statusText);
-        throw new Error(data.message || 'Profil güncellenemedi');
-      }
-      
-      // Güncel kullanıcı bilgilerini kaydet
-      await AsyncStorage.setItem('user', JSON.stringify(data));
-      
-      console.log('Profil başarıyla güncellendi:', data);
-      return data;
-    } catch (error) {
-      console.error('Profil güncelleme hatası:', error);
-      throw error;
-    }
-  }
-};
-
 // Halı saha servisleri
 export const fieldService = {
   // Tüm halı sahaları getir
   getFields: async () => {
     try {
-      const data = await fetchAPI(`${API_URL}/fields`);
+      const url = await getApiUrl('/fields');
+      const data = await fetchAPI(url);
       console.log('Halı sahalar başarıyla alındı:', data);
       return data;
     } catch (error) {
@@ -629,13 +555,14 @@ export const fieldService = {
   getById: async (id: string) => {
     try {
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/fields/${id}`, {
+      const url = await getApiUrl(`/fields/${id}`);
+      const response = await fetch(url, {
         method: 'GET',
         headers
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { message?: string };
         throw new Error(errorData.message || 'Halı saha detaylarını getirme başarısız');
       }
       
@@ -660,10 +587,11 @@ export const eventService = {
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye timeout
       
       try {
-        const response = await fetch(`${API_URL}/events`, {
+        const url = await getApiUrl('/events');
+        const response = await fetch(url, {
           method: 'GET',
           headers,
-          signal: controller.signal
+          signal: controller.signal as any
         });
         
         clearTimeout(timeoutId);
@@ -706,13 +634,14 @@ export const eventService = {
   getById: async (id: string) => {
     try {
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/events/${id}`, {
+      const url = await getApiUrl(`/events/${id}`);
+      const response = await fetch(url, {
         method: 'GET',
         headers
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { message?: string };
         throw new Error(errorData.message || 'Etkinlik detaylarını getirme başarısız');
       }
       
@@ -735,24 +664,47 @@ export const videoService = {
       
       // Abort Controller ile timeout kontrolü
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye timeout
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 saniye timeout (artırıldı)
       
       try {
-      const response = await fetch(`${API_URL}/videos`, {
-        method: 'GET',
-          headers,
-          signal: controller.signal
+        const url = await getApiUrl('/videos');
+        console.log(`Video isteği URL: ${url}`);
+        
+        // Kullanıcı ID'sini ekle (eğer oturum açıksa)
+        const token = await AsyncStorage.getItem('token');
+        const user = await AsyncStorage.getItem('user');
+        let userId = '';
+        
+        if (user) {
+          try {
+            const userData = JSON.parse(user);
+            userId = userData.id || userData._id || '';
+          } catch (e) {
+            console.log('Kullanıcı verisi parse edilemedi:', e);
+          }
+        }
+        
+        // URL'ye kullanıcı ID'si ekle (isteğe bağlı)
+        const apiUrl = userId ? `${url}?user=${userId}` : url;
+        
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            ...headers,
+            'Authorization': token ? `Bearer ${token}` : ''
+          },
+          signal: controller.signal as any
         });
         
         clearTimeout(timeoutId); // Zamanı iptal et
       
-      if (!response.ok) {
-          const errorData = await response.json();
+        if (!response.ok) {
+          const errorData = await response.json() as { message?: string };
           throw new Error(errorData.message || 'Videoları getirme başarısız');
-      }
+        }
       
         const data = await response.json();
-      return data;
+        return data;
       } catch (error) {
         const fetchError = error as Error;
         
@@ -763,7 +715,7 @@ export const videoService = {
         }
         
         // Network hatalarında boş dizi döndür
-        if (fetchError.message === 'Network request failed') {
+        if (fetchError.message === 'Network request failed' || fetchError.message.includes('Network')) {
           console.log('Ağ hatası, varsayılan veriler kullanılıyor');
           return [];
         }
@@ -772,14 +724,7 @@ export const videoService = {
         return [];
       }
     } catch (error: any) {
-      console.error('Get videos error:', error);
-      
-      // Network hatasında boş dizi döndür
-      if (error.message === 'Network request failed') {
-        console.log('Ağ hatası, varsayılan veriler kullanılıyor');
-        return [];
-      }
-      
+      console.error('Videoları getirme hatası:', error);
       return []; // Boş dizi döndür
     }
   },
@@ -795,11 +740,15 @@ export const videoService = {
         throw new Error('Oturum açık değil, lütfen giriş yapın');
       }
       
+      // API URL'sini al
+      const baseUrl = await getApiBaseUrl();
+      const uploadUrl = `${baseUrl}/videos/upload`;
+      
       // FormData için özel bir XMLHttpRequest kullan
       return new Promise((resolve, reject) => {
         // XHR oluştur
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_URL}/videos/upload`);
+        xhr.open('POST', uploadUrl);
         
         // Authorization header'i ekle
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -852,13 +801,14 @@ export const videoService = {
   getById: async (id: string) => {
     try {
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/videos/${id}`, {
+      const url = await getApiUrl(`/videos/${id}`);
+      const response = await fetch(url, {
         method: 'GET',
         headers
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { message?: string };
         throw new Error(errorData.message || 'Video detaylarını getirme başarısız');
       }
       
@@ -883,74 +833,48 @@ export const postService = {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 saniye timeout (artırıldı)
       
-      // Denenecek URL'ler
-      const urlsToTry = [];
-      
-      // Platform'a göre URL'leri hazırla
-      if (Platform.OS === 'android') {
-        urlsToTry.push(`http://10.0.2.2:${BACKEND_PORT}/api/posts`);
-        urlsToTry.push(`http://10.0.2.2:5000/api/posts`);
-      } else {
-        urlsToTry.push(`${API_URL}/posts`);
-        urlsToTry.push(`http://localhost:5000/api/posts`);
-      }
-      
-      // IP adresine göre alternatif URL'ler
-      urlsToTry.push(`http://192.168.1.27:${BACKEND_PORT}/api/posts`);
-      urlsToTry.push(`http://192.168.1.27:5000/api/posts`);
-      
-      // Her URL'yi sırayla dene
-      let lastError: any = null;
-      
-      for (const url of urlsToTry) {
-        try {
-          // console.log('Gönderi API URL deneniyor:', url);
-          
-          const response = await fetch(url, {
-            method: 'GET',
-            headers,
-            signal: controller.signal
-          });
-          
-          // Başarılı yanıt kontrolü
-          if (!response.ok) {
-            // console.log(`URL ${url} için API hatası: ${response.status} ${response.statusText}`);
-            continue; // Sonraki URL'yi dene
-          }
-          
-          // Önce response'un içeriğini text olarak al
-          const responseText = await response.text();
-          
-          // Boş yanıt kontrolü
-          if (!responseText || responseText.trim() === '') {
-            // console.log(`URL ${url} için API boş yanıt döndü, sonraki deneniyor`);
-            continue; // Sonraki URL'yi dene
-          }
-          
-          // JSON parse etmeyi dene
-          try {
-            const data = JSON.parse(responseText);
-            // console.log('Gönderiler başarıyla alındı:', data.length || 'Veri yok');
-            // console.log('Gönderiler başarıyla yüklendi:', data.length);
-            
-            // Başarılı olduğunda timeout'u temizle
-            clearTimeout(timeoutId);
-            return data;
-          } catch (parseError) {
-            // console.error(`URL ${url} için JSON parse hatası:`, responseText.substring(0, 100));
-            continue; // Sonraki URL'yi dene
-          }
-        } catch (error) {
-          lastError = error;
-          // console.log(`URL ${url} için fetch hatası:`, (error as Error).message);
-          continue; // Sonraki URL'yi dene
+      try {
+        const url = await getApiUrl('/posts');
+        console.log('Gönderi isteği URL:', url);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          signal: controller.signal as any
+        });
+        
+        // Başarılı yanıt kontrolü
+        if (!response.ok) {
+          console.log(`API hatası: ${response.status} ${response.statusText}`);
+          throw new Error(`Gönderi listesi alınamadı: ${response.statusText}`);
         }
+        
+        // Önce response'un içeriğini text olarak al
+        const responseText = await response.text();
+        
+        // Boş yanıt kontrolü
+        if (!responseText || responseText.trim() === '') {
+          console.log(`API boş yanıt döndü`);
+          return [];
+        }
+        
+        // JSON parse etmeyi dene
+        try {
+          const data = JSON.parse(responseText);
+          console.log('Gönderiler başarıyla alındı:', data.length || 'Veri yok');
+          
+          // Başarılı olduğunda timeout'u temizle
+          clearTimeout(timeoutId);
+          return data;
+        } catch (parseError) {
+          console.error(`JSON parse hatası:`, responseText.substring(0, 100));
+          clearTimeout(timeoutId);
+          return [];
+        }
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
       }
-      
-      // Tüm URL'ler denendikten sonra hala başarısızsa
-      clearTimeout(timeoutId);
-      console.error('Gönderi listeleme hatası:', lastError);
-      throw new Error('Gönderiler alınamadı');
     } catch (error) {
       console.error('Gönderi listeleme hatası:', error);
       return [];
@@ -961,13 +885,17 @@ export const postService = {
   create: async (postData: FormData) => {
     try {
       console.log('Gönderi paylaşma isteği gönderiliyor...');
-      console.log('Kullanılan API URL:', API_URL);
       
       // Token al
       const token = await AsyncStorage.getItem('token');
       if (!token) {
         throw new Error('Oturum açık değil, lütfen giriş yapın');
       }
+      
+      // API URL'sini al
+      const baseUrl = await getApiBaseUrl();
+      const uploadUrl = `${baseUrl}/posts`;
+      console.log('Gönderi yükleme URL:', uploadUrl);
       
       // Retry mekanizması
       let retryCount = 0;
@@ -977,7 +905,7 @@ export const postService = {
         // XHR oluştur
         return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open('POST', `${API_URL}/posts`);
+          xhr.open('POST', uploadUrl);
           
           // Authorization header'i ekle
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -1060,13 +988,14 @@ export const postService = {
       console.log(`${userId} ID'li kullanıcının gönderileri getiriliyor...`);
       const headers = await getAuthHeaders();
       
-      const response = await fetch(`${API_URL}/posts/user/${userId}`, {
+      const url = await getApiUrl(`/posts/user/${userId}`);
+      const response = await fetch(url, {
         method: 'GET',
         headers
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { message?: string };
         throw new Error(errorData.message || 'Kullanıcı gönderilerini getirme başarısız');
       }
       
@@ -1082,13 +1011,14 @@ export const postService = {
   likePost: async (postId: string) => {
     try {
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+      const url = await getApiUrl(`/posts/${postId}/like`);
+      const response = await fetch(url, {
         method: 'POST',
         headers
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { message?: string };
         throw new Error(errorData.message || 'Gönderi beğenme başarısız');
       }
       
@@ -1104,13 +1034,14 @@ export const postService = {
   deletePost: async (postId: string) => {
     try {
       const headers = await getAuthHeaders();
-      const response = await fetch(`${API_URL}/posts/${postId}`, {
+      const url = await getApiUrl(`/posts/${postId}`);
+      const response = await fetch(url, {
         method: 'DELETE',
         headers
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { message?: string };
         throw new Error(errorData.message || 'Gönderi silme başarısız');
       }
       
@@ -1121,3 +1052,143 @@ export const postService = {
     }
   }
 };
+
+// Kullanıcı Profil Servisleri
+export const userService = {
+  // Profil Bilgilerini Getir
+  getProfile: async () => {
+    try {
+      const headers = await getAuthHeaders();
+      const url = await getApiUrl('/users/profile');
+      const data = await fetchAPI(url, {
+        method: 'GET',
+        headers
+      });
+      return data;
+    } catch (error) {
+      console.error('Profil getirme hatası:', error);
+      throw error;
+    }
+  },
+
+  // Profil Bilgilerini Güncelle
+  updateProfile: async (profileData: any) => {
+    try {
+      const headers = await getAuthHeaders();
+      
+      console.log('Profil güncelleniyor:', profileData);
+      
+      // Önce token kontrolü yapalım
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        throw new Error('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.');
+      }
+      
+      // stats alanı için özel işlem yapalım
+      const updatedData = { ...profileData };
+      
+      // İsteği yapalım
+      const url = await getApiUrl('/users/profile');
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updatedData)
+      });
+
+      // Önce response'un içeriğini text olarak al
+      const responseText = await response.text();
+      
+      // Boş yanıt kontrolü
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Sunucudan yanıt alınamadı');
+      }
+      
+      // JSON parse etmeyi dene
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse hatası:', responseText.substring(0, 100));
+        throw new Error('Sunucu yanıtı geçerli JSON formatında değil');
+      }
+      
+      if (!response.ok) {
+        console.error('Profil güncelleme başarısız:', data.message || response.statusText);
+        throw new Error(data.message || 'Profil güncellenemedi');
+      }
+      
+      // Güncel kullanıcı bilgilerini kaydet
+      await AsyncStorage.setItem('user', JSON.stringify(data));
+      
+      console.log('Profil başarıyla güncellendi:', data);
+      return data;
+    } catch (error) {
+      console.error('Profil güncelleme hatası:', error);
+      throw error;
+    }
+  }
+};
+
+// Axios isteği yapan fonksiyonu yerine fetch kullanan bir fonksiyon tanımlıyoruz
+interface RequestOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  data?: any;
+  timeout?: number;
+}
+
+const axiosLikeRequest = async (endpoint: string, options: RequestOptions = {}) => {
+  try {
+    const url = await getApiUrl(endpoint);
+    console.log(`API isteği gönderiliyor: ${url}`);
+    
+    // Token ekle (eğer varsa)
+    const token = await AsyncStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+    
+    // Fetch ile GET isteği
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), options.timeout || 15000);
+    
+    const response = await fetch(url, {
+      method: options.method || 'GET',
+      headers,
+      ...(options.data ? { body: JSON.stringify(options.data) } : {}),
+      signal: controller.signal as any
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API hata: ${response.status} - ${errorText}`);
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+    
+    // JSON yanıt
+    const data = await response.json();
+    return { data, status: response.status, headers: response.headers };
+  } catch (error) {
+    console.error(`Axios benzeri istek hatası (${endpoint}):`, error);
+    throw error;
+  }
+};
+
+// İlk uygulama açılışında çevrimdışı mod kontrolünü yap
+checkOfflineMode().catch(err => {
+  console.error('Çevrimdışı mod kontrolü hatası:', err);
+  IS_OFFLINE_MODE = true;
+});
+
+// Çevrimdışı mod kontrolünü düzenli aralıklarla yap
+setInterval(async () => {
+  try {
+    await checkOfflineMode();
+  } catch (error) {
+    console.error('Otomatik çevrimdışı mod kontrolü hatası:', error);
+  }
+}, 1 * 60 * 1000); // 1 dakikada bir kontrol et (15 dakika yerine daha sık)

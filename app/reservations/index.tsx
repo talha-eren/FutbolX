@@ -8,9 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useAuth } from '@/context/AuthContext';
-
-// API URL'sini platform'a göre ayarla
-const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
+import { getApiUrl } from '@/services/networkConfig';
 
 interface Reservation {
   _id: string;
@@ -58,19 +56,14 @@ export default function ReservationsScreen() {
         return;
       }
       
-      // Token'dan "Bearer " önekini kaldır (eğer varsa)
-      const cleanToken = token.startsWith('Bearer ') ? token.substring(7) : token;
+      const apiUrl = await getApiUrl('/reservations/my');
+      console.log('Rezervasyon listesi isteği URL:', apiUrl);
       
-      console.log('Rezervasyonları getirme isteği gönderiliyor:', {
-        endpoint: `${API_URL}/reservations/my`,
-        tokenLength: cleanToken.length
-      });
-
-      const response = await fetch(`${API_URL}/reservations/my`, {
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'x-auth-token': cleanToken
+          'Authorization': `Bearer ${token}`
         }
       });
       
@@ -78,7 +71,7 @@ export default function ReservationsScreen() {
         throw new Error('Rezervasyonlar alınamadı');
       }
       
-      const data = await response.json();
+      const data = await response.json() as Reservation[];
       setReservations(data);
     } catch (err: any) {
       setError(err.message || 'Bir hata oluştu');
@@ -118,19 +111,14 @@ export default function ReservationsScreen() {
                 return;
               }
               
-              // Token'dan "Bearer " önekini kaldır (eğer varsa)
-              const cleanToken = token.startsWith('Bearer ') ? token.substring(7) : token;
-              
-              console.log('Rezervasyon iptal isteği gönderiliyor:', {
-                reservationId,
-                tokenLength: cleanToken.length
-              });
+              const apiUrl = await getApiUrl(`/reservations/${reservationId}`);
+              console.log('Rezervasyon iptal isteği URL:', apiUrl);
 
-              const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+              const response = await fetch(apiUrl, {
                 method: 'DELETE',
                 headers: {
                   'Content-Type': 'application/json',
-                  'x-auth-token': cleanToken
+                  'Authorization': `Bearer ${token}`
                 }
               });
               

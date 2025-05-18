@@ -6,7 +6,7 @@ import { useThemeColor } from '../../hooks/useThemeColor';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { API_URL } from '@/services/api';
+import { getApiUrl } from '@/services/networkConfig';
 
 // Halı saha maç veri tipi tanımı
 interface Match {
@@ -53,7 +53,10 @@ export default function MatchesScreen() {
     // API'den maçları çek
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/matches`, {
+      const apiUrl = await getApiUrl('/matches');
+      console.log('Maç listesi isteği URL:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +68,7 @@ export default function MatchesScreen() {
         throw new Error('Maçlar yüklenirken bir hata oluştu');
       }
       
-      const data = await response.json();
+      const data = await response.json() as Match[];
       setMatches(data);
     } catch (err: any) {
       console.error('Maçları getirme hatası:', err);

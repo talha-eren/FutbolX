@@ -12,7 +12,7 @@ import CreateMatchScreen from './create-match';
 import SharePostScreen from './sharePost';
 
 // Sekme tipini tanımla
-type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'admin' | 'fields' | 'reservations';
+type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'admin';
 
 // Hover props tipini tanımla
 type HoverableProps = {
@@ -124,12 +124,6 @@ export default function TabLayout() {
       case 'admin':
         router.push('/(tabs)/admin' as any);
         break;
-      case 'fields':
-        router.push('/fields' as any);
-        break;
-      case 'reservations':
-        router.push('/reservations' as any);
-        break;
     }
   };
 
@@ -239,50 +233,6 @@ export default function TabLayout() {
             hoveredTab === 'matches' && styles.hoveredFooterTabText
           ]}>Maçlar</ThemedText>
         </HoverableTouchable>
-        
-        {/* Halı Sahalar sekmesi */}
-        <HoverableTouchable 
-          style={styles.footerTab}
-          onPress={() => changeTab('fields')}
-          onHoverIn={() => setHoveredTab('fields')}
-          onHoverOut={() => setHoveredTab(null)}
-        >
-          <View style={[
-            styles.iconWrapper, 
-            activeTab === 'fields' && styles.activeIconWrapper,
-            hoveredTab === 'fields' && styles.hoveredIconWrapper
-          ]}>
-            <IconSymbol name="football" size={22} color="#FFFFFF" />
-          </View>
-          <ThemedText style={[
-            styles.footerTabText, 
-            activeTab === 'fields' && styles.activeFooterTabText,
-            hoveredTab === 'fields' && styles.hoveredFooterTabText
-          ]}>Halı Sahalar</ThemedText>
-        </HoverableTouchable>
-
-        {/* Rezervasyonlar sekmesi - sadece giriş yapmış kullanıcılara gösterilir */}
-        {isLoggedIn && (
-          <HoverableTouchable 
-            style={styles.footerTab}
-            onPress={() => changeTab('reservations')}
-            onHoverIn={() => setHoveredTab('reservations')}
-            onHoverOut={() => setHoveredTab(null)}
-          >
-            <View style={[
-              styles.iconWrapper, 
-              activeTab === 'reservations' && styles.activeIconWrapper,
-              hoveredTab === 'reservations' && styles.hoveredIconWrapper
-            ]}>
-              <IconSymbol name="calendar" size={22} color="#FFFFFF" />
-            </View>
-            <ThemedText style={[
-              styles.footerTabText, 
-              activeTab === 'reservations' && styles.activeFooterTabText,
-              hoveredTab === 'reservations' && styles.hoveredFooterTabText
-            ]}>Rezervasyonlar</ThemedText>
-          </HoverableTouchable>
-        )}
 
         {/* Admin sekmesi sadece admin kullanıcılara gösterilir */}
         {isAdmin && (
