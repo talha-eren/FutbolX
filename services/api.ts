@@ -14,9 +14,11 @@ const BACKEND_PORT = 5000;
 
 // Alternatif IP adresleri (bağlantı sorunları için)
 const ALTERNATIVE_IPS = [
+  '192.168.1.90',    // Güncel doğru IP (backend sunucusu)
+  '192.168.1.59',    // Eski IP adresi
   '10.0.2.2',        // Android emülatör için özel IP
   '192.168.1.27',    // Ana IP
-  '192.168.1.49',    // Expo log'undan tespit edilen IP (Metro sunucusu IP'si)
+  '192.168.1.49',    // Eski Metro IP
   'localhost',       // Localhost
   '127.0.0.1',       // Localhost alternatifi
   '192.168.1.1',     // Router IP'si
@@ -27,7 +29,7 @@ const ALTERNATIVE_IPS = [
 try {
   // Önce Expo Metro sunucusunun IP'sini almaya çalış - bu genellikle en iyi çözümdür
   // Bu IP, telefonun ve bilgisayarın aynı ağda olduğunu varsayar
-  const METRO_IP = '192.168.1.49'; // Expo loglarında görünen IP
+  const METRO_IP = '192.168.1.90'; // Güncellenmiş IP adresi
   
   if (Platform.OS === 'android') {
     // Android emülatör için özel IP kullan
@@ -179,8 +181,8 @@ const testApiConnection = async () => {
   }
   
   // Metro IP'sini önce dene
-  const METRO_IP = '192.168.1.49'; // Expo loglarından
-  console.log(`Önce Metro IP adresi deneniyor: ${METRO_IP}`);
+  const METRO_IP = '192.168.1.90'; // Güncellenmiş backend IP'si
+  console.log(`Önce güncel backend IP adresi deneniyor: ${METRO_IP}`);
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -688,7 +690,7 @@ export const videoService = {
         const apiUrl = userId ? `${url}?user=${userId}` : url;
         
         const response = await fetch(apiUrl, {
-          method: 'GET',
+        method: 'GET',
           headers: {
             ...headers,
             'Authorization': token ? `Bearer ${token}` : ''
@@ -698,13 +700,13 @@ export const videoService = {
         
         clearTimeout(timeoutId); // Zamanı iptal et
       
-        if (!response.ok) {
+      if (!response.ok) {
           const errorData = await response.json() as { message?: string };
           throw new Error(errorData.message || 'Videoları getirme başarısız');
-        }
+      }
       
         const data = await response.json();
-        return data;
+      return data;
       } catch (error) {
         const fetchError = error as Error;
         
@@ -836,43 +838,43 @@ export const postService = {
       try {
         const url = await getApiUrl('/posts');
         console.log('Gönderi isteği URL:', url);
-        
-        const response = await fetch(url, {
-          method: 'GET',
-          headers,
+          
+          const response = await fetch(url, {
+            method: 'GET',
+            headers,
           signal: controller.signal as any
-        });
-        
-        // Başarılı yanıt kontrolü
-        if (!response.ok) {
+          });
+          
+          // Başarılı yanıt kontrolü
+          if (!response.ok) {
           console.log(`API hatası: ${response.status} ${response.statusText}`);
           throw new Error(`Gönderi listesi alınamadı: ${response.statusText}`);
-        }
-        
-        // Önce response'un içeriğini text olarak al
-        const responseText = await response.text();
-        
-        // Boş yanıt kontrolü
-        if (!responseText || responseText.trim() === '') {
+          }
+          
+          // Önce response'un içeriğini text olarak al
+          const responseText = await response.text();
+          
+          // Boş yanıt kontrolü
+          if (!responseText || responseText.trim() === '') {
           console.log(`API boş yanıt döndü`);
           return [];
-        }
-        
-        // JSON parse etmeyi dene
-        try {
-          const data = JSON.parse(responseText);
-          console.log('Gönderiler başarıyla alındı:', data.length || 'Veri yok');
+          }
           
-          // Başarılı olduğunda timeout'u temizle
-          clearTimeout(timeoutId);
-          return data;
-        } catch (parseError) {
+          // JSON parse etmeyi dene
+          try {
+            const data = JSON.parse(responseText);
+          console.log('Gönderiler başarıyla alındı:', data.length || 'Veri yok');
+            
+            // Başarılı olduğunda timeout'u temizle
+            clearTimeout(timeoutId);
+            return data;
+          } catch (parseError) {
           console.error(`JSON parse hatası:`, responseText.substring(0, 100));
           clearTimeout(timeoutId);
           return [];
-        }
-      } catch (error) {
-        clearTimeout(timeoutId);
+          }
+        } catch (error) {
+      clearTimeout(timeoutId);
         throw error;
       }
     } catch (error) {

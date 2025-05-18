@@ -32,7 +32,7 @@ export default function FieldDetailScreen() {
   const [field, setField] = useState<Field | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-    
+  
   // Halı saha detaylarını getirme
   useEffect(() => {
     const fetchFieldDetails = async () => {
@@ -189,10 +189,10 @@ export default function FieldDetailScreen() {
             <View style={styles.map}>
               <ThemedText style={styles.mapPlaceholder}>
                 Bu halı sahanın konum bilgisi burada görüntülenecektir.
-              </ThemedText>
+                </ThemedText>
             </View>
-          </View>
-          
+            </View>
+            
           {/* İletişim Bilgileri */}
           <View style={styles.contactContainer}>
             <ThemedText style={styles.contactTitle}>İletişim</ThemedText>

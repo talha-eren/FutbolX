@@ -82,7 +82,7 @@ export default function ProfileScreen() {
   
   // Profil verilerini çek - çevrimdışı mod desteği ile
   const fetchUserProfile = async () => {
-    setLoading(true);
+        setLoading(true);
     try {
       // Çevrimdışı mod kontrolü
       const offline = await checkOfflineMode();
@@ -152,13 +152,13 @@ export default function ProfileScreen() {
       }
       
       // Çevrimiçi mod - gerçek API'den verileri çek
-      const profileData = await userService.getProfile();
+            const profileData = await userService.getProfile();
       console.log('Profil verileri:', profileData);
       
       // Gelen verileri UserProfile formatına dönüştür
       const stats = profileData.stats || {};
-      const formattedData: UserProfile = {
-        id: profileData._id || profileData.id,
+            const formattedData: UserProfile = {
+              id: profileData._id || profileData.id,
         name: profileData.name || user?.name || '',
         username: profileData.username || user?.username || '',
         email: profileData.email || user?.email || '',
@@ -166,7 +166,7 @@ export default function ProfileScreen() {
         bio: profileData.bio || user?.bio || '',
         location: profileData.location || user?.location || '',
         phone: profileData.phone || '',
-        favoriteTeams: profileData.favoriteTeams || [],
+              favoriteTeams: profileData.favoriteTeams || [],
         level: profileData.level || user?.level || '',
         position: profileData.position || user?.position || '',
         footPreference: profileData.footPreference || user?.footPreference || '',
@@ -177,14 +177,14 @@ export default function ProfileScreen() {
           playHours: stats.playHours || 0,
           rating: stats.rating || 0
         },
-        // Doğrudan erişim için ek alanlar
+              // Doğrudan erişim için ek alanlar
         matches: stats.matches || 0,
         goals: stats.goals || 0,
         assists: stats.assists || 0,
         playHours: stats.playHours || 0
-      };
-      
-      setUserData(formattedData);
+            };
+            
+            setUserData(formattedData);
       
     } catch (error) {
       console.error('Profil yüklenirken hata:', error);
@@ -247,7 +247,7 @@ export default function ProfileScreen() {
         location: 'İstanbul',
         level: offlineUser.level || 'Orta',
         position: offlineUser.position || 'Forvet',
-        footPreference: 'Sağ',
+            footPreference: 'Sağ',
         stats: offlineUser.stats || {
           matches: 15,
           goals: 8,
@@ -261,10 +261,10 @@ export default function ProfileScreen() {
         playHours: 30
       };
       setUserData(formattedOfflineUser);
-    } finally {
-      setLoading(false);
-    }
-  };
+      } finally {
+        setLoading(false);
+      }
+    };
 
   useFocusEffect(
     React.useCallback(() => {

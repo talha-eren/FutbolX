@@ -10,7 +10,6 @@ import { Link, useRouter } from 'expo-router';
 import { FutbolXLogo } from '@/components/FutbolXLogo';
 import * as Linking from 'expo-linking';
 import { useAuth } from '@/context/AuthContext';
-import { fieldService, eventService, postService } from '@/services/api';
 
 // Ana renk
 const primaryColor = '#4CAF50';
@@ -48,6 +47,11 @@ interface Post {
   filename?: string;
   uploadDate?: string;
   createdAt?: string;
+  filePath?: string; // MongoDB'deki filePath alanı
+  postType?: string; // MongoDB'deki postType alanı
+  category?: string; // MongoDB'deki category alanı
+  duration?: number; // Video süresi için
+  length?: number; // Video uzunluğu için alternatif alan
   user?: { 
     username?: string; 
     _id?: string;
@@ -64,6 +68,7 @@ interface Video {
   title: string;
   description?: string;
   filename?: string;
+  fileName?: string; // MongoDB'deki fileName alanı için
   contentType?: string;
   length?: number;
   uploadDate?: string;
@@ -71,16 +76,22 @@ interface Video {
   user?: { username: string; _id: string };
   username?: string;
   url?: string;
+  webUrl?: string; // Web kaynaklı videolar için URL
+  web_url?: string; // Alternatif web URL formatı
   fileId?: string;
   likes?: string[];
   comments?: any[];
   views?: number;
   thumbnail?: string;
+  filePath?: string; // MongoDB'deki filePath alanı
   timestamp?: string; // Birleştirme için eklendi
   content?: string; // Birleştirme için eklendi
   image?: string; // Birleştirme için eklendi
   userAvatar?: string; // Birleştirme için eklendi
   location?: string; // Birleştirme için eklendi
+  postType?: string; // MongoDB'deki postType alanı
+  category?: string; // MongoDB'deki category alanı
+  duration?: number; // Video süresi alanı
 }
 
 export default function IndexScreen() {
@@ -98,7 +109,7 @@ export default function IndexScreen() {
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   
   const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, token } = useAuth();
   
   const primaryColor = '#4CAF50';
   const API_URL = getApiUrl();
@@ -108,32 +119,159 @@ export default function IndexScreen() {
   // Veritabanından halı sahaları ve etkinlikleri çekme
   useEffect(() => {
     const fetchData = async () => {
-      if (activeTab === 'kesfet') {
-        fetchPosts();
-        fetchVideos();
-      } else if (activeTab === 'halisaha') {
-        fetchFields();
-      } else if (activeTab === 'etkinlikler') {
-        fetchEvents();
+      try {
+        console.log(`======== Veri çekme başlatılıyor (${activeTab}) ========`);
+        
+        if (activeTab === 'kesfet') {
+          fetchPosts();
+          fetchVideos();
+        } else if (activeTab === 'halisaha') {
+          fetchFields();
+        } else if (activeTab === 'etkinlikler') {
+          fetchEvents();
+        }
+      } catch (error: any) {
+        console.error(`Veri çekme hatası: ${error?.message || 'Bilinmeyen hata'}`);
+        setError('Veriler yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
       }
     };
     
     fetchData();
+    
+    // Component temizlendiğinde yükleniyor durumunu sıfırla
+    return () => {
+      setLoading(false);
+    };
   }, [activeTab]);
   
-  // Halı sahaları çekme fonksiyonu
+  // Halı sahaları çekme fonksiyonu - Bu fonksiyon artık matches endpoint'inden veri çekecek
   const fetchFields = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const data = await fieldService.getFields();
-      if (data && data.length > 0) {
-        setFields(data);
+      // Farklı IP'leri denemek için IP adresleri listesi
+      const ipAddresses = ['192.168.1.90', '192.168.1.59', '192.168.1.27', '192.168.1.49'];
+      let matchesData = [];
+      let connected = false;
+      
+      // Her bir IP'yi sırayla dene
+      for (const ip of ipAddresses) {
+        if (connected) break;
+        
+        try {
+          console.log(`Halı sahalar için ${ip} IP'sine bağlanmayı deniyorum...`);
+          const apiUrl = `http://${ip}:5000/api/matches`;
+          
+          // Kısa timeout ile bağlantı dene
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 saniye timeout
+          
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            signal: controller.signal as any
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data)) {
+              matchesData = data;
+              console.log(`Bağlantı başarılı: ${ip}, ${data.length} maç verisi alındı`);
+              connected = true;
+              break;
+            }
+          }
+        } catch (ipError: any) {
+          console.log(`${ip} bağlantı hatası:`, ipError.message);
+          // Hata durumunda bir sonraki IP'yi dene
+          continue;
+        }
+      }
+      
+      // Eğer hiçbir IP üzerinden bağlantı sağlanamadıysa
+      if (!connected) {
+        console.log('Hiçbir IP adresi üzerinden bağlantı sağlanamadı');
+        // Yedek veri: Örnek halı sahalar
+        matchesData = [
+          {
+            _id: 'sample1',
+            fieldName: 'Yeşil Vadi Halı Saha',
+            location: 'Kadıköy, İstanbul',
+            price: 600,
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            playersJoined: 8,
+            totalPlayers: 10
+          },
+          {
+            _id: 'sample2',
+            fieldName: 'Galatasaray Futbol Akademisi',
+            location: 'Florya, İstanbul',
+            price: 800,
+            image: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1470&auto=format&fit=crop',
+            playersJoined: 5,
+            totalPlayers: 12
+          }
+        ];
+        console.log('Örnek halı saha verileri kullanılıyor');
+      }
+      
+      if (matchesData && Array.isArray(matchesData) && matchesData.length > 0) {
+        // Maç verilerini halı saha formatına dönüştür
+        const fieldsFromMatches = matchesData.map(match => ({
+          id: match._id || match.id,
+          name: match.fieldName,
+          location: match.location,
+          price: match.price,
+          rating: 4.5, // Sabit değer veya hesaplanabilir
+          image: match.image,
+          availability: match.playersJoined < match.totalPlayers ? 'Müsait' : 'Dolu'
+        }));
+        
+        // Benzersiz halı sahaları elde et (aynı saha birden fazla maçta olabilir)
+        const uniqueFields = fieldsFromMatches.reduce<Field[]>((acc, current) => {
+          const x = acc.find(item => item.name === current.name);
+          if (!x) {
+            return [...acc, current];
+          } else {
+            return acc;
+          }
+        }, []);
+        
+        setFields(uniqueFields);
+      } else {
+        setFields([]);
       }
     } catch (err: any) {
       console.error('Halı sahaları getirme hatası:', err);
       setError(err.message || 'Halı sahaları yüklenirken bir hata oluştu');
+      
+      // Hata durumunda örnek veriler göster
+      setFields([
+        {
+          id: 'example1',
+          name: 'Örnek Halı Saha',
+          location: 'Kadıköy, İstanbul',
+          price: 550,
+          rating: 4.8,
+          image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+          availability: 'Müsait'
+        },
+        {
+          id: 'example2',
+          name: 'Örnek Futbol Akademisi',
+          location: 'Beşiktaş, İstanbul',
+          price: 650,
+          rating: 4.6,
+          image: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1470&auto=format&fit=crop',
+          availability: 'Müsait'
+        }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -145,12 +283,84 @@ export default function IndexScreen() {
       setLoading(true);
       setError(null);
       
-      const data = await eventService.getAll();
+      // Farklı IP'leri denemek için IP adresleri listesi
+      const ipAddresses = ['192.168.1.90', '192.168.1.59', '192.168.1.27', '192.168.1.49'];
+      let eventsData = [];
+      let connected = false;
+      
+      // Her bir IP'yi sırayla dene
+      for (const ip of ipAddresses) {
+        if (connected) break;
+        
+        try {
+          console.log(`Etkinlikler için ${ip} IP'sine bağlanmayı deniyorum...`);
+          const apiUrl = `http://${ip}:5000/api/events`;
+          
+          // Kısa timeout ile bağlantı dene
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 saniye timeout
+          
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            signal: controller.signal as any
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data)) {
+              eventsData = data;
+              console.log(`Bağlantı başarılı: ${ip}, ${data.length} etkinlik verisi alındı`);
+              connected = true;
+              break;
+            }
+          }
+        } catch (ipError: any) {
+          console.log(`${ip} bağlantı hatası:`, ipError.message);
+          // Hata durumunda bir sonraki IP'yi dene
+          continue;
+        }
+      }
+      
+      // Eğer hiçbir IP üzerinden bağlantı sağlanamadıysa
+      if (!connected) {
+        console.log('Hiçbir IP adresi üzerinden etkinlik verileri alınamadı');
+        // Yedek veri: Örnek etkinlikler
+        eventsData = [
+          {
+            id: 'sample-event-1',
+            title: 'Halı Saha Turnuvası',
+            date: new Date().toLocaleDateString('tr-TR'),
+            time: '19:00',
+            location: 'Kadıköy, İstanbul',
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            participants: 12,
+            maxParticipants: 20
+          },
+          {
+            id: 'sample-event-2',
+            title: 'Futbol Atölyesi',
+            date: new Date(Date.now() + 86400000).toLocaleDateString('tr-TR'),
+            time: '14:00',
+            location: 'Beşiktaş, İstanbul',
+            image: 'https://images.unsplash.com/photo-1511886929837-354d827aae26?q=80&w=1064&auto=format&fit=crop',
+            participants: 8,
+            maxParticipants: 15
+          }
+        ];
+        console.log('Örnek etkinlik verileri kullanılıyor');
+      }
       
       // Veri kontrolü
-      if (data && Array.isArray(data) && data.length > 0) {
-        console.log('Etkinlikler başarıyla yüklendi:', data.length);
-        setEvents(data);
+      if (eventsData && Array.isArray(eventsData) && eventsData.length > 0) {
+        console.log('Etkinlikler başarıyla yüklendi:', eventsData.length);
+        setEvents(eventsData);
       } else {
         console.log('Etkinlik bulunamadı');
         setEvents([]);
@@ -170,12 +380,90 @@ export default function IndexScreen() {
       setLoading(true);
       setError(null);
       
-      const data = await postService.getAll();
+      // Farklı IP'leri denemek için IP adresleri listesi
+      const ipAddresses = ['192.168.1.90', '192.168.1.59', '192.168.1.27', '192.168.1.49'];
+      let postsData = [];
+      let connected = false;
+      
+      // Her bir IP'yi sırayla dene
+      for (const ip of ipAddresses) {
+        if (connected) break;
+        
+        try {
+          console.log(`Gönderiler için ${ip} IP'sine bağlanmayı deniyorum...`);
+          const apiUrl = `http://${ip}:5000/api/posts`;
+          
+          // Kısa timeout ile bağlantı dene
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 saniye timeout
+          
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            signal: controller.signal as any
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data)) {
+              postsData = data;
+              console.log(`Bağlantı başarılı: ${ip}, ${data.length} gönderi verisi alındı`);
+              connected = true;
+              break;
+            }
+          }
+        } catch (ipError: any) {
+          console.log(`${ip} bağlantı hatası:`, ipError.message);
+          // Hata durumunda bir sonraki IP'yi dene
+          continue;
+        }
+      }
+      
+      // Eğer hiçbir IP üzerinden bağlantı sağlanamadıysa
+      if (!connected) {
+        console.log('Hiçbir IP adresi üzerinden gönderi verileri alınamadı');
+        // Yedek veri: Örnek gönderiler
+        postsData = [
+          {
+            _id: 'sample-post-1',
+            content: 'Bugün harika bir antrenman yaptık!',
+            image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1470&auto=format&fit=crop',
+            username: 'FutbolSever',
+            createdAt: new Date().toISOString(),
+            timestamp: new Date().toISOString(),
+            likes: 12,
+            comments: 3,
+            filePath: '/uploads/posts/sample-post-1.mp4',
+            postType: 'video',
+            category: 'Sports'
+          },
+          {
+            _id: 'sample-post-2',
+            content: 'Yeni formamız harika görünüyor!',
+            image: 'https://images.unsplash.com/photo-1617696618050-b0fef0c666af?q=80&w=1470&auto=format&fit=crop',
+            username: 'FutbolFan',
+            createdAt: new Date().toISOString(),
+            timestamp: new Date().toISOString(),
+            likes: 8,
+            comments: 1,
+            filePath: '/uploads/posts/sample-post-2.mp4',
+            postType: 'video',
+            category: 'Sports'
+          }
+        ];
+        console.log('Örnek gönderi verileri kullanılıyor');
+      }
       
       // Veri kontrolü
-      if (data && Array.isArray(data) && data.length > 0) {
-        console.log('Gönderiler başarıyla yüklendi:', data.length);
-        setPosts(data);
+      if (postsData && Array.isArray(postsData) && postsData.length > 0) {
+        console.log('Gönderiler başarıyla yüklendi:', postsData.length);
+        setPosts(postsData);
       } else {
         console.log('Gönderi bulunamadı');
         setPosts([]);
@@ -190,31 +478,134 @@ export default function IndexScreen() {
     }
   };
   
+  // Video URL'lerini düzeltme fonksiyonu
+  const updateVideoUrls = (videos: Video[]): Video[] => {
+    return videos.map(video => {
+      // MongoDB'den gelen video verisi için özel işlem
+      if (video.filePath && !video.url) {
+        video.url = video.filePath;
+      }
+      
+      // MongoDB thumbnail alanı varsa
+      if (video.thumbnail && !video.thumbnail.startsWith('http')) {
+        video.thumbnail = getImageUrl(video.thumbnail);
+      }
+      
+      // Web URL'den kaynaklı videolar için webUrl alanını belirle
+      if (!video.webUrl && !video.web_url) {
+        if (video.url && video.url.includes('youtube.com')) {
+          video.webUrl = video.url;
+        } else if (video.url && video.url.includes('vimeo.com')) {
+          video.webUrl = video.url;
+        } else if (video.url && (video.url.includes('http://') || video.url.includes('https://'))) {
+          // URL bir web adresi ise web_url olarak ata
+          if (!video.url.includes('192.168.')) {
+            video.webUrl = video.url;
+          }
+        }
+      }
+      
+      return video;
+    });
+  };
+
   // Videoları çekme fonksiyonu
   const fetchVideos = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Axios ile doğrudan istek gönder
-      const response = await fetch(`${API_URL}/videos`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
+      // Farklı IP'leri denemek için IP adresleri listesi
+      const ipAddresses = ['192.168.1.90', '192.168.1.59', '192.168.1.27', '192.168.1.49'];
+      let videosData: Video[] = [];
+      let connected = false;
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Her bir IP'yi sırayla dene
+      for (const ip of ipAddresses) {
+        if (connected) break;
+        
+        try {
+          console.log(`Videolar için ${ip} IP'sine bağlanmayı deniyorum...`);
+          const apiUrl = `http://${ip}:5000/api/videos`;
+          
+          // Kısa timeout ile bağlantı dene
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 saniye timeout
+          
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            signal: controller.signal as any
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data)) {
+              // URL'leri düzeltme işlemi
+              videosData = updateVideoUrls(data);
+              console.log(`Bağlantı başarılı: ${ip}, ${data.length} video verisi alındı`);
+              connected = true;
+              break;
+            }
+          }
+        } catch (ipError: any) {
+          console.log(`${ip} bağlantı hatası:`, ipError.message);
+          // Hata durumunda bir sonraki IP'yi dene
+          continue;
+        }
       }
       
-      const data = await response.json();
+      // Eğer hiçbir IP üzerinden bağlantı sağlanamadıysa
+      if (!connected) {
+        console.log('Hiçbir IP adresi üzerinden video verileri alınamadı');
+        // Yedek veri: Örnek videolar
+        videosData = [
+          {
+            _id: 'sample-video-1',
+            title: 'Futbol Teknikleri',
+            description: 'Temel futbol teknikleri gösterimi',
+            username: 'FutbolEğitmeni',
+            uploadDate: new Date().toISOString(),
+            likes: [],
+            views: 156,
+            webUrl: 'https://www.youtube.com/watch?v=nePmkpPaKhQ', // Örnek web video
+            fileName: 'sample-video-1.mp4',
+            contentType: 'video',
+            length: 120,
+            user: { username: 'FutbolEğitmeni', _id: 'user1' },
+            category: 'Sports',
+            duration: 120
+          },
+          {
+            _id: 'sample-video-2',
+            title: 'Penaltı Atışları',
+            description: 'Profesyonel penaltı teknikleri',
+            username: 'FutbolAkademisi',
+            uploadDate: new Date().toISOString(),
+            likes: [],
+            views: 342,
+            webUrl: 'https://www.youtube.com/watch?v=njAHmSvgXQk', // Örnek web video
+            fileName: 'sample-video-2.mp4',
+            contentType: 'video',
+            length: 180,
+            user: { username: 'FutbolAkademisi', _id: 'user2' },
+            category: 'Sports',
+            duration: 180
+          }
+        ];
+        console.log('Örnek video verileri kullanılıyor');
+      }
       
       // Veri kontrolü
-      if (data && Array.isArray(data) && data.length > 0) {
-        console.log('Videolar başarıyla yüklendi:', data.length);
-        setVideos(data);
+      if (videosData && Array.isArray(videosData) && videosData.length > 0) {
+        console.log('Videolar başarıyla yüklendi:', videosData.length);
+        setVideos(videosData);
       } else {
         console.log('Video bulunamadı');
         setVideos([]);
@@ -348,56 +739,62 @@ export default function IndexScreen() {
           <ThemedText style={styles.errorText}>{error}</ThemedText>
         </View>
       ) : (
-        <View style={styles.fieldsContainer}>
-          {fields.slice(0, 2).map((field, index) => (
-          <Pressable 
-            key={`field-${field.id}-${index}`}
-            style={[
-              styles.fieldCard,
-              { marginRight: index === 0 ? 10 : 0 },
-              hoveredField === field.id && styles.fieldCardHovered
-            ]}
-            onHoverIn={() => setHoveredField(field.id)}
-            onHoverOut={() => setHoveredField(null)}
-            onPress={isLoggedIn ? () => router.push(`/field/${field.id}` as any) : handleRestrictedAction}
-          >
-            <Image 
-              source={{ uri: field.image }} 
-              style={styles.fieldImage} 
-              resizeMode="cover"
-            />
-            <View style={styles.fieldInfo}>
-              <View style={styles.fieldNameContainer}>
-                <IconSymbol name="list.bullet" size={18} color="#212121" />
-                <ThemedText style={styles.fieldName}>{field.name}</ThemedText>
-              </View>
-              <View style={styles.fieldLocationContainer}>
-                <IconSymbol name="mappin" size={16} color="#777" />
-                <ThemedText style={styles.fieldLocation}>{field.location}</ThemedText>
-              </View>
-              <View style={styles.fieldPriceContainer}>
-                <ThemedText style={styles.fieldPrice}>{field.price}₺</ThemedText>
-                <TouchableOpacity 
-                  style={[
-                    styles.miniButton, 
-                    { backgroundColor: field.availability === 'Müsait' ? '#E8F5E9' : '#FFEBEE' }
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <ThemedText 
+        <FlatList
+          data={fields}
+          horizontal={false}
+          showsVerticalScrollIndicator={true}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 10 }}
+          keyExtractor={(item, index) => `field-${item.id}-${index}`}
+          style={{ maxHeight: 500 }} // Dikey kaydırma için yükseklik sınırı
+          renderItem={({ item: field, index }) => (
+            <Pressable 
+              key={`field-${field.id}-${index}`}
+              style={[
+                styles.fieldCard,
+                { marginBottom: 10 }, // Yatay margin yerine dikey margin
+                hoveredField === field.id && styles.fieldCardHovered
+              ]}
+              onHoverIn={() => setHoveredField(field.id)}
+              onHoverOut={() => setHoveredField(null)}
+              onPress={isLoggedIn ? () => router.push(`/field/${field.id}` as any) : handleRestrictedAction}
+            >
+              <Image 
+                source={{ uri: field.image }} 
+                style={styles.fieldImage} 
+                resizeMode="cover"
+              />
+              <View style={styles.fieldInfo}>
+                <View style={styles.fieldNameContainer}>
+                  <IconSymbol name="list.bullet" size={18} color="#212121" />
+                  <ThemedText style={styles.fieldName}>{field.name}</ThemedText>
+                </View>
+                <View style={styles.fieldLocationContainer}>
+                  <IconSymbol name="mappin" size={16} color="#777" />
+                  <ThemedText style={styles.fieldLocation}>{field.location}</ThemedText>
+                </View>
+                <View style={styles.fieldPriceContainer}>
+                  <ThemedText style={styles.fieldPrice}>{field.price}₺</ThemedText>
+                  <TouchableOpacity 
                     style={[
-                      styles.miniButtonText,
-                      { color: field.availability === 'Müsait' ? '#4CAF50' : '#F44336' }
+                      styles.miniButton, 
+                      { backgroundColor: field.availability === 'Müsait' ? '#E8F5E9' : '#FFEBEE' }
                     ]}
+                    activeOpacity={0.7}
                   >
-                    {field.availability}
-                  </ThemedText>
-                </TouchableOpacity>
+                    <ThemedText 
+                      style={[
+                        styles.miniButtonText,
+                        { color: field.availability === 'Müsait' ? '#4CAF50' : '#F44336' }
+                      ]}
+                    >
+                      {field.availability}
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </Pressable>
-        ))}
-        </View>
+            </Pressable>
+          )}
+        />
       )}
     </View>
   );
@@ -430,8 +827,12 @@ export default function IndexScreen() {
           <ThemedText style={styles.emptyText}>Henüz etkinlik bulunmuyor</ThemedText>
         </View>
       ) : (
-        <View style={styles.eventsContainer}>
-          {events.map((event, index) => (
+        <FlatList
+          data={events}
+          showsVerticalScrollIndicator={false}
+          keyExtractor={(item, index) => `event-${item.id || index}`}
+          style={{maxHeight: 400}} // Scrollable bir alanda daha fazla etkinlik görüntülenir
+          renderItem={({item: event, index}) => (
             <Pressable
               key={`event-${event.id || index}`}
               style={styles.eventCard}
@@ -456,8 +857,8 @@ export default function IndexScreen() {
                 </View>
               </View>
             </Pressable>
-          ))}
-        </View>
+          )}
+        />
       )}
     </View>
   );
@@ -469,20 +870,41 @@ export default function IndexScreen() {
     
     // Videoları ekle
     videos.forEach(video => {
-      allContent.push({
+      // MongoDB alanlarını kontrol et ve eksik alanları doldur
+      const videoItem: Video = {
         ...video,
         contentType: 'video',
         timestamp: video.uploadDate || video.createdAt || new Date().toISOString()
-      });
+      };
+      
+      // Video önizleme görselini ayarla
+      if (video.thumbnail && !videoItem.image) {
+        videoItem.image = getImageUrl(video.thumbnail);
+      }
+      
+      allContent.push(videoItem);
     });
     
     // Paylaşımları ekle
     posts.forEach(post => {
-      allContent.push({
+      // MongoDB alanlarını kontrol et ve eksik alanları doldur
+      const postItem: Post = {
         ...post,
         contentType: 'post',
-        timestamp: post.timestamp || new Date().toISOString()
-      });
+        timestamp: post.timestamp || post.createdAt || new Date().toISOString()
+      };
+      
+      // Görsel URL'sini doğru formatta ayarla
+      if (post.image && !post.image.startsWith('http')) {
+        postItem.image = getImageUrl(post.image);
+      }
+      
+      // FilePath varsa ve image yoksa, filePath'i image olarak kullan
+      if (post.filePath && !post.image) {
+        postItem.image = getImageUrl(post.filePath);
+      }
+      
+      allContent.push(postItem);
     });
     
     // Tarihe göre sırala (en yeni en üste)
@@ -499,6 +921,110 @@ export default function IndexScreen() {
       const dateB = getTimestamp(b);
       return dateB - dateA;
     });
+  };
+  
+  // Görsel URL'sini güvenli bir şekilde oluştur
+  const getImageUrl = (path: string | undefined): string => {
+    if (!path) return 'https://via.placeholder.com/300x200?text=Resim+Yok';
+    
+    try {
+      console.log("Görsel yolu:", path);
+      
+      // Sabit IP adresi - networkConfig'den alınan değeri kullanalım
+      const baseUrl = 'http://192.168.1.90:5000';
+      
+      // Eğer tam URL ise doğrudan kullan
+      if (path.startsWith('http')) {
+        return path;
+      }
+      
+      // MongoDB'den gelen /uploads/ yolları için özel işlem
+      if (path.includes('/uploads/')) {
+        // NSURLErrorDomain hatasını önlemek için başlangıç slash'ı kaldır
+        const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+        const fullUrl = `${baseUrl}/${cleanPath}`;
+        console.log("Uploads yolundan URL oluşturuldu:", fullUrl);
+        return fullUrl;
+      }
+      
+      // Default thumbnail için
+      if (path === 'default-thumbnail.jpg' || path.includes('default-thumbnail')) {
+        const fullUrl = `${baseUrl}/uploads/images/default-thumbnail.jpg`;
+        console.log("Default thumbnail URL oluşturuldu:", fullUrl);
+        return fullUrl;
+      }
+      
+      // Diğer tüm göreceli yollar için
+      const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+      const fullUrl = `${baseUrl}/${cleanPath}`;
+      console.log("Genel URL oluşturuldu:", fullUrl);
+      return fullUrl;
+    } catch (error) {
+      console.error('Görsel URL oluşturma hatası:', error);
+      return 'https://via.placeholder.com/300x200?text=Hatalı+URL';
+    }
+  };
+  
+  // Video URL'sini güvenli bir şekilde oluştur
+  const getVideoUrl = (item: any): string => {
+    try {
+      // Sabit tek bir IP adresi kullan
+      const baseUrl = 'http://192.168.1.90:5000';
+      
+      console.log("Video öğesi:", JSON.stringify(item));
+      
+      // MongoDB'den gelen filePath alanı varsa
+      if (item.filePath) {
+        // NSURLErrorDomain hatasını önlemek için URL'yi doğru formatta oluştur
+        // Önce herhangi bir başlangıç slash'ını kaldır
+        const cleanPath = item.filePath.startsWith('/') ? item.filePath.substring(1) : item.filePath;
+        const url = `${baseUrl}/${cleanPath}`;
+        console.log("FilePath'den URL oluşturuldu:", url);
+        return url;
+      }
+
+      // MongoDB'deki thumbnail alanı için
+      if (item.thumbnail && item.thumbnail !== 'default-thumbnail.jpg') {
+        // NSURLErrorDomain hatasını önlemek için URL'yi doğru formatta oluştur
+        const cleanPath = item.thumbnail.startsWith('/') ? item.thumbnail.substring(1) : item.thumbnail;
+        const url = `${baseUrl}/${cleanPath}`;
+        console.log("Thumbnail'dan URL oluşturuldu:", url);
+        return url;
+      }
+      
+      // URL doğrudan varsa kullan
+      if (item.url) {
+        // URL zaten tam ise (http veya https ile başlıyorsa) doğrudan kullan
+        if (item.url.startsWith('http')) {
+          return item.url;
+        }
+        
+        // URL göreceli ise (/ ile başlıyorsa) tam URL oluştur
+        const cleanPath = item.url.startsWith('/') ? item.url.substring(1) : item.url;
+        const url = `${baseUrl}/${cleanPath}`;
+        console.log("URL'den tam URL oluşturuldu:", url);
+        return url;
+      }
+      
+      // Filename (veya fileName) varsa URL oluştur
+      if (item.filename || item.fileName) {
+        const filename = item.filename || item.fileName;
+        const url = `${baseUrl}/uploads/videos/${filename}`;
+        console.log("Filename'den URL oluşturuldu:", url);
+        return url;
+      }
+      
+      // Web videolar için (YouTube, Vimeo, vb.)
+      if (item.webUrl || item.web_url) {
+        return item.webUrl || item.web_url;
+      }
+      
+      // Yedek video (MongoDB bulunamadığında)
+      return 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4';
+    } catch (error) {
+      console.error('Video URL oluşturma hatası:', error);
+      return 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4';
+    }
   };
   
   const renderDiscoverContent = () => {
@@ -521,6 +1047,7 @@ export default function IndexScreen() {
     }
     
     const allContent = combineContent();
+    console.log('Tüm içerikler:', allContent.length, 'adet bulundu');
 
     return (
       <ScrollView 
@@ -568,6 +1095,19 @@ export default function IndexScreen() {
                 // Generate a unique key based on type and ID
                 const itemKey = `${item.contentType || 'post'}-${item._id || item.id || index}`;
                 
+                // Her içerik için içerik tipini belirle (MongoDB'den gelen veriler için)
+                if (!item.contentType) {
+                  if (item.postType === 'image' || (item.filePath && item.filePath.includes('/images/'))) {
+                    item.contentType = 'post';
+                  } else if (item.postType === 'video' || (item.filePath && item.filePath.includes('/videos/')) 
+                          || item.duration || item.length) {
+                    item.contentType = 'video';
+                  }
+                }
+                
+                // Konsola bilgi yazdırma (hata ayıklama için)
+                console.log(`İçerik ${index}:`, item.contentType, item._id || item.id, item.title || item.content);
+                
                 if (item.contentType === 'video') {
                   // Video render
                   return (
@@ -576,31 +1116,12 @@ export default function IndexScreen() {
                       style={styles.contentCard}
                       onPress={() => {
                         console.log('Video seçildi:', item);
-                        // URL'yi düzgün şekilde oluştur
-                        let videoUrl = '';
                         
-                        // Bilgisayarın IP adresini doğrudan kullan (Kullanıcının IP adresi: 192.168.1.27)
-                        const directIP = 'http://192.168.1.27:5000';
-                        
-                        if (item.url) {
-                          // Eğer tam URL ise doğrudan kullan
-                          if (item.url.startsWith('http')) {
-                            videoUrl = item.url;
-                          } else {
-                            // Relatif URL ise doğrudan IP adresi ile birleştir
-                            videoUrl = `${directIP}${item.url}`;
-                          }
-                        } else if (item.filename) {
-                          // Filename varsa tam yolu oluştur
-                          videoUrl = `${directIP}/uploads/videos/${item.filename}`;
-                        }
-                        
-                        console.log('API_URL:', API_URL);
-                        console.log('Doğrudan IP:', directIP);
+                        // Video URL'sini oluştur
+                        const videoUrl = getVideoUrl(item);
                         console.log('Video URL oluşturuldu:', videoUrl);
                         
                         if (videoUrl) {
-                          console.log('Video URL (düzeltilmiş):', videoUrl);
                           // Video modalini aç
                           setSelectedVideo({
                             url: videoUrl,
@@ -643,9 +1164,24 @@ export default function IndexScreen() {
                       )}
                       
                       <View style={styles.videoThumbnail}>
-                        <View style={styles.videoThumbnailPlaceholder}>
-                          <IconSymbol name="play.circle.fill" size={40} color="#FFF" />
-                        </View>
+                        {(item as Video).thumbnail ? (
+                          <Image 
+                            source={{ uri: getImageUrl((item as Video).thumbnail) }} 
+                            style={styles.videoThumbnailImage} 
+                            resizeMode="cover"
+                          />
+                        ) : (item as Video).filePath ? (
+                          // FilePath'i thumbnail olarak kullanabiliriz
+                          <Image 
+                            source={{ uri: getImageUrl((item as Video).filePath) }} 
+                            style={styles.videoThumbnailImage} 
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.videoThumbnailPlaceholder}>
+                            <IconSymbol name="play.circle.fill" size={40} color="#FFF" />
+                          </View>
+                        )}
                       </View>
                       
                       <View style={styles.contentFooter}>
@@ -668,16 +1204,17 @@ export default function IndexScreen() {
                 } else {
                   // Post render
                   // Konsola paylaşım verilerini yazdır (hata ayıklama için)
-                  console.log('Paylaşım verisi:', JSON.stringify(item, null, 2));
+                  // console.log('Paylaşım verisi:', JSON.stringify(item, null, 2));
                   
                   // Kullanıcı adı ve profil resmi kontrolü
                   const username = item.username || (item.user?.username) || 'Kullanıcı';
-                  // userImage için güvenli bir şekilde kontrol yap
-                  let userImage = '';
+                  
+                  // Kullanıcı profil resmi için URL oluşturma
+                  let userImageUrl = '';
                   if (item.userAvatar) {
-                    userImage = item.userAvatar;
+                    userImageUrl = getImageUrl(item.userAvatar);
                   } else if (item.user && 'profilePicture' in item.user) {
-                    userImage = (item.user as any).profilePicture || '';
+                    userImageUrl = getImageUrl((item.user as any).profilePicture);
                   }
                   
                   // Tarih bilgisi kontrolü
@@ -685,10 +1222,17 @@ export default function IndexScreen() {
                   const formattedDate = new Date(dateString).toLocaleDateString('tr-TR');
                   
                   // İçerik kontrolü
-                  const content = item.content || 'İçerik bulunamadı';
+                  const content = item.content || item.description || 'İçerik bulunamadı';
                   
-                  // Doğrudan IP adresi kullan
-                  const directIP = 'http://192.168.1.27:5000';
+                  // MongoDB'den gelen görsel URL'si
+                  let imageUrl = '';
+                  if (item.filePath) {
+                    // FilePath doğrudan kullan
+                    imageUrl = getImageUrl(item.filePath);
+                  } else if (item.image) {
+                    // Normal image alanı
+                    imageUrl = getImageUrl(item.image);
+                  }
                   
                   return (
                     <View key={itemKey} style={styles.contentCard}>
@@ -698,9 +1242,9 @@ export default function IndexScreen() {
                     >
                       <View style={styles.contentHeader}>
                         <View style={styles.userInfo}>
-                          {userImage ? (
+                          {userImageUrl ? (
                             <Image 
-                              source={{ uri: userImage.startsWith('http') ? userImage : `${directIP}${userImage}` }} 
+                              source={{ uri: userImageUrl }} 
                               style={styles.userAvatarImage} 
                             />
                           ) : (
@@ -721,9 +1265,9 @@ export default function IndexScreen() {
                       
                       <ThemedText style={styles.contentText}>{content}</ThemedText>
                       
-                      {item.image && (
+                      {imageUrl && (
                         <Image 
-                          source={{ uri: item.image.startsWith('http') ? item.image : `${directIP}${item.image}` }} 
+                          source={{ uri: imageUrl }} 
                           style={styles.contentImage} 
                         />
                       )}
@@ -794,13 +1338,16 @@ export default function IndexScreen() {
               onPress={() => {
                 console.log('Video seçildi:', item);
                 // Video URL'sini oluştur
-                const videoUrl = item.url || 
-                  (item.filename ? `${API_URL}/uploads/videos/${item.filename}` : null);
+                const videoUrl = getVideoUrl(item);
                 
                 if (videoUrl) {
-                  // Video gösterme işlemi burada yapılacak
                   console.log('Video URL:', videoUrl);
-                  Alert.alert('Video', `${item.title} videosunu izlemek için videoUpload ekranına gidin`);
+                  // Video modalini aç
+                  setSelectedVideo({
+                    url: videoUrl,
+                    title: item.title || 'Video'
+                  });
+                  setVideoModalVisible(true);
                 } else {
                   Alert.alert('Hata', 'Video URL bulunamadı');
                 }
@@ -808,9 +1355,17 @@ export default function IndexScreen() {
               activeOpacity={0.8}
             >
               <View style={styles.videoThumbnail}>
-                <View style={styles.videoThumbnailPlaceholder}>
-                  <IconSymbol name="play.circle.fill" size={40} color="#FFF" />
-                </View>
+                {item.thumbnail ? (
+                  <Image 
+                    source={{ uri: getImageUrl(item.thumbnail) }} 
+                    style={styles.videoThumbnailImage} 
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.videoThumbnailPlaceholder}>
+                    <IconSymbol name="play.circle.fill" size={40} color="#FFF" />
+                  </View>
+                )}
                 <View style={styles.videoDuration}>
                   <ThemedText style={styles.videoDurationText}>
                     {item.length ? `${Math.floor(item.length / 60)}:${(item.length % 60).toString().padStart(2, '0')}` : 'Video'}
@@ -978,54 +1533,163 @@ export default function IndexScreen() {
         
         {selectedVideo && (
           <View style={styles.videoPlayerContainer}>
-            <ExpoVideo
-              source={{ uri: selectedVideo.url }}
-              style={styles.videoPlayer}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping={false}
-              shouldPlay
-              onError={(error: any) => {
-                console.error('Video oynatma hatası:', error);
-                console.error('Hatalı URL:', selectedVideo.url);
-                Alert.alert(
-                  'Hata', 
-                  `Video oynatılamadı: ${error?.error?.message || 'Bilinmeyen hata'}`,
-                  [
-                    { 
-                      text: 'Yeniden Dene', 
-                      onPress: () => {
-                        // Video URL'sini düzeltmeyi dene - doğrudan IP adresi kullan
-                        let fixedUrl = selectedVideo.url;
-                        
-                        // API_URL yerine doğrudan IP adresi kullan
-                        if (fixedUrl.includes(API_URL)) {
-                          fixedUrl = fixedUrl.replace(API_URL, 'http://192.168.1.27:5000');
-                        }
-                        
-                        // /api/uploads yolunu /uploads olarak değiştir
-                        if (fixedUrl.includes('/api/uploads')) {
-                          fixedUrl = fixedUrl.replace('/api/uploads', '/uploads');
-                        }
-                        
-                        console.log('Düzeltilmiş URL ile yeniden deneniyor:', fixedUrl);
-                        setSelectedVideo({
-                          ...selectedVideo,
-                          url: fixedUrl
-                        });
-                      }
-                    },
-                    { text: 'Kapat', style: 'cancel' }
-                  ]
-                );
-              }}
-              onLoad={() => console.log('Video yüklendi')}
-              onPlaybackStatusUpdate={(status: any) => {
-                if (status && 'isPlaying' in status) {
-                  console.log('Video durumu:', status.isPlaying ? 'Oynatılıyor' : 'Durduruldu');
-                }
-              }}
-            />
+            {selectedVideo.url.includes('youtube.com') ? (
+              // YouTube video için WebView
+              <View style={styles.webViewContainer}>
+                <ThemedText style={styles.webVideoMessage}>
+                  YouTube videosu: Bu video tarayıcıda açılmalıdır
+                </ThemedText>
+                <TouchableOpacity
+                  style={styles.openBrowserButton}
+                  onPress={() => {
+                    Linking.openURL(selectedVideo.url).catch(err => {
+                      console.error('Tarayıcı açma hatası:', err);
+                      Alert.alert('Hata', 'Video tarayıcıda açılamadı.');
+                    });
+                  }}
+                >
+                  <ThemedText style={styles.openBrowserButtonText}>Tarayıcıda Aç</ThemedText>
+                </TouchableOpacity>
+              </View>
+            ) : selectedVideo.url.includes('vimeo.com') || 
+                selectedVideo.url.includes('facebook.com') || 
+                (selectedVideo.url.includes('http') && !selectedVideo.url.includes('192.168.')) ? (
+              // Diğer web videolar için WebView
+              <View style={styles.webViewContainer}>
+                <ThemedText style={styles.webVideoMessage}>
+                  Web videosu: Bu video tarayıcıda açılmalıdır
+                </ThemedText>
+                <TouchableOpacity
+                  style={styles.openBrowserButton}
+                  onPress={() => {
+                    Linking.openURL(selectedVideo.url).catch(err => {
+                      console.error('Tarayıcı açma hatası:', err);
+                      Alert.alert('Hata', 'Video tarayıcıda açılamadı.');
+                    });
+                  }}
+                >
+                  <ThemedText style={styles.openBrowserButtonText}>Tarayıcıda Aç</ThemedText>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // Standart video oynatıcı
+              <>
+                <ExpoVideo
+                  source={{ uri: selectedVideo.url }}
+                  style={styles.videoPlayer}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  isLooping={false}
+                  shouldPlay
+                  onError={(error: any) => {
+                    console.error('Video oynatma hatası:', error);
+                    console.error('Hatalı URL:', selectedVideo.url);
+                    
+                    // Orijinal URL'yi saklayalım
+                    const originalUrl = selectedVideo.url;
+                    
+                    // Orijinal URL'yi loglayalım
+                    console.log("HATA OLUŞAN ORİJİNAL URL:", originalUrl);
+                    
+                    // URL'de tipik hataları düzeltmeyi deneyelim
+                    let fixedUrl = originalUrl;
+                    
+                    // Başında veya sonunda boşluk varsa temizle
+                    fixedUrl = fixedUrl.trim();
+                    
+                    // Çift slash var mı kontrol et ve düzelt
+                    if (fixedUrl.includes('//uploads')) {
+                      fixedUrl = fixedUrl.replace('//uploads', '/uploads');
+                    }
+                    
+                    // URL'de yanlış oluşturulmuş slash kombinasyonları düzelt
+                    while (fixedUrl.includes('//')) {
+                      fixedUrl = fixedUrl.replace('//', '/');
+                    }
+                    
+                    // http:/ gibi bir hata varsa düzelt
+                    if (fixedUrl.startsWith('http:/')) {
+                      fixedUrl = 'http://' + fixedUrl.substring(6);
+                    }
+                    
+                    // http/: gibi bir hata varsa düzelt
+                    if (fixedUrl.startsWith('http/:')) {
+                      fixedUrl = 'http://' + fixedUrl.substring(6);
+                    }
+                    
+                    // Eğer URL değiştiyse yeni URL ile yeniden dene
+                    if (fixedUrl !== originalUrl) {
+                      console.log('Düzeltilmiş URL ile yeniden deneniyor:', fixedUrl);
+                      setSelectedVideo({
+                        ...selectedVideo,
+                        url: fixedUrl
+                      });
+                      return;
+                    }
+                    
+                    // URL formatını değiştirelim - başka bir IP adresi deneyelim
+                    if (originalUrl.includes('192.168.1.59')) {
+                      const newUrl = originalUrl.replace('192.168.1.59', '192.168.1.90');
+                      console.log('Alternatif IP ile yeniden deneniyor:', newUrl);
+                      setSelectedVideo({
+                        ...selectedVideo,
+                        url: newUrl
+                      });
+                      return;
+                    }
+                    
+                    // Diğer düzeltmeleri deneyelim
+                    Alert.alert(
+                      'Video Oynatma Hatası',
+                      `Video oynatılırken hata oluştu: ${error?.error?.message || 'Bilinmeyen hata'}\n\nURL: ${originalUrl}`,
+                      [
+                        { 
+                          text: 'URL\'yi Düzelt ve Yeniden Dene', 
+                          onPress: () => {
+                            // IP adresini değiştirerek dene
+                            const serverIp = '192.168.1.27'; // Farklı bir IP adresi dene
+                            const pathPart = originalUrl.split('5000')[1];
+                            if (pathPart) {
+                              const cleanPath = pathPart.startsWith('/') ? pathPart.substring(1) : pathPart;
+                              const newUrl = `http://${serverIp}:5000/${cleanPath}`;
+                              
+                              console.log('Farklı IP ile yeniden deneniyor:', newUrl);
+                              setSelectedVideo({
+                                ...selectedVideo,
+                                url: newUrl
+                              });
+                            }
+                          }
+                        },
+                        { text: 'Kapat', style: 'cancel' }
+                      ]
+                    );
+                  }}
+                  onLoad={() => console.log('Video yüklendi')}
+                  onPlaybackStatusUpdate={(status: any) => {
+                    if (status && 'isPlaying' in status) {
+                      console.log('Video durumu:', status.isPlaying ? 'Oynatılıyor' : 'Durduruldu');
+                    }
+                  }}
+                />
+                
+                {/* Alternatif oynatıcı düğmesi */}
+                <TouchableOpacity
+                  style={styles.alternativePlayerButton}
+                  onPress={() => {
+                    // Tarayıcıda açarak deneme
+                    Linking.openURL(selectedVideo.url).catch(err => {
+                      console.error('Tarayıcı açma hatası:', err);
+                      Alert.alert('Hata', 'Video tarayıcıda açılamadı.');
+                    });
+                  }}
+                >
+                  <ThemedText style={styles.alternativePlayerButtonText}>
+                    Tarayıcıda Aç
+                  </ThemedText>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         )}
       </View>
@@ -1230,6 +1894,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+    borderRadius: 8,
   },
   videoThumbnailPlaceholder: {
     width: '100%',
@@ -1588,19 +2253,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
   },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#777',
-  },
   postUserInfo: {
     marginLeft: 12,
   },
@@ -1706,5 +2358,52 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginLeft: 4,
+  },
+  webViewContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  webVideoMessage: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  openBrowserButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  openBrowserButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+    letterSpacing: 0.3,
+  },
+  alternativePlayerButton: {
+    backgroundColor: '#666',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  alternativePlayerButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
 });

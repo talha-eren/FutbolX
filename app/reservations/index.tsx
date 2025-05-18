@@ -58,7 +58,7 @@ export default function ReservationsScreen() {
       
       const apiUrl = await getApiUrl('/reservations/my');
       console.log('Rezervasyon listesi isteği URL:', apiUrl);
-      
+
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Manuel IP yapılandırması - Backend sunucunuzun IP'sini buraya girin
 // NOT: Eğer backend bağlantısı kurulamıyorsa burayı düzenleyin
-const MANUAL_BACKEND_IP = '192.168.1.59'; // Bilgisayarınızın veya backend sunucunuzun IP'si
+const MANUAL_BACKEND_IP = '192.168.1.90'; // Bilgisayarınızın veya backend sunucunuzun IP'si
 
 // Backend yapılandırması
 const BACKEND_PORT = 5000; // Backend port
@@ -12,9 +12,9 @@ const BACKEND_PATH = '/api'; // API yolu
 
 // IP adresi öncelik sıralaması (platform bazlı)
 const IP_PRIORITIES = {
-  ios: ["192.168.1.59", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
-  android: ["192.168.1.59", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
-  default: ["192.168.1.59", "localhost", "127.0.0.1"] // Web için
+  ios: ["192.168.1.90", "192.168.1.59", "192.168.1.27", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
+  android: ["192.168.1.90", "192.168.1.59", "192.168.1.27", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
+  default: ["192.168.1.90", "192.168.1.59", "192.168.1.27", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
 };
 
 // Manuel bağlantı kullanmak için anahtar - Aktif etmek için true yapın
@@ -104,6 +104,9 @@ const getCommonIPAddresses = () => {
   // Olası backend IP'leri - burada özel olası IP'ler tanımlanabilir
   const possibleBackendIPs = [
     MANUAL_BACKEND_IP,
+    "192.168.1.90", // Güncel doğru IP
+    "192.168.1.59", // Eski IP
+    "192.168.1.49", // Daha eski IP
     "192.168.1.100",
     "192.168.1.101",
     "192.168.1.102", 
