@@ -118,8 +118,14 @@ router.post('/:id/comment', protect, videoController.addComment);
 // Videoya beğeni ekle/kaldır
 router.post('/:id/like', protect, videoController.toggleLike);
 
+// Videoya görüntülenme ekle
+router.post('/:id/view', videoController.incrementViews);
+
 // Kullanıcının kendi videolarını getir
 router.get('/user/my-videos', protect, videoController.getMyVideos);
+
+// Öne çıkan videoları getir
+router.get('/featured', videoController.getFeaturedVideos);
 
 // Kategoriye göre video getir
 router.get('/category/:category', videoController.getVideosByCategory);

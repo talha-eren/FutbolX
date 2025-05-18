@@ -6,7 +6,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "server": "nodemon backend/server.js",
+    "dev": "concurrently \"npm run server\" \"npm run start\""
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -30,6 +32,10 @@
     "react-scripts": "^5.0.1",
     "recharts": "^2.15.3",
     "web-vitals": "^4.2.4"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "nodemon": "^3.0.1"
   },
   "browserslist": {
     "production": [

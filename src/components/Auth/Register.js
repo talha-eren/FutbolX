@@ -31,12 +31,8 @@ function Register() {
     password: '',
     confirmPassword: '',
     position: '',
-    height: '',
-    weight: '',
-    preferredFoot: 'Sağ',
-    favoriteTeam: '',
-    birthDate: '',
-    location: '',
+    level: '-',
+    preferredFoot: '-',
     agreeTerms: false
   });
   const [error, setError] = useState('');
@@ -84,12 +80,8 @@ function Register() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         position: formData.position,
-        height: formData.height ? Number(formData.height) : 0,
-        weight: formData.weight ? Number(formData.weight) : 0,
-        preferredFoot: formData.preferredFoot,
-        favoriteTeam: formData.favoriteTeam,
-        birthDate: formData.birthDate,
-        location: formData.location
+        level: formData.level,
+        preferredFoot: formData.preferredFoot
       });
       
       // Backend API'ye kayıt isteği gönder
@@ -100,12 +92,8 @@ function Register() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         position: formData.position,
-        height: formData.height ? Number(formData.height) : 0,
-        weight: formData.weight ? Number(formData.weight) : 0,
-        preferredFoot: formData.preferredFoot,
-        favoriteTeam: formData.favoriteTeam,
-        birthDate: formData.birthDate,
-        location: formData.location
+        level: formData.level,
+        preferredFoot: formData.preferredFoot
       }, {
         headers: {
           'Content-Type': 'application/json'
@@ -225,12 +213,12 @@ function Register() {
             {/* Futbol bilgileri bölümü */}
             <Grid item xs={12}>
               <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                Futbol Bilgileri
+                Futbol Özellikleri
               </Typography>
               <Divider />
             </Grid>
             
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="position-label">Pozisyon</InputLabel>
                 <Select
@@ -248,101 +236,27 @@ function Register() {
                   <MenuItem value="Orta Saha">Orta Saha</MenuItem>
                   <MenuItem value="Forvet">Forvet</MenuItem>
                 </Select>
-                <FormHelperText>Oynadığınız pozisyon</FormHelperText>
               </FormControl>
             </Grid>
             
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel id="preferred-foot-label">Tercih Edilen Ayak</InputLabel>
+                <InputLabel id="preferredFoot-label">Ayak Tercihi</InputLabel>
                 <Select
-                  labelId="preferred-foot-label"
+                  labelId="preferredFoot-label"
                   id="preferredFoot"
                   name="preferredFoot"
                   value={formData.preferredFoot}
-                  label="Tercih Edilen Ayak"
+                  label="Ayak Tercihi"
                   onChange={handleChange}
                   disabled={loading}
                 >
+                  <MenuItem value="-">Belirtilmemiş</MenuItem>
                   <MenuItem value="Sağ">Sağ</MenuItem>
                   <MenuItem value="Sol">Sol</MenuItem>
                   <MenuItem value="Her İkisi">Her İkisi</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                id="height"
-                label="Boy (cm)"
-                name="height"
-                type="number"
-                value={formData.height}
-                onChange={handleChange}
-                disabled={loading}
-                InputProps={{ inputProps: { min: 0, max: 250 } }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                id="weight"
-                label="Kilo (kg)"
-                name="weight"
-                type="number"
-                value={formData.weight}
-                onChange={handleChange}
-                disabled={loading}
-                InputProps={{ inputProps: { min: 0, max: 150 } }}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                id="favoriteTeam"
-                label="Favori Takım"
-                name="favoriteTeam"
-                value={formData.favoriteTeam}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                id="birthDate"
-                label="Doğum Tarihi"
-                name="birthDate"
-                type="date"
-                value={formData.birthDate}
-                onChange={handleChange}
-                disabled={loading}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                id="location"
-                label="Konum"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </Grid>
-            
-            {/* Şifre bölümü */}
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                Hesap Bilgileri
-              </Typography>
-              <Divider />
             </Grid>
             
             <Grid item xs={12}>
@@ -364,9 +278,10 @@ function Register() {
                 required
                 fullWidth
                 name="confirmPassword"
-                label="Şifreyi Tekrarla"
+                label="Şifreyi Onayla"
                 type="password"
                 id="confirmPassword"
+                autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 disabled={loading}
@@ -383,7 +298,7 @@ function Register() {
                     disabled={loading}
                   />
                 }
-                label="Kullanım koşullarını ve gizlilik politikasını kabul ediyorum."
+                label="Kullanım koşullarını ve gizlilik politikasını kabul ediyorum"
               />
             </Grid>
           </Grid>
@@ -395,13 +310,15 @@ function Register() {
             sx={{ mt: 3, mb: 2 }}
             disabled={loading}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : 'Kaydol'}
+            {loading ? <CircularProgress size={24} /> : 'Kayıt Ol'}
           </Button>
-          <Box sx={{ textAlign: 'center' }}>
-            <Link component={RouterLink} to="/login" variant="body2">
-              Zaten hesabın var mı? Giriş yap
-            </Link>
-          </Box>
+          <Grid container justifyContent="flex-end">
+            <Grid item>
+              <Link component={RouterLink} to="/login" variant="body2">
+                Zaten bir hesabınız var mı? Giriş yap
+              </Link>
+            </Grid>
+          </Grid>
         </Box>
       </Paper>
     </Container>

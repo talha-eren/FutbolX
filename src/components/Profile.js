@@ -53,7 +53,8 @@ function Profile() {
     weight: 70,
     teams: [],
     achievements: [],
-    location: ''
+    location: '',
+    hoursPlayed: 0
   });
   
   const [recentMatches, setRecentMatches] = useState([]);
@@ -121,7 +122,8 @@ function Profile() {
         weight: response.data.weight || 0,
         teams: response.data.teams || [],
         achievements: response.data.achievements || [],
-        favoriteTeam: response.data.favoriteTeam || ''
+        favoriteTeam: response.data.favoriteTeam || '',
+        hoursPlayed: response.data.hoursPlayed || 0
       });
       
       // Maçları ayarla
@@ -167,17 +169,47 @@ function Profile() {
     setMainTabValue(newValue);
   };
 
-  // Profil düzenleme modunu aç
-  const handleEditProfile = () => {
+  // Kullanıcı bilgilerini düzenle
+  const handleEditUserInfo = () => {
+    // Düzenleme için mevcut kullanıcı bilgilerini editedData'ya yükle
     setEditedData({
-      ...userInfo,
-      position: userStats.position,
-      height: userStats.height,
-      weight: userStats.weight,
-      preferredFoot: userStats.preferredFoot,
-      favoriteTeam: userStats.favoriteTeam
+      username: userInfo.username,
+      email: userInfo.email,
+      firstName: userInfo.firstName,
+      lastName: userInfo.lastName
     });
-    setEditMode(true);
+    setDialogType('userInfo');
+    setOpenDialog(true);
+  };
+  
+  // Futbol özelliklerini düzenle
+  const handleEditFootballInfo = () => {
+    setEditedData({
+      position: userStats.position,
+      level: userStats.level,
+      preferredFoot: userStats.preferredFoot
+    });
+    setDialogType('footballInfo');
+    setOpenDialog(true);
+  };
+  
+  // İstatistikleri düzenle
+  const handleEditStats = () => {
+    setEditedData({
+      matches: userStats.matches,
+      goals: userStats.goals,
+      assists: userStats.assists,
+      hoursPlayed: userStats.hoursPlayed
+    });
+    setDialogType('stats');
+    setOpenDialog(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userInfo');
+    window.location.href = '/login';
   };
 
   // Profil değişikliklerini kaydet
@@ -193,24 +225,29 @@ function Profile() {
       }
       
       // Profil verilerini hazırla
-      const profileData = {
-        username: editedData.username,
-        email: editedData.email,
-        firstName: editedData.firstName,
-        lastName: editedData.lastName,
-        bio: editedData.bio,
-        phone: editedData.phone,
-        location: editedData.location,
-        // İstatistik verileri
-        position: editedData.position,
-        preferredFoot: editedData.preferredFoot,
-        height: editedData.height,
-        weight: editedData.weight,
-        matchesPlayed: editedData.matches,
-        goalsScored: editedData.goals,
-        assists: editedData.assists,
-        favoriteTeam: editedData.favoriteTeam
-      };
+      let profileData = {};
+      
+      if (dialogType === 'userInfo') {
+        profileData = {
+          username: editedData.username,
+          email: editedData.email,
+          firstName: editedData.firstName,
+          lastName: editedData.lastName
+        };
+      } else if (dialogType === 'footballInfo') {
+        profileData = {
+          position: editedData.position,
+          level: editedData.level,
+          preferredFoot: editedData.preferredFoot
+        };
+      } else if (dialogType === 'stats') {
+        profileData = {
+          matchesPlayed: editedData.matches,
+          goalsScored: editedData.goals,
+          assists: editedData.assists,
+          hoursPlayed: editedData.hoursPlayed
+        };
+      }
       
       console.log('Gönderilecek profil verileri:', profileData);
       
@@ -219,53 +256,56 @@ function Profile() {
       
       if (response.data) {
         console.log('Profil güncellemesi başarılı:', response.data);
-      
-      // State'i güncelle
-      setUserInfo({
-          ...userInfo,
-          username: editedData.username,
-          firstName: editedData.firstName,
-          lastName: editedData.lastName,
-          email: editedData.email,
-          bio: editedData.bio,
-          phone: editedData.phone,
-          location: editedData.location
-      });
-      
-      setUserStats({
-        ...userStats,
-          position: editedData.position,
-          preferredFoot: editedData.preferredFoot,
-          height: editedData.height,
-          weight: editedData.weight,
-          matches: editedData.matches,
-          goals: editedData.goals,
-          assists: editedData.assists,
-          favoriteTeam: editedData.favoriteTeam
-        });
         
-        // localStorage'daki kullanıcı bilgilerini güncelle
-        const storedUserInfo = localStorage.getItem('userInfo');
-        if (storedUserInfo) {
-          try {
-            const parsedUserInfo = JSON.parse(storedUserInfo);
-            const updatedUserInfo = {
-              ...parsedUserInfo,
-              username: editedData.username,
-              firstName: editedData.firstName,
-              lastName: editedData.lastName
-            };
-            localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
-          } catch (error) {
-            console.error('localStorage kullanıcı bilgileri güncellenemedi:', error);
+        // State'i güncelle - dialogType'a göre gerekli alanları güncelle
+        if (dialogType === 'userInfo') {
+          setUserInfo({
+            ...userInfo,
+            username: editedData.username,
+            firstName: editedData.firstName,
+            lastName: editedData.lastName,
+            email: editedData.email
+          });
+          
+          // localStorage'daki kullanıcı bilgilerini güncelle
+          const storedUserInfo = localStorage.getItem('userInfo');
+          if (storedUserInfo) {
+            try {
+              const parsedUserInfo = JSON.parse(storedUserInfo);
+              const updatedUserInfo = {
+                ...parsedUserInfo,
+                username: editedData.username,
+                firstName: editedData.firstName,
+                lastName: editedData.lastName,
+                email: editedData.email
+              };
+              localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+            } catch (error) {
+              console.error('localStorage kullanıcı bilgileri güncellenemedi:', error);
+            }
           }
+        } else if (dialogType === 'footballInfo') {
+          setUserStats({
+            ...userStats,
+            position: editedData.position,
+            level: editedData.level,
+            preferredFoot: editedData.preferredFoot
+          });
+        } else if (dialogType === 'stats') {
+          setUserStats({
+            ...userStats,
+            matches: editedData.matches,
+            goals: editedData.goals,
+            assists: editedData.assists,
+            hoursPlayed: editedData.hoursPlayed
+          });
         }
         
-      setNotification({
-        open: true,
+        setNotification({
+          open: true,
           message: 'Profiliniz başarıyla güncellendi!',
-        severity: 'success'
-      });
+          severity: 'success'
+        });
       } else {
         setNotification({
           open: true,
@@ -284,7 +324,7 @@ function Profile() {
       });
     } finally {
       setLoading(false);
-      setEditMode(false);
+      setOpenDialog(false);
     }
   };
   
@@ -405,26 +445,149 @@ function Profile() {
     }
   };
   
-  // İstatistikleri düzenleme modunu etkinleştir
-  const handleEditStats = () => {
-    setEditedData({
-      ...editedData,
-      matches: userStats.matches,
-      goals: userStats.goals,
-      assists: userStats.assists,
-      position: userStats.position,
-      preferredFoot: userStats.preferredFoot,
-      height: userStats.height,
-      weight: userStats.weight,
-      favoriteTeam: userStats.favoriteTeam
-    });
-    setDialogType('stats');
-    setOpenDialog(true);
-  };
-  
   // Dialog içeriğini render et
   const renderDialogContent = () => {
     switch (dialogType) {
+      case 'userInfo':
+        return (
+          <>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Ad"
+                  value={editedData.firstName || ''}
+                  onChange={(e) => setEditedData({ ...editedData, firstName: e.target.value })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Soyad"
+                  value={editedData.lastName || ''}
+                  onChange={(e) => setEditedData({ ...editedData, lastName: e.target.value })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Kullanıcı Adı"
+                  value={editedData.username || ''}
+                  onChange={(e) => setEditedData({ ...editedData, username: e.target.value })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="E-posta"
+                  value={editedData.email || ''}
+                  onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+            </Grid>
+          </>
+        );
+        
+      case 'footballInfo':
+        return (
+          <>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Pozisyon</InputLabel>
+                  <Select
+                    value={editedData.position || ''}
+                    onChange={(e) => setEditedData({ ...editedData, position: e.target.value })}
+                    label="Pozisyon"
+                  >
+                    <MenuItem value="">Seçiniz</MenuItem>
+                    <MenuItem value="Kaleci">Kaleci</MenuItem>
+                    <MenuItem value="Defans">Defans</MenuItem>
+                    <MenuItem value="Orta Saha">Orta Saha</MenuItem>
+                    <MenuItem value="Forvet">Forvet</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Seviye"
+                  value={editedData.level || '-'}
+                  onChange={(e) => setEditedData({ ...editedData, level: e.target.value })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Ayak Tercihi</InputLabel>
+                  <Select
+                    value={editedData.preferredFoot || '-'}
+                    onChange={(e) => setEditedData({ ...editedData, preferredFoot: e.target.value })}
+                    label="Ayak Tercihi"
+                  >
+                    <MenuItem value="-">Belirtilmemiş</MenuItem>
+                    <MenuItem value="Sağ">Sağ</MenuItem>
+                    <MenuItem value="Sol">Sol</MenuItem>
+                    <MenuItem value="Her İkisi">Her İkisi</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </>
+        );
+        
+      case 'stats':
+        return (
+          <>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Maçlar"
+                  type="number"
+                  value={editedData.matches || 0}
+                  onChange={(e) => setEditedData({ ...editedData, matches: parseInt(e.target.value) || 0 })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Goller"
+                  type="number"
+                  value={editedData.goals || 0}
+                  onChange={(e) => setEditedData({ ...editedData, goals: parseInt(e.target.value) || 0 })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Asistler"
+                  type="number"
+                  value={editedData.assists || 0}
+                  onChange={(e) => setEditedData({ ...editedData, assists: parseInt(e.target.value) || 0 })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Saat"
+                  type="number"
+                  value={editedData.hoursPlayed || 0}
+                  onChange={(e) => setEditedData({ ...editedData, hoursPlayed: parseInt(e.target.value) || 0 })}
+                  sx={{ mb: 2 }}
+                />
+              </Grid>
+            </Grid>
+          </>
+        );
+        
       case 'match':
         return (
           <>
@@ -591,118 +754,6 @@ function Profile() {
             </DialogActions>
           </>
         );
-      case 'stats':
-        return (
-          <>
-            <DialogTitle>İstatistikleri Düzenle</DialogTitle>
-            <DialogContent>
-              <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Oynadığım Maç Sayısı"
-                    type="number"
-                    value={editedData.matches || 0}
-                    onChange={(e) => setEditedData({ ...editedData, matches: parseInt(e.target.value) || 0 })}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Gol Sayısı"
-                    type="number"
-                    value={editedData.goals || 0}
-                    onChange={(e) => setEditedData({ ...editedData, goals: parseInt(e.target.value) || 0 })}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Asist Sayısı"
-                    type="number"
-                    value={editedData.assists || 0}
-                    onChange={(e) => setEditedData({ ...editedData, assists: parseInt(e.target.value) || 0 })}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth sx={{ mb: 2 }}>
-                    <InputLabel>Pozisyon</InputLabel>
-                    <Select
-                      value={editedData.position || ''}
-                      onChange={(e) => setEditedData({ ...editedData, position: e.target.value })}
-                      label="Pozisyon"
-                    >
-                      <MenuItem value="">Seçiniz</MenuItem>
-                      <MenuItem value="Kaleci">Kaleci</MenuItem>
-                      <MenuItem value="Defans">Defans</MenuItem>
-                      <MenuItem value="Orta Saha">Orta Saha</MenuItem>
-                      <MenuItem value="Forvet">Forvet</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Boy (cm)"
-                    type="number"
-                    value={editedData.height || 0}
-                    onChange={(e) => setEditedData({ ...editedData, height: parseInt(e.target.value) || 0 })}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Kilo (kg)"
-                    type="number"
-                    value={editedData.weight || 0}
-                    onChange={(e) => setEditedData({ ...editedData, weight: parseInt(e.target.value) || 0 })}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth sx={{ mb: 2 }}>
-                    <InputLabel>Tercih Ettiğin Ayak</InputLabel>
-                    <Select
-                      value={editedData.preferredFoot || 'Sağ'}
-                      onChange={(e) => setEditedData({ ...editedData, preferredFoot: e.target.value })}
-                      label="Tercih Ettiğin Ayak"
-                    >
-                      <MenuItem value="Sağ">Sağ</MenuItem>
-                      <MenuItem value="Sol">Sol</MenuItem>
-                      <MenuItem value="Her İkisi">Her İkisi</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Favori Takım"
-                    value={editedData.favoriteTeam || ''}
-                    onChange={(e) => setEditedData({ ...editedData, favoriteTeam: e.target.value })}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-              </Grid>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseDialog} color="inherit">
-                İptal
-              </Button>
-              <Button 
-                onClick={handleSaveProfile} 
-                variant="contained" 
-                color="primary"
-                disabled={loading}
-              >
-                {loading ? 'Kaydediliyor...' : 'Kaydet'}
-              </Button>
-            </DialogActions>
-          </>
-        );
       case 'profile':
         return (
           <>
@@ -845,6 +896,16 @@ function Profile() {
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Asist
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" color="primary">
+                          {userStats.hoursPlayed}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Saat
                         </Typography>
                       </Box>
                     </Grid>
@@ -1030,395 +1091,317 @@ function Profile() {
   };
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="md">
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
           <CircularProgress />
         </Box>
       ) : error ? (
-        <Alert severity="error" sx={{ mt: 4, mb: 2 }}>
-          {error}
-        </Alert>
+        <Alert severity="error" sx={{ mt: 5 }}>{error}</Alert>
       ) : (
-        <Box sx={{ mt: 4, mb: 4 }}>
-          {/* Profil Kartı - Her iki sekmede de görünecek */}
-          <Card sx={{ mb: 4, boxShadow: 3, borderRadius: 2 }}>
-        <CardContent>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={4} md={3}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Avatar
-                src={userInfo.profilePicture}
-                      alt={userInfo.username}
-                      sx={{ width: 150, height: 150, mb: 2, boxShadow: 3 }}
-                    />
-                    <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-                      {userInfo.firstName} {userInfo.lastName}
-                    </Typography>
-                    <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-                      @{userInfo.username}
-                    </Typography>
-                    <Box sx={{ display: 'flex', mt: 1, gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                      <Chip 
-                        label={userStats.position || 'Pozisyon belirtilmemiş'} 
-                        color="primary" 
-                        size="small" 
-                        sx={{ fontWeight: 'medium' }} 
-                      />
-                    </Box>
-                  </Box>
-                </Grid>
+        <Box sx={{ pb: 6 }}>
+          {/* Üst Bilgi Kartı */}
+          <Card 
+            sx={{ 
+              mt: 3, 
+              mb: 3, 
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              borderRadius: 2
+            }}
+          >
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <Avatar
+                  src={userInfo.profilePicture}
+                  alt={`${userInfo.firstName} ${userInfo.lastName}`}
+                  sx={{ width: 80, height: 80, mb: 1, border: '2px solid white' }}
+                />
+                <Typography variant="h5">
+                  {userInfo.firstName} {userInfo.lastName}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  @{userInfo.username}
+                </Typography>
                 
-                <Grid item xs={12} sm={8} md={9}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                    <Box>
-                      <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', mt: 0 }}>
-                        Oyuncu Profili
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 1 }}>
-                        {userInfo.location && (
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Place fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {userInfo.location}
-                            </Typography>
-                          </Box>
-                        )}
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Star fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                          <Typography variant="body2" color="text.secondary">
-                            {userStats.rating ? (userStats.rating).toFixed(1) : '0'}/10
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                    
-                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'start' }}>
-                      {!editMode ? (
-                        <Button 
-                          variant="contained" 
-                          startIcon={<Edit />}
-                          onClick={handleEditProfile}
-                sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            color: '#388E3C',
-                            fontWeight: 'bold',
-                            padding: '10px 20px',
-                            borderRadius: '30px',
-                            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.15)',
-                            '&:hover': {
-                              backgroundColor: 'white',
-                              boxShadow: '0 6px 15px rgba(0, 0, 0, 0.2)',
-                              transform: 'translateY(-2px)'
-                            },
-                            transition: 'all 0.3s'
-                }}
-              >
-                          Profili Düzenle
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="contained" 
-                          color="primary" 
-                          startIcon={<Save />}
-                          onClick={handleSaveProfile}
-                sx={{
-                            fontWeight: 'bold',
-                            padding: '10px 20px',
-                            borderRadius: '30px',
-                            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.15)',
-                            '&:hover': {
-                              boxShadow: '0 6px 15px rgba(0, 0, 0, 0.2)',
-                              transform: 'translateY(-2px)'
-                            },
-                            transition: 'all 0.3s'
-                }}
-              >
-                          Kaydet
-                        </Button>
-                      )}
-            </Box>
+                {/* İstatistikler */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  width: '100%', 
+                  justifyContent: 'space-around',
+                  mb: 2 
+                }}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6">{userStats.matches}</Typography>
+                    <Typography variant="body2">Maçlar</Typography>
                   </Box>
-
-                  {/* Ana Sekmeler */}
-                  <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 3 }}>
-                    <Tabs 
-                      value={mainTabValue} 
-                      onChange={handleMainTabChange} 
-                      indicatorColor="primary"
-                      textColor="primary"
-                      sx={{ 
-                        '& .MuiTab-root': { 
-                          fontWeight: 'medium', 
-                          fontSize: '1rem',
-                          textTransform: 'none',
-                          minWidth: 120,
-                          transition: 'all 0.3s',
-                          '&:hover': {
-                            backgroundColor: 'rgba(76, 175, 80, 0.05)',
-                          }
-                        },
-                        '& .Mui-selected': {
-                          fontWeight: 'bold',
-                          color: '#388E3C'
-                        }
-                      }}
-                    >
-                      <Tab 
-                        icon={<Timeline />} 
-                        label="İstatistikler" 
-                        iconPosition="start"
-                      />
-                      <Tab 
-                        icon={<Person />} 
-                        label="Hesap Ayarları" 
-                        iconPosition="start"
-                      />
-                    </Tabs>
-              </Box>
-                  
-                  {/* Kısaca önemli istatistikler (Ana sekmenin altında) */}
-                  {mainTabValue === 0 && (
-                    <Box sx={{ display: 'flex', gap: 3, my: 2, mx: 1 }}>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-                          {userStats.matches}
-              </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Maç
-              </Typography>
-            </Box>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-                          {userStats.goals}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Gol
-                        </Typography>
-          </Box>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-                          {userStats.assists}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Asist
-                        </Typography>
-                      </Box>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6">{userStats.goals}</Typography>
+                    <Typography variant="body2">Goller</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6">{userStats.assists}</Typography>
+                    <Typography variant="body2">Asistler</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6">{userStats.hoursPlayed}</Typography>
+                    <Typography variant="body2">Saat</Typography>
+                  </Box>
+                </Box>
+                
+                {/* Butonlar */}
+                <Box sx={{ display: 'flex', width: '100%', gap: 2 }}>
+                  <Button 
+                    variant="contained" 
+                    color="success"
+                    fullWidth
+                    sx={{ 
+                      bgcolor: 'rgba(0,0,0,0.15)', 
+                      '&:hover': { bgcolor: 'rgba(0,0,0,0.25)' } 
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <span>Maç Bul</span>
                     </Box>
-                  )}
-                </Grid>
-              </Grid>
+                  </Button>
+                  <Button 
+                    variant="outlined"
+                    color="inherit" 
+                    fullWidth
+                    onClick={handleLogout}
+                    sx={{ 
+                      borderColor: 'white', 
+                      color: 'white',
+                      '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } 
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <span>Çıkış Yap</span>
+                    </Box>
+                  </Button>
+                </Box>
+              </Box>
             </CardContent>
           </Card>
-
-          {/* İstatistikler Sekmesi İçeriği */}
-          {mainTabValue === 0 && (
-            <>
-              {/* Alt Sekmeler (İstatistikler sekmesinde) */}
-              <Box sx={{ mb: 3 }}>
-                <Tabs 
-                  value={activeTab} 
-                  onChange={handleTabChange}
-                  variant="scrollable"
-                  scrollButtons="auto"
-                  sx={{ 
-                    borderBottom: 1, 
-                    borderColor: 'divider',
-                    '& .MuiTab-root': { 
-                      fontSize: '0.9rem',
-                      minWidth: 100
-                    }
-                  }}
-                >
-                  <Tab label="İstatistikler" />
-                  <Tab label="Son Maçlar" />
-                  <Tab label="Öne Çıkanlar" />
-                </Tabs>
-              </Box>
-              
-              {/* Sekme İçeriği */}
-              {renderTabContent()}
-            </>
-          )}
           
-          {/* Hesap Ayarları Sekmesi İçeriği */}
-          {mainTabValue === 1 && (
-            <Card sx={{ boxShadow: 3, borderRadius: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
-                  Hesap Bilgileri
-              </Typography>
-                <Divider sx={{ mb: 3 }} />
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                      label="Kullanıcı Adı"
-                      value={editMode ? editedData.username : userInfo.username}
-                      onChange={(e) => setEditedData({ ...editedData, username: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="E-posta"
-                      value={editMode ? editedData.email : userInfo.email}
-                  onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-                />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                      label="Ad"
-                      value={editMode ? editedData.firstName : userInfo.firstName}
-                      onChange={(e) => setEditedData({ ...editedData, firstName: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Soyad"
-                      value={editMode ? editedData.lastName : userInfo.lastName}
-                      onChange={(e) => setEditedData({ ...editedData, lastName: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Telefon"
-                      value={editMode ? editedData.phone : userInfo.phone}
-                  onChange={(e) => setEditedData({ ...editedData, phone: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-                />
-            </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Konum"
-                      value={editMode ? editedData.location : userInfo.location}
-                      onChange={(e) => setEditedData({ ...editedData, location: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-                    />
-          </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Hakkımda"
-                      value={editMode ? editedData.bio : userInfo.bio}
-                      onChange={(e) => setEditedData({ ...editedData, bio: e.target.value })}
-                      disabled={!editMode}
-                      multiline
-                      rows={4}
-                      margin="normal"
-                    />
-                  </Grid>
-                </Grid>
-                
-                <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mt: 4 }}>
-                  Futbol Bilgileri
-                </Typography>
-                <Divider sx={{ mb: 3 }} />
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth margin="normal" disabled={!editMode}>
-                      <InputLabel>Pozisyon</InputLabel>
-                      <Select
-                        value={editMode ? editedData.position : userStats.position}
-                        onChange={(e) => setEditedData({ ...editedData, position: e.target.value })}
-                        label="Pozisyon"
-                      >
-                        <MenuItem value="Kaleci">Kaleci</MenuItem>
-                        <MenuItem value="Defans">Defans</MenuItem>
-                        <MenuItem value="Orta Saha">Orta Saha</MenuItem>
-                        <MenuItem value="Forvet">Forvet</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth margin="normal" disabled={!editMode}>
-                      <InputLabel>Tercih Ettiği Ayak</InputLabel>
-                      <Select
-                        value={editMode ? editedData.preferredFoot : userStats.preferredFoot}
-                        onChange={(e) => setEditedData({ ...editedData, preferredFoot: e.target.value })}
-                        label="Tercih Ettiği Ayak"
-                      >
-                        <MenuItem value="Sağ">Sağ</MenuItem>
-                        <MenuItem value="Sol">Sol</MenuItem>
-                        <MenuItem value="İki Ayak">İki Ayak</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Boy (cm)"
-                      type="number"
-                      value={editMode ? editedData.height : userStats.height}
-                      onChange={(e) => setEditedData({ ...editedData, height: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-          />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Kilo (kg)"
-                      type="number"
-                      value={editMode ? editedData.weight : userStats.weight}
-                      onChange={(e) => setEditedData({ ...editedData, weight: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Favori Takım"
-                      value={editMode ? editedData.favoriteTeam : userStats.favoriteTeam}
-                      onChange={(e) => setEditedData({ ...editedData, favoriteTeam: e.target.value })}
-                      disabled={!editMode}
-                      margin="normal"
-          />
-                  </Grid>
-                </Grid>
-                
-                {editMode && (
-                  <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button 
-                      variant="contained" 
-                      color="primary" 
-                      startIcon={<Save />}
-                      onClick={handleSaveProfile}
-                      sx={{
-                        fontWeight: 'bold',
-                        padding: '10px 20px',
-                        borderRadius: '30px',
-                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.15)',
-                        '&:hover': {
-                          boxShadow: '0 6px 15px rgba(0, 0, 0, 0.2)',
-                          transform: 'translateY(-2px)'
-                        },
-                        transition: 'all 0.3s'
+          {/* Sekmeler */}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs 
+              value={activeTab} 
+              onChange={handleTabChange} 
+              variant="fullWidth"
+            >
+              <Tab icon={<Person />} label="Profil" />
+              <Tab label="Yaklaşan" />
+              <Tab label="Geçmiş" />
+            </Tabs>
+          </Box>
+          
+          {/* Sekme İçerikleri */}
+          {activeTab === 0 && (
+            <Box>
+              {/* Kullanıcı Bilgileri Kartı */}
+              <Card sx={{ mt: 3 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">Kullanıcı Bilgileri</Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={handleEditUserInfo}
+                      sx={{ 
+                        bgcolor: '#4CAF50', 
+                        color: 'white',
+                        '&:hover': { bgcolor: '#43A047' }
                       }}
                     >
-                      Kaydet
-                    </Button>
-      </Box>
-                )}
-              </CardContent>
-            </Card>
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
+                  
+                  <List disablePadding>
+                    <ListItem>
+                      <Grid container>
+                        <Grid item xs={4}>
+                          <Typography variant="subtitle1" color="text.secondary">Ad Soyad:</Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body1">{userInfo.firstName} {userInfo.lastName}</Typography>
+                        </Grid>
+                      </Grid>
+                    </ListItem>
+                    <ListItem>
+                      <Grid container>
+                        <Grid item xs={4}>
+                          <Typography variant="subtitle1" color="text.secondary">Kullanıcı Adı:</Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body1">{userInfo.username}</Typography>
+                        </Grid>
+                      </Grid>
+                    </ListItem>
+                    <ListItem>
+                      <Grid container>
+                        <Grid item xs={4}>
+                          <Typography variant="subtitle1" color="text.secondary">E-posta:</Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body1">{userInfo.email}</Typography>
+                        </Grid>
+                      </Grid>
+                    </ListItem>
+                    <ListItem>
+                      <Grid container>
+                        <Grid item xs={4}>
+                          <Typography variant="subtitle1" color="text.secondary">Konum:</Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body1">{userInfo.location || '-'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </ListItem>
+                    <ListItem>
+                      <Grid container>
+                        <Grid item xs={4}>
+                          <Typography variant="subtitle1" color="text.secondary">Telefon:</Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body1">{userInfo.phone || '-'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </ListItem>
+                    <ListItem>
+                      <Grid container>
+                        <Grid item xs={4}>
+                          <Typography variant="subtitle1" color="text.secondary">Hakkında:</Typography>
+                        </Grid>
+                        <Grid item xs={8}>
+                          <Typography variant="body1">{userInfo.bio || '-'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </ListItem>
+                  </List>
+                </CardContent>
+              </Card>
+              
+              {/* Futbol Özellikleri Kartı */}
+              <Card sx={{ mt: 3 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">Futbol Özellikleri</Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={handleEditFootballInfo}
+                      sx={{ 
+                        bgcolor: '#4CAF50', 
+                        color: 'white',
+                        '&:hover': { bgcolor: '#43A047' }
+                      }}
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <Card sx={{ bgcolor: '#f5f5f5', height: '100%' }}>
+                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Seviye
+                          </Typography>
+                          <Typography variant="h6" sx={{ mt: 1 }}>
+                            {userStats.level}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Card sx={{ bgcolor: '#f5f5f5', height: '100%' }}>
+                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Pozisyon
+                          </Typography>
+                          <Typography variant="h6" sx={{ mt: 1 }}>
+                            {userStats.position || '-'}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Card sx={{ bgcolor: '#f5f5f5', height: '100%' }}>
+                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Ayak Tercihi
+                          </Typography>
+                          <Typography variant="h6" sx={{ mt: 1 }}>
+                            {userStats.preferredFoot}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+              
+              {/* İstatistikler Kartı */}
+              <Card sx={{ mt: 3 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">İstatistikler</Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={handleEditStats}
+                      sx={{ 
+                        bgcolor: '#4CAF50', 
+                        color: 'white',
+                        '&:hover': { bgcolor: '#43A047' }
+                      }}
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={3} sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6">{userStats.matches}</Typography>
+                      <Typography variant="body2" color="text.secondary">Maçlar</Typography>
+                    </Grid>
+                    <Grid item xs={3} sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6">{userStats.goals}</Typography>
+                      <Typography variant="body2" color="text.secondary">Goller</Typography>
+                    </Grid>
+                    <Grid item xs={3} sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6">{userStats.assists}</Typography>
+                      <Typography variant="body2" color="text.secondary">Asistler</Typography>
+                    </Grid>
+                    <Grid item xs={3} sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6">{userStats.hoursPlayed}</Typography>
+                      <Typography variant="body2" color="text.secondary">Saat</Typography>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Box>
+          )}
+          
+          {activeTab === 1 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" align="center">Yaklaşan Maçlarınız</Typography>
+              <Typography variant="body1" align="center" sx={{ mt: 2 }}>
+                Henüz yaklaşan maçınız bulunmuyor.
+              </Typography>
+            </Box>
+          )}
+          
+          {activeTab === 2 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" align="center">Geçmiş Maçlarınız</Typography>
+              <Typography variant="body1" align="center" sx={{ mt: 2 }}>
+                Henüz geçmiş maçınız bulunmuyor.
+              </Typography>
+            </Box>
           )}
         </Box>
       )}
@@ -1426,9 +1409,11 @@ function Profile() {
       {/* Dialog penceresi */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: '#4CAF50', color: 'white' }}>
-          {dialogType === 'match' ? 'Yeni Maç Ekle' : 
-           dialogType === 'highlight' ? 'Yeni Öne Çıkan Ekle' : 
-           dialogType === 'stats' ? 'İstatistikleri Düzenle' : 'Profili Düzenle'}
+          {dialogType === 'userInfo' ? 'Kullanıcı Bilgilerini Düzenle' :
+           dialogType === 'footballInfo' ? 'Futbol Özelliklerini Düzenle' :
+           dialogType === 'stats' ? 'İstatistikleri Düzenle' :
+           dialogType === 'match' ? 'Yeni Maç Ekle' : 
+           dialogType === 'highlight' ? 'Yeni Öne Çıkan Ekle' : 'Profili Düzenle'}
           <IconButton
             aria-label="close"
             onClick={handleCloseDialog}
@@ -1440,6 +1425,21 @@ function Profile() {
         <DialogContent dividers>
           {renderDialogContent()}
         </DialogContent>
+        {(dialogType === 'userInfo' || dialogType === 'footballInfo' || dialogType === 'stats') && (
+          <DialogActions>
+            <Button onClick={handleCloseDialog} color="inherit">
+              İptal
+            </Button>
+            <Button 
+              onClick={handleSaveProfile} 
+              variant="contained" 
+              color="primary"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Kaydet'}
+            </Button>
+          </DialogActions>
+        )}
       </Dialog>
       
       {/* Bildirim */}

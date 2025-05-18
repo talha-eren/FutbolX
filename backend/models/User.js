@@ -35,32 +35,20 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'default-profile.png'
   },
-  bio: {
-    type: String,
-    default: ''
-  },
-  // Futbol bilgileri
+  // Futbol özellikleri
   position: {
     type: String,
     enum: ['Kaleci', 'Defans', 'Orta Saha', 'Forvet', ''],
     default: ''
   },
-  height: {
-    type: Number, // cm cinsinden
-    default: 0
-  },
-  weight: {
-    type: Number, // kg cinsinden
-    default: 0
+  level: {
+    type: String,
+    default: '-'
   },
   preferredFoot: {
     type: String,
     enum: ['Sağ', 'Sol', 'Her İkisi'],
-    default: 'Sağ'
-  },
-  favoriteTeam: {
-    type: String,
-    default: ''
+    default: '-'
   },
   // İstatistikler
   matchesPlayed: {
@@ -75,13 +63,9 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // Diğer bilgiler
-  location: {
-    type: String,
-    default: ''
-  },
-  birthDate: {
-    type: Date
+  hoursPlayed: {
+    type: Number,
+    default: 0
   },
   createdAt: {
     type: Date,

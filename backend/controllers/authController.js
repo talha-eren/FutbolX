@@ -20,12 +20,8 @@ exports.register = async (req, res) => {
       firstName, 
       lastName,
       position,
-      favoriteTeam,
-      height,
-      weight,
-      preferredFoot,
-      birthDate,
-      location
+      level,
+      preferredFoot
     } = req.body;
 
     // Kullanıcı adı veya email zaten kullanılıyor mu kontrol et
@@ -47,13 +43,8 @@ exports.register = async (req, res) => {
       firstName,
       lastName,
       position,
-      favoriteTeam,
-      height,
-      weight,
-      preferredFoot,
-      birthDate,
-      location,
-      bio: `Merhaba, ben ${firstName} ${lastName}!`
+      level,
+      preferredFoot
     });
 
     // Kullanıcıyı kaydet
@@ -72,16 +63,12 @@ exports.register = async (req, res) => {
       lastName: newUser.lastName,
       profilePicture: newUser.profilePicture,
       position: newUser.position,
-      favoriteTeam: newUser.favoriteTeam,
-      height: newUser.height,
-      weight: newUser.weight,
+      level: newUser.level,
       preferredFoot: newUser.preferredFoot,
-      birthDate: newUser.birthDate,
-      location: newUser.location,
       matchesPlayed: newUser.matchesPlayed,
       goalsScored: newUser.goalsScored,
       assists: newUser.assists,
-      bio: newUser.bio,
+      hoursPlayed: newUser.hoursPlayed,
       token
     });
   } catch (error) {
@@ -121,12 +108,12 @@ exports.login = async (req, res) => {
       lastName: user.lastName,
       profilePicture: user.profilePicture,
       position: user.position,
-      favoriteTeam: user.favoriteTeam,
-      height: user.height,
-      weight: user.weight,
-      preferredFoot: user.preferredFoot,
-      birthDate: user.birthDate,
-      location: user.location,
+      level: user.level,
+      preferredFoot: user.preferredFoot, 
+      matchesPlayed: user.matchesPlayed,
+      goalsScored: user.goalsScored,
+      assists: user.assists,
+      hoursPlayed: user.hoursPlayed,
       token
     });
   } catch (error) {
@@ -166,17 +153,13 @@ exports.updateProfile = async (req, res) => {
       email,
       firstName,
       lastName,
-      bio,
       position,
-      favoriteTeam,
-      height,
-      weight,
+      level,
       preferredFoot,
-      birthDate,
-      location,
       matchesPlayed,
       goalsScored,
-      assists
+      assists,
+      hoursPlayed
     } = req.body;
     
     // Kullanıcıyı bul ve güncelle
@@ -187,17 +170,13 @@ exports.updateProfile = async (req, res) => {
         email,
         firstName,
         lastName,
-        bio,
         position,
-        favoriteTeam,
-        height,
-        weight,
+        level,
         preferredFoot,
-        birthDate,
-        location,
         matchesPlayed,
         goalsScored,
-        assists
+        assists,
+        hoursPlayed
       },
       { new: true, runValidators: true }
     ).select('-password');

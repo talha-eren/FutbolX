@@ -56,6 +56,7 @@ function VideoFeed() {
   const [playedSeconds, setPlayedSeconds] = useState({});
   const [duration, setDuration] = useState({});
   const [seeking, setSeeking] = useState(false);
+  const [likedVideos, setLikedVideos] = useState({});
   
   const playerRefs = useRef({});
   
@@ -70,27 +71,64 @@ function VideoFeed() {
     setIsLoggedIn(loggedInStatus === 'true');
   }, []);
   
+  // Görünür videoları otomatik oynat
+  useEffect(() => {
+    if (activeVideoIndex !== null && inView) {
+      const currentVideo = videos[activeVideoIndex];
+      if (currentVideo && currentVideo._id) {
+        // Görünen videoyu otomatik olarak oynat
+        setIsPlaying(prev => ({
+          ...prev,
+          [currentVideo._id]: true
+        }));
+      }
+    }
+  }, [activeVideoIndex, inView, videos]);
+  
   // Videoları çek
   useEffect(() => {
     const fetchVideos = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:5000/api/videos');
+        const token = localStorage.getItem('userToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        
+        const response = await axios.get('http://localhost:5000/api/videos', { headers });
+        console.log('Fetched videos:', response.data);
         
         // İlk başta tüm videoları durdurulmuş olarak ayarla
         const playingState = {};
+        const likedState = {};
+        
         response.data.forEach(video => {
           playingState[video._id] = false;
+          likedState[video._id] = video.likedBy && video.likedBy.includes(localStorage.getItem('userId'));
         });
         
         setVideos(response.data);
         setIsPlaying(playingState);
+        setLikedVideos(likedState);
         setPlayedSeconds({});
         setDuration({});
         setError('');
       } catch (err) {
         console.error('Video listesi getirme hatası:', err);
-        setError('Videolar yüklenirken bir hata oluştu');
+        setError('Videolar yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+        // Hata durumunda boş bir örnek video göster
+        setVideos([{
+          _id: 'sample1',
+          title: 'FutbolX Turnuvası Final Maçı',
+          description: '2024 FutbolX Turnuvası final maçı özeti',
+          postType: 'text',
+          textContent: 'Şu anda video içeriği görüntülenemiyor. Lütfen daha sonra tekrar deneyin.',
+          category: 'maç',
+          tags: ['maç', 'turnuva', 'final', 'futbolx'],
+          createdAt: new Date(),
+          uploadedBy: { username: 'Sistem', profilePicture: null },
+          likes: 0,
+          comments: [],
+          views: 0
+        }]);
       } finally {
         setLoading(false);
       }
@@ -108,6 +146,7 @@ function VideoFeed() {
   // Beğeni ekle
   const handleLike = async (videoId, index) => {
     if (!isLoggedIn) {
+      alert('Beğenmek için giriş yapmalısınız!');
       return;
     }
     
@@ -123,9 +162,16 @@ function VideoFeed() {
         }
       });
       
-      // Beğeni sayısını güncelle
+      // Beğeni sayısını ve durumunu güncelle
       const updatedVideos = [...videos];
       updatedVideos[index].likes = response.data.likes;
+      
+      // Beğeni durumunu tersine çevir
+      setLikedVideos(prev => ({
+        ...prev,
+        [videoId]: !prev[videoId]
+      }));
+      
       setVideos(updatedVideos);
     } catch (err) {
       console.error('Beğeni hatası:', err);
@@ -310,7 +356,7 @@ function VideoFeed() {
             <Box sx={{ position: 'relative', paddingTop: '56.25%', backgroundColor: (video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/'))) ? '#f5f5f5' : (video.postType === 'text') ? '#f8f8f8' : '#000' }}>
               {(video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/'))) ? (
                 <img
-                  src={`http://localhost:5000${video.filePath}`}
+                  src={video.filePath ? `http://localhost:5000${video.filePath}` : '/placeholder-image.jpg'}
                   alt={video.title}
                   style={{
                     position: 'absolute',
@@ -319,6 +365,10 @@ function VideoFeed() {
                     width: '100%',
                     height: '100%',
                     objectFit: 'contain'
+                  }}
+                  onError={(e) => {
+                    console.error('Image load error:', e);
+                    e.target.src = '/placeholder-image.jpg';
                   }}
                 />
               ) : video.postType === 'text' ? (
@@ -353,7 +403,7 @@ function VideoFeed() {
                       fontSize: '1rem'
                     }}
                   >
-                    {video.textContent}
+                    {video.textContent || 'İçerik bulunamadı'}
                   </Typography>
                 </Box>
               ) : (
@@ -361,7 +411,7 @@ function VideoFeed() {
                   ref={(player) => {
                     playerRefs.current[video._id] = player;
                   }}
-                url={`http://localhost:5000${video.filePath}`}
+                url={video.filePath ? `http://localhost:5000${video.filePath}` : '/placeholder-video.mp4'}
                 width="100%"
                 height="100%"
                 style={{ position: 'absolute', top: 0, left: 0 }}
@@ -372,6 +422,21 @@ function VideoFeed() {
                 playsinline
                   onProgress={(state) => handleProgress(video._id, state)}
                   onDuration={(duration) => handleDuration(video._id, duration)}
+                onError={(e) => {
+                  console.error('Video load error:', e);
+                  // Hata durumunda burada alternatif içerik gösterilebilir
+                }}
+                config={{
+                  file: {
+                    attributes: {
+                      crossOrigin: 'anonymous',
+                      controlsList: 'nodownload',
+                      playsInline: true,
+                      preload: 'auto'
+                    },
+                    forceVideo: true
+                  }
+                }}
               />
               )}
               
@@ -549,7 +614,7 @@ function VideoFeed() {
                   onClick={() => handleLike(video._id, index)}
                   disabled={!isLoggedIn}
                 >
-                  {video.liked ? <Favorite /> : <FavoriteBorder />}
+                  {likedVideos[video._id] ? <Favorite /> : <FavoriteBorder />}
                 </IconButton>
                 <Typography variant="body2" color="text.secondary">
                   {video.likes}

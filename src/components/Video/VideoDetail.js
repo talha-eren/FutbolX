@@ -15,7 +15,14 @@ import {
   List,
   ListItem,
   ListItemAvatar,
-  ListItemText
+  ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Menu,
+  MenuItem,
+  Snackbar
 } from '@mui/material';
 import { 
   Favorite, 
@@ -25,14 +32,19 @@ import {
   Send, 
   Visibility,
   ThumbUp,
-  Comment as CommentIcon
+  Comment as CommentIcon,
+  MoreVert,
+  Edit,
+  Delete,
+  ArrowBack
 } from '@mui/icons-material';
 import ReactPlayer from 'react-player';
 import axios from 'axios';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 
 function VideoDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [video, setVideo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -40,6 +52,12 @@ function VideoDetail() {
   const [commentLoading, setCommentLoading] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
   
   // Sayfa yüklendiğinde oturum durumunu kontrol et
   useEffect(() => {
@@ -53,8 +71,18 @@ function VideoDetail() {
       try {
         setLoading(true);
         
-        const response = await axios.get(`http://localhost:5000/api/videos/${id}`);
+        const token = localStorage.getItem('userToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        
+        const response = await axios.get(`http://localhost:5000/api/videos/${id}`, { headers });
         setVideo(response.data);
+        
+        // Beğeni durumunu kontrol et
+        if (token && response.data.likedBy) {
+          const userId = localStorage.getItem('userId');
+          setIsLiked(response.data.likedBy.includes(userId));
+        }
+        
         setError('');
       } catch (err) {
         console.error('Video detayları getirme hatası:', err);
@@ -78,7 +106,8 @@ function VideoDetail() {
     }
     
     if (!isLoggedIn) {
-      setError('Yorum yapmak için giriş yapmalısınız');
+      setSnackbarMessage('Yorum yapmak için giriş yapmalısınız');
+      setSnackbarOpen(true);
       return;
     }
     
@@ -87,7 +116,8 @@ function VideoDetail() {
       
       const token = localStorage.getItem('userToken');
       if (!token) {
-        setError('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+        setSnackbarMessage('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+        setSnackbarOpen(true);
         setCommentLoading(false);
         return;
       }
@@ -110,18 +140,22 @@ function VideoDetail() {
       
       // Yorum alanını temizle
       setComment('');
+      setSnackbarMessage('Yorumunuz eklendi');
+      setSnackbarOpen(true);
     } catch (err) {
       console.error('Yorum ekleme hatası:', err);
-      setError('Yorum eklenirken bir hata oluştu');
+      setSnackbarMessage('Yorum eklenirken bir hata oluştu');
+      setSnackbarOpen(true);
     } finally {
       setCommentLoading(false);
     }
   };
   
-  // Beğeni ekle
+  // Beğeni ekle/kaldır
   const handleLike = async () => {
     if (!isLoggedIn) {
-      setError('Beğenmek için giriş yapmalısınız');
+      setSnackbarMessage('Beğenmek için giriş yapmalısınız');
+      setSnackbarOpen(true);
       return;
     }
     
@@ -130,7 +164,8 @@ function VideoDetail() {
       
       const token = localStorage.getItem('userToken');
       if (!token) {
-        setError('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+        setSnackbarMessage('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+        setSnackbarOpen(true);
         setLikeLoading(false);
         return;
       }
@@ -141,16 +176,75 @@ function VideoDetail() {
         }
       });
       
-      // Beğeni sayısını güncelle
+      // Beğeni sayısını ve durumunu güncelle
       setVideo({
         ...video,
         likes: response.data.likes
       });
+      
+      setIsLiked(!isLiked);
+      
+      setSnackbarMessage(isLiked ? 'Beğeni kaldırıldı' : 'Video beğenildi');
+      setSnackbarOpen(true);
     } catch (err) {
       console.error('Beğeni hatası:', err);
-      setError('Beğeni eklenirken bir hata oluştu');
+      setSnackbarMessage('Beğeni işlemi sırasında bir hata oluştu');
+      setSnackbarOpen(true);
     } finally {
       setLikeLoading(false);
+    }
+  };
+  
+  // Menü işlemleri
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+  
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+  
+  // Silme dialogu
+  const handleDeleteClick = () => {
+    setOpenDeleteDialog(true);
+    handleMenuClose();
+  };
+  
+  const handleDeleteClose = () => {
+    setOpenDeleteDialog(false);
+  };
+  
+  // Video silme
+  const handleDeleteVideo = async () => {
+    try {
+      setDeleteLoading(true);
+      
+      const token = localStorage.getItem('userToken');
+      if (!token) {
+        setSnackbarMessage('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+        setSnackbarOpen(true);
+        setDeleteLoading(false);
+        return;
+      }
+      
+      await axios.delete(`http://localhost:5000/api/videos/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      setSnackbarMessage('Video başarıyla silindi');
+      setSnackbarOpen(true);
+      
+      // Ana sayfaya yönlendir
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
+    } catch (err) {
+      console.error('Video silme hatası:', err);
+      setSnackbarMessage('Video silinirken bir hata oluştu');
+      setSnackbarOpen(true);
+      setDeleteLoading(false);
     }
   };
   
@@ -180,10 +274,36 @@ function VideoDetail() {
       return formatDate(dateString);
     }
   };
+  
+  // Video URL'sini düzgün bir şekilde oluştur
+  const getVideoUrl = (filePath) => {
+    if (!filePath) return '';
+    
+    // Eğer tam URL ise doğrudan kullan
+    if (filePath.startsWith('http')) {
+      return filePath;
+    }
+    
+    // Eğer yol zaten / ile başlıyorsa, sunucu URL'sini ekle
+    if (filePath.startsWith('/')) {
+      return `http://localhost:5000${filePath}`;
+    }
+    
+    // Diğer durumlarda tam yolu oluştur
+    return `http://localhost:5000/${filePath}`;
+  };
 
   return (
     <Container maxWidth="lg">
       <Box sx={{ mt: 4, mb: 4 }}>
+        <Button
+          startIcon={<ArrowBack />}
+          onClick={() => navigate(-1)}
+          sx={{ mb: 2 }}
+        >
+          Geri Dön
+        </Button>
+        
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
             <CircularProgress />
@@ -194,10 +314,10 @@ function VideoDetail() {
           </Alert>
         ) : video ? (
           <>
-            <Paper elevation={2} sx={{ p: 0, mb: 3, overflow: 'hidden' }}>
-              <Box sx={{ position: 'relative', width: '100%', paddingTop: '56.25%' }}>
+            <Paper elevation={3} sx={{ p: 0, mb: 3, overflow: 'hidden', borderRadius: 2 }}>
+              <Box sx={{ position: 'relative', width: '100%', paddingTop: '56.25%', bgcolor: '#000' }}>
                 <ReactPlayer
-                  url={`http://localhost:5000${video.filePath}`}
+                  url={getVideoUrl(video.filePath)}
                   width="100%"
                   height="100%"
                   controls
@@ -206,9 +326,17 @@ function VideoDetail() {
               </Box>
               
               <Box sx={{ p: 3 }}>
-                <Typography variant="h4" component="h1" gutterBottom>
-                  {video.title}
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Typography variant="h4" component="h1" gutterBottom>
+                    {video.title}
+                  </Typography>
+                  
+                  {isLoggedIn && video.uploadedBy?._id === localStorage.getItem('userId') && (
+                    <IconButton onClick={handleMenuOpen}>
+                      <MoreVert />
+                    </IconButton>
+                  )}
+                </Box>
                 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -224,7 +352,7 @@ function VideoDetail() {
                   
                   <Box>
                     <Button 
-                      startIcon={likeLoading ? <CircularProgress size={16} /> : <ThumbUp />}
+                      startIcon={likeLoading ? <CircularProgress size={16} /> : (isLiked ? <ThumbUp /> : <FavoriteBorder />)}
                       variant="outlined"
                       color="primary"
                       onClick={handleLike}
@@ -248,13 +376,15 @@ function VideoDetail() {
                 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Avatar 
-                    src={video.uploadedBy?.profilePicture} 
-                    sx={{ width: 48, height: 48, mr: 2 }}
-                  >
-                    <Person />
-                  </Avatar>
+                    src={video.uploadedBy?.profilePicture?.startsWith('http') 
+                      ? video.uploadedBy.profilePicture 
+                      : video.uploadedBy?.profilePicture 
+                        ? `http://localhost:5000${video.uploadedBy.profilePicture}` 
+                        : null}
+                    sx={{ width: 50, height: 50, mr: 2 }}
+                  />
                   <Box>
-                    <Typography variant="subtitle1">
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                       {video.uploadedBy?.username || 'Kullanıcı'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -263,76 +393,81 @@ function VideoDetail() {
                   </Box>
                 </Box>
                 
-                <Box sx={{ mt: 2, mb: 2 }}>
+                <Typography variant="body1" sx={{ mt: 2, mb: 3, whiteSpace: 'pre-wrap' }}>
+                  {video.description}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                   <Chip 
                     label={video.category} 
                     color="primary" 
-                    variant="outlined"
-                    sx={{ mr: 1, mb: 1 }}
+                    size="medium"
+                    sx={{ fontWeight: 'bold' }}
                   />
                   
                   {video.tags && video.tags.map((tag, index) => (
                     <Chip 
                       key={index} 
                       label={tag} 
-                      variant="outlined"
-                      sx={{ mr: 1, mb: 1 }}
+                      variant="outlined" 
+                      size="medium"
                     />
                   ))}
                 </Box>
-                
-                <Typography variant="body1" sx={{ mt: 2, whiteSpace: 'pre-line' }}>
-                  {video.description}
-                </Typography>
               </Box>
             </Paper>
             
-            <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+            <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
                 <CommentIcon sx={{ mr: 1 }} />
                 Yorumlar ({video.comments?.length || 0})
               </Typography>
               
-              <Box component="form" onSubmit={handleAddComment} sx={{ display: 'flex', mb: 3 }}>
-                <TextField
-                  fullWidth
-                  placeholder={isLoggedIn ? "Yorum yaz..." : "Yorum yapmak için giriş yapın"}
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  disabled={!isLoggedIn || commentLoading}
-                  sx={{ mr: 2 }}
-                />
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  endIcon={commentLoading ? <CircularProgress size={16} color="inherit" /> : <Send />}
-                  disabled={!isLoggedIn || !comment.trim() || commentLoading}
-                >
-                  Gönder
-                </Button>
-              </Box>
-              
-              {!isLoggedIn && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Yorum yapmak için <Link to="/login">giriş yapın</Link>.
+              {isLoggedIn ? (
+                <Box component="form" onSubmit={handleAddComment} sx={{ display: 'flex', mb: 3, mt: 2 }}>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    placeholder="Bir yorum yazın..."
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    disabled={commentLoading}
+                  />
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    disabled={!comment.trim() || commentLoading}
+                    sx={{ ml: 1, minWidth: 100 }}
+                    endIcon={commentLoading ? <CircularProgress size={16} color="inherit" /> : <Send />}
+                  >
+                    Gönder
+                  </Button>
+                </Box>
+              ) : (
+                <Alert severity="info" sx={{ mb: 2, mt: 2 }}>
+                  Yorum yapmak için <Link to="/login">giriş</Link> yapmalısınız.
                 </Alert>
               )}
               
               <List>
                 {video.comments && video.comments.length > 0 ? (
                   video.comments.map((comment, index) => (
-                    <React.Fragment key={index}>
+                    <React.Fragment key={comment._id || index}>
                       <ListItem alignItems="flex-start">
                         <ListItemAvatar>
-                          <Avatar src={comment.user?.profilePicture}>
-                            <Person />
-                          </Avatar>
+                          <Avatar 
+                            src={comment.user?.profilePicture?.startsWith('http') 
+                              ? comment.user.profilePicture 
+                              : comment.user?.profilePicture 
+                                ? `http://localhost:5000${comment.user.profilePicture}` 
+                                : null}
+                          />
                         </ListItemAvatar>
                         <ListItemText
                           primary={
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <Typography variant="subtitle2">
+                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                                 {comment.user?.username || 'Kullanıcı'}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
@@ -340,27 +475,82 @@ function VideoDetail() {
                               </Typography>
                             </Box>
                           }
-                          secondary={comment.text}
+                          secondary={
+                            <Typography
+                              variant="body2"
+                              color="text.primary"
+                              sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
+                            >
+                              {comment.text}
+                            </Typography>
+                          }
                         />
                       </ListItem>
                       {index < video.comments.length - 1 && <Divider variant="inset" component="li" />}
                     </React.Fragment>
                   ))
                 ) : (
-                  <Box sx={{ textAlign: 'center', py: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Henüz yorum yapılmamış. İlk yorumu sen yap!
-                    </Typography>
-                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                    Henüz yorum yapılmamış. İlk yorumu siz yapın!
+                  </Typography>
                 )}
               </List>
             </Paper>
           </>
         ) : (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Video bulunamadı.
-          </Alert>
+          <Alert severity="info">Video bulunamadı</Alert>
         )}
+        
+        {/* İşlem menüsü */}
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+        >
+          <MenuItem component={Link} to={`/edit-video/${id}`}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Edit sx={{ mr: 1, fontSize: 20 }} />
+              <Typography>Düzenle</Typography>
+            </Box>
+          </MenuItem>
+          
+          <MenuItem onClick={handleDeleteClick}>
+            <Box sx={{ display: 'flex', alignItems: 'center', color: 'error.main' }}>
+              <Delete sx={{ mr: 1, fontSize: 20 }} />
+              <Typography>Sil</Typography>
+            </Box>
+          </MenuItem>
+        </Menu>
+        
+        {/* Silme Onay Dialogu */}
+        <Dialog open={openDeleteDialog} onClose={handleDeleteClose}>
+          <DialogTitle>Videoyu Sil</DialogTitle>
+          <DialogContent>
+            <Typography>
+              "{video?.title}" videosunu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDeleteClose} disabled={deleteLoading}>İptal</Button>
+            <Button 
+              onClick={handleDeleteVideo} 
+              color="error" 
+              variant="contained"
+              disabled={deleteLoading}
+              startIcon={deleteLoading && <CircularProgress size={16} color="inherit" />}
+            >
+              Sil
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* Bildirim */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={4000}
+          onClose={() => setSnackbarOpen(false)}
+          message={snackbarMessage}
+        />
       </Box>
     </Container>
   );
