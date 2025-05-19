@@ -7,7 +7,6 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { API_URL } from '@/services/api';
-
 // Halı saha maç veri tipi tanımı
 interface Match {
   id: string;
@@ -64,8 +63,14 @@ export default function FindMatchScreen() {
         throw new Error('Maçlar yüklenirken bir hata oluştu');
       }
       
-      const data = await response.json();
-      setMatches(data);
+      // API yanıtını güvenli bir şekilde Match[] tipine dönüştür
+      const responseData = await response.json();
+      if (Array.isArray(responseData)) {
+        setMatches(responseData as Match[]);
+      } else {
+        console.warn('API yanıtı dizi değil:', responseData);
+        setMatches([]);
+      }
     } catch (err: any) {
       console.error('Maçları getirme hatası:', err);
       setError('Maçlar yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.');
@@ -203,7 +208,7 @@ export default function FindMatchScreen() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as { message?: string };
         throw new Error(errorData.message || 'Maça katılırken bir hata oluştu');
       }
       

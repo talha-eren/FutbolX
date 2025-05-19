@@ -123,13 +123,13 @@ export default function ProfileScreen() {
       // AuthContext'ten mevcut kullanıcı bilgilerini al
       // Bu genellikle daha hızlı erişim sağlar ve API yanıt vermediğinde yedek veri kaynağı olur
       if (user) {
-        console.log('Mevcut kullanıcı bilgileri kullanılıyor:', user.username);
+        console.log('Mevcut kullanıcı bilgileri kullanılıyor:', user.username || '');
         const userStats = user.stats || {matches: 0, goals: 0, assists: 0, playHours: 0, rating: 0};
         const formattedUserData: UserProfile = {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
+          id: user.id || '',
+          name: user.name || '',
+          username: user.username || '',
+          email: user.email || '',
           profilePicture: user.profilePicture || DEFAULT_PROFILE_IMAGE,
           bio: user.bio || '',
           location: user.location || '',
@@ -152,13 +152,13 @@ export default function ProfileScreen() {
       }
       
       // Çevrimiçi mod - gerçek API'den verileri çek
-            const profileData = await userService.getProfile();
+      const profileData = await userService.getProfile();
       console.log('Profil verileri:', profileData);
       
       // Gelen verileri UserProfile formatına dönüştür
       const stats = profileData.stats || {};
-            const formattedData: UserProfile = {
-              id: profileData._id || profileData.id,
+      const formattedData: UserProfile = {
+        id: profileData._id || profileData.id || '',
         name: profileData.name || user?.name || '',
         username: profileData.username || user?.username || '',
         email: profileData.email || user?.email || '',
@@ -166,7 +166,7 @@ export default function ProfileScreen() {
         bio: profileData.bio || user?.bio || '',
         location: profileData.location || user?.location || '',
         phone: profileData.phone || '',
-              favoriteTeams: profileData.favoriteTeams || [],
+        favoriteTeams: profileData.favoriteTeams || [],
         level: profileData.level || user?.level || '',
         position: profileData.position || user?.position || '',
         footPreference: profileData.footPreference || user?.footPreference || '',
@@ -177,14 +177,14 @@ export default function ProfileScreen() {
           playHours: stats.playHours || 0,
           rating: stats.rating || 0
         },
-              // Doğrudan erişim için ek alanlar
+        // Doğrudan erişim için ek alanlar
         matches: stats.matches || 0,
         goals: stats.goals || 0,
         assists: stats.assists || 0,
         playHours: stats.playHours || 0
-            };
+      };
             
-            setUserData(formattedData);
+      setUserData(formattedData);
       
     } catch (error) {
       console.error('Profil yüklenirken hata:', error);
@@ -206,13 +206,13 @@ export default function ProfileScreen() {
       
       // Context'ten alınan kullanıcı bilgilerini kullan (yedek)
       if (user) {
-        console.log('Hata durumunda context verileri kullanılıyor:', user.username);
+        console.log('Hata durumunda context verileri kullanılıyor:', user.username || '');
         const userStats = user.stats || {matches: 0, goals: 0, assists: 0, playHours: 0, rating: 0};
         const backupUserData: UserProfile = {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
+          id: user.id || '',
+          name: user.name || '',
+          username: user.username || '',
+          email: user.email || '',
           profilePicture: user.profilePicture || DEFAULT_PROFILE_IMAGE,
           bio: user.bio || '',
           location: user.location || '',
@@ -278,7 +278,8 @@ export default function ProfileScreen() {
     const fetchVideos = async () => {
       if (user) {
         try {
-          const videos = await videoService.listByUser(user.id);
+          const userId = user.id || '';
+          const videos = await videoService.listByUser(userId);
           setUserVideos(videos);
         } catch (err) {
           // Hata durumunda video listesi boş kalsın

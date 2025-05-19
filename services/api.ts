@@ -29,7 +29,7 @@ const ALTERNATIVE_IPS = [
 try {
   // Önce Expo Metro sunucusunun IP'sini almaya çalış - bu genellikle en iyi çözümdür
   // Bu IP, telefonun ve bilgisayarın aynı ağda olduğunu varsayar
-  const METRO_IP = '192.168.1.90'; // Güncellenmiş IP adresi
+  const METRO_IP = '192.168.1.27'; // Güncellenmiş IP adresi
   
   if (Platform.OS === 'android') {
     // Android emülatör için özel IP kullan
@@ -181,7 +181,7 @@ const testApiConnection = async () => {
   }
   
   // Metro IP'sini önce dene
-  const METRO_IP = '192.168.1.90'; // Güncellenmiş backend IP'si
+  const METRO_IP = '192.168.1.27'; // Güncellenmiş backend IP'si
   console.log(`Önce güncel backend IP adresi deneniyor: ${METRO_IP}`);
   try {
     const controller = new AbortController();
@@ -360,13 +360,28 @@ setInterval(async () => {
 console.log('API URL:', API_URL);
 console.log(`${Platform.OS} platformu için API URL: ${API_URL}`);
 
-// Kimlik doğrulama başlıklarını hazırlayan yardımcı fonksiyon
-const getAuthHeaders = async () => {
-  const token = await AsyncStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : ''
-  };
+// Auth header hazırlama fonksiyonu
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    if (!token) {
+      console.log('getAuthHeaders: Token bulunamadı, headers boş dönüyor');
+      return { 'Content-Type': 'application/json' };
+    }
+    
+    // Token'ın 'Bearer ' öneki yoksa ekle
+    const tokenWithBearer = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    
+    console.log('getAuthHeaders: Bearer token ile istek gönderiliyor. İlk 15 karakter:', tokenWithBearer.substring(0, 15) + '...');
+    
+    return {
+      'Authorization': tokenWithBearer,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('getAuthHeaders: Token alınırken hata:', error);
+    return { 'Content-Type': 'application/json' };
+  }
 };
 
 // API isteği yapan ve JSON parse hatalarını yöneten genel fonksiyon
@@ -416,47 +431,119 @@ export const authService = {
       // API isteğini gönder
       const url = await getApiUrl('/auth/login');
       console.log('Fetch isteği gönderiliyor:', url);
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, password })
-      });
+      
+      // Timeout ve abort controller için
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 saniye timeout
+      
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password }),
+          // @ts-ignore -- AbortSignal tip uyumsuzluğunu çözmek için
+          signal: controller.signal as any
+        });
 
-      // Yanıtı işle
-      console.log('Yanıt alındı, JSON parse ediliyor');
-      const data = await response.json() as {
-        token?: string;
-        user?: any;
-        message?: string;
-      };
-      
-      console.log('Sunucu yanıtı:', { 
-        status: response.status, 
-        ok: response.ok, 
-        hasToken: !!data.token,
-        hasUser: !!data.user,
-        message: data.message || 'Mesaj yok'
-      });
-      
-      if (!response.ok) {
-        console.error('Giriş başarısız:', data.message);
-        throw new Error(data.message || 'Giriş başarısız');
+        clearTimeout(timeoutId);
+        
+        // Yanıt HTTP durum kodunu loglayalım
+        console.log(`Login yanıt alındı (HTTP ${response.status})`, {
+          ok: response.ok,
+          statusText: response.statusText,
+          url: response.url
+        });
+        
+        // Tüm yanıt içeriğini önce metin olarak alıp loglayalım
+        const rawResponse = await response.text();
+        console.log(`Sunucu yanıt uzunluğu: ${rawResponse.length} karakter`);
+        
+        // Yanıtı JSON olarak ayrıştırmaya çalış
+        let data;
+        try {
+          data = JSON.parse(rawResponse) as {
+            token?: string;
+            user?: any;
+            message?: string;
+          };
+          console.log('Sunucu yanıtı:', { 
+            status: response.status, 
+            ok: response.ok, 
+            hasToken: !!data.token,
+            hasUser: !!data.user,
+            message: data.message || 'Mesaj yok'
+          });
+        } catch (jsonError) {
+          console.error('JSON ayrıştırma hatası:', jsonError);
+          console.log('Ham yanıt içeriği (ilk 100 karakter):', rawResponse.substring(0, 100));
+          throw new Error('Sunucu yanıtı ayrıştırılamadı (JSON hatası)');
+        }
+        
+        if (!response.ok) {
+          console.error('Giriş başarısız:', data.message);
+          throw new Error(data.message || `Giriş başarısız (${response.status})`);
+        }
+        
+        // Token ve kullanıcı verilerini kontrol et
+        if (!data.token || !data.user) {
+          console.error('Sunucu geçerli yanıt döndürmedi:', data);
+          throw new Error('Sunucudan geçerli kullanıcı bilgileri alınamadı');
+        }
+        
+        // Token formatını kontrol et (basit bir JWT kontrol)
+        const tokenParts = data.token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('Geçersiz token formatı:', { token: data.token.substring(0, 10) + '...' });
+          throw new Error('Sunucudan geçersiz token formatı alındı');
+        }
+        
+        // Decoded token payload'ı kontrol etmek ve exp (bitiş zamanı) bilgisini almak için
+        try {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          const expiration = payload.exp ? new Date(payload.exp * 1000) : null;
+          
+          console.log('Token bilgileri:', {
+            iat: payload.iat ? new Date(payload.iat * 1000).toISOString() : 'Yok',
+            exp: expiration ? expiration.toISOString() : 'Yok',
+            sub: payload.sub || payload.id || 'Yok',
+            validFor: expiration ? `${Math.floor((expiration.getTime() - Date.now()) / 1000 / 60)} dakika` : 'Bilinmiyor'
+          });
+          
+          // User ID ve token sub alanının eşleştiğini kontrol et
+          const userId = data.user.id || data.user._id;
+          if (payload.sub && payload.sub !== userId && payload.id !== userId) {
+            console.warn('Token subject ile kullanıcı ID uyuşmazlığı:', {
+              tokenSub: payload.sub,
+              tokenId: payload.id,
+              userId
+            });
+          }
+        } catch (tokenError) {
+          console.warn('Token payload ayrıştırılamadı, ama devam edilecek:', tokenError);
+        }
+        
+        console.log('Giriş başarılı, token alındı');
+        console.log('Kullanıcı bilgileri:', {
+          id: data.user.id || data.user._id,
+          username: data.user.username,
+          email: data.user.email
+        });
+        
+        // Token ve kullanıcı bilgileri AuthContext tarafından kaydedilecek
+        return data;
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        // Fetch API'den kaynaklanan özel hata türlerini işle
+        if (fetchError.name === 'AbortError') {
+          console.error('Fetch isteği zaman aşımına uğradı');
+          throw new Error('Sunucu yanıt vermedi (zaman aşımı)');
+        }
+        throw fetchError;
       }
-      
-      // Token ve kullanıcı verilerini kontrol et
-      if (!data.token || !data.user) {
-        console.error('Sunucu geçerli yanıt döndürmedi:', data);
-        throw new Error('Sunucudan geçerli kullanıcı bilgileri alınamadı');
-      }
-      
-      console.log('Giriş başarılı, token alındı');
-      
-      // Token ve kullanıcı bilgileri AuthContext tarafından kaydedilecek
-      return data;
-    } catch (error) {
-      console.error('Giriş hatası:', error);
+    } catch (error: any) {
+      console.error('Giriş hatası:', error?.message || error);
       throw error;
     }
   },

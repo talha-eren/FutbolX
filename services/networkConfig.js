@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Manuel IP yapılandırması - Backend sunucunuzun IP'sini buraya girin
 // NOT: Eğer backend bağlantısı kurulamıyorsa burayı düzenleyin
-const MANUAL_BACKEND_IP = '192.168.1.90'; // Bilgisayarınızın veya backend sunucunuzun IP'si
+const MANUAL_BACKEND_IP = '192.168.1.27';
 
 // Backend yapılandırması
 const BACKEND_PORT = 5000; // Backend port
@@ -12,9 +12,9 @@ const BACKEND_PATH = '/api'; // API yolu
 
 // IP adresi öncelik sıralaması (platform bazlı)
 const IP_PRIORITIES = {
-  ios: ["192.168.1.90", "192.168.1.59", "192.168.1.27", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
-  android: ["192.168.1.90", "192.168.1.59", "192.168.1.27", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
-  default: ["192.168.1.90", "192.168.1.59", "192.168.1.27", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
+  ios: ["192.168.1.27", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
+  android: ["192.168.1.27", "192.168.1.59", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
+  default: ["192.168.1.27", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
 };
 
 // Manuel bağlantı kullanmak için anahtar - Aktif etmek için true yapın
@@ -313,9 +313,100 @@ export const testBackendConnection = async () => {
   }
 };
 
+/**
+ * Görsel URL'sini güvenli bir şekilde oluştur
+ * @param {string|undefined} path Görsel yolu
+ * @returns {string} Tam görsel URL'si
+ */
+const getImageUrl = (path) => {
+  if (!path) return 'https://via.placeholder.com/300x200?text=Resim+Yok';
+  
+  try {
+    // Sabit IP adresi kullan (daha önce tanımlanmış MANUAL_BACKEND_IP)
+    const baseUrl = `http://${MANUAL_BACKEND_IP}:${BACKEND_PORT}`;
+    
+    // Eğer tam URL ise doğrudan kullan
+    if (path.startsWith('http')) {
+      return path;
+    }
+    
+    // MongoDB'den gelen /uploads/ yolları için özel işlem
+    if (path.includes('/uploads/')) {
+      // NSURLErrorDomain hatasını önlemek için başlangıç slash'ı kaldır
+      const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+      return `${baseUrl}/${cleanPath}`;
+    }
+    
+    // Default thumbnail için
+    if (path === 'default-thumbnail.jpg' || path.includes('default-thumbnail')) {
+      return `${baseUrl}/uploads/images/default-thumbnail.jpg`;
+    }
+    
+    // Diğer tüm göreceli yollar için
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    return `${baseUrl}/${cleanPath}`;
+  } catch (error) {
+    console.error('Görsel URL oluşturma hatası:', error);
+    return 'https://via.placeholder.com/300x200?text=Hatalı+URL';
+  }
+};
+
+/**
+ * Video URL'sini güvenli bir şekilde oluştur
+ * @param {object} item Video öğesi 
+ * @returns {string} Tam video URL'si
+ */
+const getVideoUrl = (item) => {
+  try {
+    if (!item) return '';
+    
+    // Sabit IP adresi kullan (daha önce tanımlanmış MANUAL_BACKEND_IP)
+    const baseUrl = `http://${MANUAL_BACKEND_IP}:${BACKEND_PORT}`;
+    
+    // Web videolar için (YouTube, Vimeo, vb.)
+    if (item.webUrl || item.web_url) {
+      return item.webUrl || item.web_url;
+    }
+    
+    // MongoDB'den gelen filePath alanı varsa
+    if (item.filePath) {
+      // NSURLErrorDomain hatasını önlemek için URL'yi doğru formatta oluştur
+      const cleanPath = item.filePath.startsWith('/') ? item.filePath.substring(1) : item.filePath;
+      return `${baseUrl}/${cleanPath}`;
+    }
+    
+    // URL doğrudan varsa kullan
+    if (item.url) {
+      // URL zaten tam ise (http veya https ile başlıyorsa) doğrudan kullan
+      if (item.url.startsWith('http')) {
+        return item.url;
+      }
+      
+      // URL göreceli ise tam URL oluştur
+      const cleanPath = item.url.startsWith('/') ? item.url.substring(1) : item.url;
+      return `${baseUrl}/${cleanPath}`;
+    }
+    
+    // Filename (veya fileName) varsa URL oluştur
+    if (item.filename || item.fileName) {
+      const filename = item.filename || item.fileName;
+      return `${baseUrl}/uploads/videos/${filename}`;
+    }
+    
+    // Yedek video (Hiçbir URL bulunamadığında)
+    return '';
+  } catch (error) {
+    console.error('Video URL oluşturma hatası:', error);
+    return '';
+  }
+};
+
 export default {
   getApiBaseUrl,
   getApiUrl,
   testBackendConnection,
-  MANUAL_BACKEND_IP
+  MANUAL_BACKEND_IP,
+  getImageUrl,
+  getVideoUrl,
+  BACKEND_PORT,
 }; 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Modal, Image, Platform, TextInput, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Modal, Image, Platform, TextInput, ScrollView, Dimensions, KeyboardAvoidingView } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -7,18 +7,23 @@ import { Video, ResizeMode } from 'expo-av';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { videoService } from '@/services/videoApi';
+import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { API_URL } from '@/services/api';
+import networkConfig from '@/services/networkConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Post tipi tanımı
 interface Post {
   id?: string;
   _id?: string;
   content: string;
+  title?: string;
+  description?: string;
+  category?: string;
+  tags?: string;
+  isPublic?: boolean;
   image?: string | null;
   video?: string | null;
   createdAt?: string;
@@ -27,17 +32,23 @@ interface Post {
   userImage?: string;
   user?: {
     _id: string;
+    id: string;
     username: string;
     profilePicture: string;
   };
   likes?: number;
   contentType: string;
+  post_type?: string;
 }
 
 const SharePostScreen = () => {
   const [media, setMedia] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [mediaType, setMediaType] = useState<'video' | 'image' | null>(null);
-  const [content, setContent] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [tags, setTags] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -46,14 +57,33 @@ const SharePostScreen = () => {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const { user, isLoggedIn, token } = useAuth();
+  const { user, isLoggedIn, token, refreshUserData, login } = useAuth();
   const router = useRouter();
-  const videoRef = React.useRef<Video>(null);
+  const videoPlayerRef = useRef<Video>(null);
 
-  // User tipini any olarak belirleme
+  const API_URL = `http://${networkConfig.MANUAL_BACKEND_IP}:${networkConfig.BACKEND_PORT || 5000}/api`;
+
   const currentUser = user as any;
 
-  // Görsel seç
+  useEffect(() => {
+    // Token ve kullanıcı verilerini güncelle
+    refreshUserData();
+    if (isLoggedIn) {
+      fetchPosts();
+    }
+    
+    return () => {
+      setTitle('');
+      setDescription('');
+      setCategory('');
+      setTags('');
+      setIsPublic(true);
+      setMedia(null);
+      setMediaType(null);
+      setPosts([]);
+    };
+  }, [isLoggedIn]);
+
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -64,20 +94,19 @@ const SharePostScreen = () => {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Dosya boyutu kontrolü (max 10MB)
         const fileInfo = await FileSystem.getInfoAsync(result.assets[0].uri);
         const fileSize = (fileInfo as any).size || 0;
         if (fileInfo.exists && fileSize > 10 * 1024 * 1024) {
-          Alert.alert('Dosya çok büyük', 'Lütfen 10MB\'dan küçük bir görsel seçin');
+          Alert.alert('Dosya Çok Büyük', 'Lütfen 10MB\'dan küçük bir görsel seçin.');
           return;
         }
         
         const assetInfo = {
           uri: result.assets[0].uri,
-          name: `image-${Date.now()}.jpg`,
-          type: 'image/jpeg',
+          name: result.assets[0].fileName || `image-${Date.now()}.jpg`,
+          type: result.assets[0].mimeType || 'image/jpeg',
           size: fileSize,
-          mimeType: 'image/jpeg'
+          mimeType: result.assets[0].mimeType || 'image/jpeg',
         };
         
         setMedia(assetInfo as any);
@@ -86,833 +115,711 @@ const SharePostScreen = () => {
       }
     } catch (error) {
       console.error('Görsel seçme hatası:', error);
-      Alert.alert('Hata', 'Görsel seçilirken bir hata oluştu');
+      Alert.alert('Hata', 'Görsel seçilirken bir hata oluştu.');
     }
   };
 
-  // Video seç
   const pickVideo = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: 'video/*' });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Dosya boyutu kontrolü (max 50MB)
-        const fileInfo = await FileSystem.getInfoAsync(result.assets[0].uri);
-        const fileSize = (fileInfo as any).size || 0;
-        if (fileInfo.exists && fileSize > 50 * 1024 * 1024) {
-          Alert.alert('Dosya çok büyük', 'Lütfen 50MB\'dan küçük bir video seçin');
+        const asset = result.assets[0];
+        if (asset.size && asset.size > 50 * 1024 * 1024) {
+          Alert.alert('Dosya Çok Büyük', 'Lütfen 50MB\'dan küçük bir video seçin.');
           return;
         }
-        
-        setMedia(result.assets[0]);
+        setMedia(asset);
         setMediaType('video');
-        console.log('Seçilen video:', result.assets[0]);
-        // Video seçildiğinde önizleme modalını aç
+        console.log('Seçilen video:', asset);
         setPreviewVisible(true);
       }
     } catch (error) {
       console.error('Video seçme hatası:', error);
-      Alert.alert('Hata', 'Video seçilirken bir hata oluştu');
+      Alert.alert('Hata', 'Video seçilirken bir hata oluştu.');
     }
   };
 
-  // Medyayı temizle
   const clearMedia = () => {
     setMedia(null);
     setMediaType(null);
+    setPreviewVisible(false);
+  };
+  
+  const createFormData = () => {
+    const formData = new FormData();
+    
+    // Yeni alanlar eklendi
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('category', category);
+    formData.append('tags', tags);
+    formData.append('isPublic', isPublic ? 'true' : 'false');
+    formData.append('post_type', mediaType || 'text');
+    
+    if (media && media.uri) {
+      let mediaUri = media.uri;
+      
+      // iOS için file:// önekini kaldır
+      if (Platform.OS === 'ios' && mediaUri.startsWith('file://')) {
+        mediaUri = mediaUri.substring(7);
+      }
+
+      const fileName = media.name || `media-${Date.now()}.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
+      const fileType = media.mimeType || (mediaType === 'video' ? 'video/mp4' : 'image/jpeg');
+
+      // Medya dosyası için özel nesne oluştur
+      const mediaFile = {
+        uri: mediaUri,
+        name: fileName,
+        type: fileType,
+      };
+      
+      // FormData'ya medya ekle (React Native'in FormData implementasyonu için)
+      formData.append('file', mediaFile as any);
+      
+      console.log('Medya dosyası hazırlandı:', {
+        uri: mediaUri.substring(0, 30) + '...',
+        name: fileName,
+        type: fileType,
+        size: media.size ? `${Math.round(media.size / 1024)} KB` : 'bilinmiyor'
+      });
+    }
+    
+    return formData;
   };
 
-  // Gönderi paylaş
   const sharePost = async () => {
-    if (!content.trim() && !media) {
-      Alert.alert('Hata', 'Lütfen bir içerik veya medya ekleyin');
+    if (!title.trim()) {
+      Alert.alert('Eksik Bilgi', 'Lütfen bir başlık yazın.');
+      return;
+    }
+    
+    if (!description.trim()) {
+      Alert.alert('Eksik Bilgi', 'Lütfen bir açıklama yazın.');
+      return;
+    }
+    
+    if (!mediaType && !media) {
+      Alert.alert('Eksik Bilgi', 'Lütfen bir medya dosyası seçin.');
       return;
     }
     
     if (!isLoggedIn) {
-      Alert.alert('Oturum Gerekli', 'Gönderi paylaşmak için giriş yapmalısınız');
+      Alert.alert('Giriş Gerekli', 'Gönderi paylaşmak için giriş yapmanız gerekmektedir.');
       return;
     }
     
     setUploading(true);
     setUploadProgress(0);
-    
-    const attemptUpload = async (retryCount = 0, maxRetries = 3) => {
-      try {
-        // İlerleme simülasyonu
-        const progressInterval = setInterval(() => {
-          setUploadProgress(prev => {
-            if (prev < 90) return prev + 5;
-            return prev;
-          });
-        }, 500);
-        
-        // FormData oluştur
-        const formData = new FormData();
-        
-        // İçerik ekle
-        formData.append('content', content);
-        
-        // Medya ekle (varsa)
-        if (media && media.uri) {
-          // Dosya bilgilerini kontrol et
-          console.log('Medya bilgileri:', {
-            uri: media.uri,
-            name: media.name,
-            size: media.size,
-            mimeType: media.mimeType,
-            type: mediaType
-          });
-          
-          let mediaUri = media.uri;
-          if (Platform.OS === 'ios' && mediaUri.startsWith('file://')) {
-            mediaUri = mediaUri.replace('file://', '');
-          }
-          
-          const fileName = media.name || `media-${Date.now()}.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
-          
-          // Dosya nesnesini oluştur
-          const mediaFile = {
-            uri: mediaUri,
-            name: fileName,
-            type: media.mimeType || (mediaType === 'video' ? 'video/mp4' : 'image/jpeg')
-          };
-          
-          console.log('Medya dosyası hazırlanıyor:', mediaFile);
-          
-          // @ts-ignore - React Native'in FormData implementasyonu farklı
-          formData.append('media', mediaFile);
-        }
-        
-        console.log('FormData hazır, yükleme başlıyor...');
-        console.log('API URL:', API_URL);
-        
-        // İlerleme göstergesi için Alert
-        Alert.alert(
-          'Yükleniyor',
-          'Gönderi yükleniyor, lütfen bekleyin...',
-          [],
-          { cancelable: false }
-        );
-        
-        // AbortController ile timeout kontrolü
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-          throw new Error('Gönderi yükleme zaman aşımına uğradı');
-        }, 60000); // 60 saniye timeout (artırıldı)
-        
-        // Mobil bağlantı için optimize edilmiş hata ayıklama
-        console.log('Gönderi paylaşılıyor (mobile-optimized)...');
-        console.log('Kullanılan platform:', Platform.OS);
-        
-        // API adresinin doğru olduğundan emin ol
-        const postUrl = `${API_URL}/posts`;
-        console.log('POST isteği adresi:', postUrl);
-        
-        // Gönderi paylaş
-        const response = await fetch(postUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-          body: formData,
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          console.error('POST isteği başarısız, durum kodu:', response.status);
-          
-          // Yanıt içeriğini kontrol et
-          const errorText = await response.text();
-          console.error('Hata yanıtı:', errorText);
-          
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch (e) {
-            errorData = { message: 'Sunucu yanıtı işlenemedi' };
-          }
-          
-          throw new Error(errorData.message || `Gönderi paylaşma hatası (${response.status})`);
-        }
-        
-        // Yanıt içeriğini kontrol et
-        const responseText = await response.text();
-        let data;
-        
-        try {
-          // Boş yanıt kontrolü
-          if (!responseText.trim()) {
-            throw new Error('Sunucu boş yanıt döndü');
-          }
-          
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('Yanıt parse hatası:', parseError);
-          throw new Error('Sunucu yanıtı işlenemedi. Gönderi paylaşılmış olabilir, lütfen ana sayfayı kontrol edin.');
-        }
-        
-        console.log('Gönderi başarıyla paylaşıldı:', data);
-        
-        // İlerleme tamamlandı
+    let progressInterval = setInterval(() => {
+      setUploadProgress(prev => Math.min(prev + 5, 85));
+    }, 300);
+
+    try {
+      // Token'ı yenile - önce mevcut token ile deneyelim
+      await refreshUserData();
+      let currentAuthToken = token;
+
+      if (!currentAuthToken) {
         clearInterval(progressInterval);
-        setUploadProgress(100);
-        
-        // Başarılı mesajı göster
-        setUploadSuccess(true);
-        setTimeout(() => setUploadSuccess(false), 3000);
-        
-        // Formu temizle
-        setMedia(null);
-        setMediaType(null);
-        setContent('');
-        setPreviewVisible(false);
-        
-        // Gönderileri yeniden yükle
-        fetchPosts();
-        
-        // Başarılı mesajı göster
-        Alert.alert('Başarılı', 'Gönderi başarıyla paylaşıldı');
-      } catch (err: any) {
-        console.error('Gönderi paylaşma hatası:', err);
-        
-        // İlerleme alertı otomatik kapanacak
-        
-        // Network hatası veya timeout mesajlarını kontrol et
-        const errorMessage = err.message || '';
-        const isNetworkError = 
-          errorMessage.includes('Network request failed') || 
-          errorMessage.includes('timeout') || 
-          errorMessage.includes('zaman aşımı') || 
-          errorMessage.includes('connection') ||
-          errorMessage.includes('bağlantı') ||
-          err.name === 'AbortError';
-        
-        // MulterError durumunu kontrol et
-        const isMulterError = errorMessage.includes('MulterError') || errorMessage.includes('Unexpected field');
-        
-        // Timeout hatası veya ağ hatası durumunda tekrar dene
-        if (isNetworkError && retryCount < maxRetries) {
-          retryCount++;
-          Alert.alert(
-            'Bağlantı Hatası', 
-            `Bağlantı zaman aşımına uğradı. Tekrar deneniyor... (${retryCount}/${maxRetries})`,
-            [{ text: 'Tamam' }]
-          );
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Kısa bir bekletme
-          return attemptUpload(retryCount, maxRetries); // Tekrar dene
-        }
-        
-        // Kullanıcı dostu hata mesajı
-        let userMessage = 'Gönderi paylaşılamadı. ';
-        
-        if (isNetworkError) {
-          userMessage += 'İnternet bağlantınızı kontrol edin ve tekrar deneyin.';
-        } else if (isMulterError) {
-          userMessage += 'Dosya yükleme hatası. Lütfen farklı bir dosya deneyin veya sadece metin paylaşın.';
-        } else {
-          userMessage += (err?.message || 'Bilinmeyen bir hata oluştu.');
-        }
-        
-        Alert.alert('Paylaşma hatası', userMessage);
-      }
-    };
-    
-    try {
-      await attemptUpload();
-    } finally {
-      setUploading(false);
-    }
-  };
-  
-  // Gönderileri çekme fonksiyonu
-  const fetchPosts = async () => {
-    if (!isLoggedIn || !currentUser) return; // Kullanıcı giriş yapmamışsa veya kullanıcı bilgisi yoksa gönderileri listeleme
-    
-    setLoading(true);
-    try {
-      console.log('Gönderiler getiriliyor...');
-      
-      const userId = currentUser._id || currentUser.id;
-      if (!userId) {
-        console.error('Kullanıcı ID\'si bulunamadı');
-        setPosts([]);
-        setLoading(false);
+        setUploading(false);
+        Alert.alert('Doğrulama Hatası', 'Kimlik doğrulama anahtarı bulunamadı. Lütfen tekrar giriş yapın.');
         return;
       }
       
-      const response = await fetch(`${API_URL}/posts/user/${userId}`, {
+      console.log('Paylaşım için token alındı:', currentAuthToken ? currentAuthToken.substring(0, 15) + '...' : 'TOKEN YOK');
+      
+      // Form data oluştur
+      const formData = createFormData();
+      
+      // POST isteği gönder
+      const postUrl = `${API_URL}/posts`;
+      console.log(`POST isteği: ${postUrl}`);
+      
+      try {
+        // Token'ı direkt olarak alırken otomatik olarak 'Bearer ' öneki ekle
+        const tokenWithBearer = currentAuthToken.startsWith('Bearer ') 
+          ? currentAuthToken 
+          : `Bearer ${currentAuthToken}`;
+        
+        console.log('Kullanılan token formatı:', tokenWithBearer.substring(0, 20) + '...');
+        
+        // Önce normal fetch ile deneyelim
+        const response = await fetch(postUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': tokenWithBearer,
+            'Accept': 'application/json',
+          },
+          body: formData as any
+        });
+        
+        clearInterval(progressInterval);
+        
+        if (response.ok) {
+          // Başarılı
+          const responseData = await response.json();
+          console.log('Gönderi başarıyla paylaşıldı:', responseData);
+          
+          setUploadProgress(100);
+          setUploadSuccess(true);
+          Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
+          
+          setTitle('');
+          setDescription('');
+          setCategory('');
+          setTags('');
+          clearMedia();
+          fetchPosts();
+          
+          setTimeout(() => {
+            setUploadSuccess(false);
+            router.push('/(tabs)');
+          }, 1500);
+          
+          return;
+        } else {
+          // Hata durumu
+          const errorText = await response.text();
+          console.error(`API Hatası (${response.status}):`, errorText);
+        
+          // 401 hatası durumunda token yenileme deneyelim
+          if (response.status === 401) {
+            // AsyncStorage'dan yeni bir token almayı deneyelim
+            const freshToken = await AsyncStorage.getItem('token');
+            if (freshToken && freshToken !== currentAuthToken) {
+              console.log('Yeni token ile yeniden deneniyor...');
+              
+              // Yeni token ile tekrar deneyelim
+              const newTokenWithBearer = freshToken.startsWith('Bearer ') 
+                ? freshToken 
+                : `Bearer ${freshToken}`;
+              
+              const retryResponse = await fetch(postUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': newTokenWithBearer,
+                  'Accept': 'application/json',
+                },
+                body: formData as any
+              });
+              
+              if (retryResponse.ok) {
+                const retryData = await retryResponse.json();
+                console.log('Yeni token ile başarılı:', retryData);
+                
+                setUploadProgress(100);
+                setUploadSuccess(true);
+                Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
+                
+                setTitle('');
+                setDescription('');
+                setCategory('');
+                setTags('');
+                clearMedia();
+                
+                setTimeout(() => {
+                  setUploadSuccess(false);
+                  router.push('/(tabs)');
+                }, 1500);
+                
+                return;
+              } else {
+                const retryErrorText = await retryResponse.text();
+                console.error(`Yeni token ile de hata (${retryResponse.status}):`, retryErrorText);
+                throw new Error(`Token yenileme başarısız oldu: ${retryErrorText}`);
+              }
+            } else {
+              // Oturum açma sayfasına yönlendir
+              Alert.alert(
+                'Oturum Süresi Doldu',
+                'Lütfen tekrar giriş yapınız.',
+                [
+                  { text: 'Tamam', onPress: () => router.push('/login') }
+                ]
+              );
+              throw new Error('Oturum süresi doldu');
+            }
+          }
+          
+          throw new Error(`API Hatası (${response.status}): ${errorText}`);
+        }
+      } catch (fetchError: any) {
+        console.error('Fetch hatası:', fetchError);
+        
+        // XHR ile tekrar deneyelim
+        try {
+          console.log('XHR ile yükleme deneniyor...');
+          
+          // AsyncStorage'dan en güncel token'ı alalım
+          const latestToken = await AsyncStorage.getItem('token');
+          const xhrToken = latestToken || currentAuthToken;
+          
+          // Token'ı direkt olarak alırken otomatik olarak 'Bearer ' öneki ekle
+          const xhrTokenWithBearer = xhrToken.startsWith('Bearer ') 
+            ? xhrToken 
+            : `Bearer ${xhrToken}`;
+          
+          return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', postUrl);
+            xhr.setRequestHeader('Authorization', xhrTokenWithBearer);
+            xhr.setRequestHeader('Accept', 'application/json');
+            
+            xhr.onload = function() {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                // Başarılı
+                try {
+                  const responseData = JSON.parse(xhr.responseText);
+                  console.log('XHR ile başarılı:', responseData);
+                  
+                  setUploadProgress(100);
+                  setUploadSuccess(true);
+                  Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
+                  
+                  setTitle('');
+                  setDescription('');
+                  setCategory('');
+                  setTags('');
+                  clearMedia();
+                  
+                  setTimeout(() => {
+                    setUploadSuccess(false);
+                    router.push('/(tabs)');
+                  }, 1500);
+                  
+                  resolve(responseData);
+                } catch (e) {
+                  reject('JSON parse hatası');
+                }
+              } else {
+                // Hata
+                reject(`XHR hatası: ${xhr.status} - ${xhr.responseText}`);
+              }
+            };
+            
+            xhr.onerror = function() {
+              reject('Ağ hatası');
+            };
+            
+            xhr.ontimeout = function() {
+              reject('Zaman aşımı');
+            };
+            
+            xhr.onabort = function() {
+              reject('İstek iptal edildi');
+            };
+            
+            xhr.upload.onprogress = function(event) {
+              if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
+                setUploadProgress(percentComplete);
+              }
+            };
+            
+            xhr.send(formData as any);
+          });
+        } catch (xhrError) {
+          console.error('XHR hatası:', xhrError);
+          throw xhrError;
+        }
+      }
+    } catch (error: any) {
+      clearInterval(progressInterval);
+      setUploading(false);
+      console.error('Gönderi paylaşma hatası:', error);
+      Alert.alert('Hata', error.message || 'Gönderi paylaşılırken bir hata oluştu. Lütfen tekrar deneyin.');
+    }
+  };
+  
+  const fetchPosts = async () => {
+    if (!isLoggedIn || !(currentUser?.id || currentUser?._id)) {
+      console.log('Kullanıcı giriş yapmamış veya ID yok, gönderiler getirilemiyor.');
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const userId = currentUser?.id || currentUser?._id;
+      if (!userId) {
+        console.error('Kullanıcı ID\'si bulunamadı, gönderiler getirilemiyor.');
+        setPosts([]);
+        setLoading(false);
+        Alert.alert('Listeleme Hatası', 'Kullanıcı ID\'si bulunamadı. Lütfen tekrar deneyin.');
+        return;
+      }
+      
+      await refreshUserData();
+      const currentAuthToken = token;
+
+      if (!currentAuthToken) {
+        console.warn('fetchPosts: Token bulunamadı. Tekrar giriş gerekebilir.');
+        setPosts([]);
+        setLoading(false);
+        Alert.alert('Oturum Sorunu', 'Token alınamadı. Lütfen tekrar giriş yapmayı deneyin.');
+        return;
+      }
+      
+      console.log(`Kullanıcının (${userId}) gönderileri getiriliyor...`);
+      setLoading(true);
+
+      try {
+        const response = await fetch(`${API_URL}/posts`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${currentAuthToken}`,
           'Content-Type': 'application/json'
         }
       });
       
       if (!response.ok) {
-        throw new Error('Gönderiler alınamadı');
+          throw new Error(`Gönderiler alınamadı: ${response.status}`);
       }
       
       const data = await response.json();
-      
       if (data && Array.isArray(data)) {
-        console.log(`${data.length} gönderi başarıyla yüklendi`);
-        setPosts(data);
+          const userPosts = data.filter(post => {
+            const postUserId = post.user?.id || post.user?._id;
+            return postUserId === userId;
+          });
+          
+          console.log(`${userPosts.length} adet kullanıcıya ait gönderi bulundu.`);
+          setPosts(userPosts.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
       } else {
-        // Veritabanında gönderi yoksa boş dizi kullan
+          console.log('Gönderi bulunamadı veya geçersiz format.');
         setPosts([]);
       }
     } catch (err: any) {
-      console.error('Gönderi listeleme hatası:', err);
-      Alert.alert('Listeleme hatası', err?.message || 'Gönderiler yüklenirken bir hata oluştu');
-      setPosts([]); // Hata durumunda boş dizi göster
+        console.error('Gönderi listeleme API hatası:', err);
+        Alert.alert('Listeleme Hatası', 'Gönderiler yüklenirken bir hata oluştu.');
+        setPosts([]);
+      }
+    } catch (err: any) {
+      console.error('fetchPosts fonksiyonunda hata:', err);
+      setPosts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchPosts();
-    }
-  }, [isLoggedIn]);
-
-  // Yükleme başarılı olduysa anasayfaya yönlendir
-  useEffect(() => {
-    if (uploadSuccess) {
-      // Kısa bir gecikme ile yönlendir (Alert'in görüntülenmesi için)
-      const timer = setTimeout(() => {
-        router.push('/(tabs)');
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [uploadSuccess]);
+  // Kategori seçenekleri
+  const categories = [
+    { value: 'antrenman', label: 'Antrenman' },
+    { value: 'taktik', label: 'Taktik' },
+    { value: 'beslenme', label: 'Beslenme' },
+    { value: 'ekipman', label: 'Ekipman' },
+    { value: 'maç', label: 'Maç' },
+    { value: 'diğer', label: 'Diğer' }
+  ];
 
   return (
-    <ThemedView style={styles.container}>
-      <LinearGradient
-        colors={['#4CAF50', '#388E3C']}
-        style={styles.headerGradient}
-      >
-        <ThemedText style={styles.headerText}>Gönderi Paylaş</ThemedText>
-      </LinearGradient>
-      
-      <ScrollView style={styles.formContainer}>
-        <View style={styles.formSection}>
-          <ThemedText style={styles.label}>Açıklama (Zorunlu)</ThemedText>
-          <TextInput
-            style={styles.contentInput}
-            placeholder="Gönderiniz hakkında bir şeyler yazın..."
-            placeholderTextColor="#999"
-            multiline
-            value={content}
-            onChangeText={setContent}
-          />
-        </View>
-        
-        <View style={styles.mediaSection}>
-          <ThemedText style={styles.label}>Medya Ekle (İsteğe bağlı)</ThemedText>
-          <View style={styles.mediaButtonsRow}>
-            <TouchableOpacity 
-              style={[styles.mediaButton, mediaType === 'image' ? styles.mediaButtonActive : null]} 
-              onPress={pickImage}
-              disabled={uploading || mediaType === 'video'}
-            >
-              <IconSymbol name="photo" size={24} color={mediaType === 'image' ? "#FFFFFF" : "#4CAF50"} />
-              <ThemedText style={[styles.mediaButtonText, mediaType === 'image' ? styles.mediaButtonTextActive : null]}>Görsel</ThemedText>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.mediaButton, mediaType === 'video' ? styles.mediaButtonActive : null]} 
-              onPress={pickVideo}
-              disabled={uploading || mediaType === 'image'}
-            >
-              <IconSymbol name="video" size={24} color={mediaType === 'video' ? "#FFFFFF" : "#4CAF50"} />
-              <ThemedText style={[styles.mediaButtonText, mediaType === 'video' ? styles.mediaButtonTextActive : null]}>Video</ThemedText>
-            </TouchableOpacity>
-            
-            {(mediaType === 'image' || mediaType === 'video') && (
-              <TouchableOpacity 
-                style={styles.clearButton} 
-                onPress={clearMedia}
-                disabled={uploading}
-              >
-                <IconSymbol name="trash" size={24} color="#FF5252" />
-                <ThemedText style={styles.clearButtonText}>Temizle</ThemedText>
-              </TouchableOpacity>
-            )}
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <ThemedView style={styles.container}>
+          <View style={styles.header}>
+            <ThemedText style={styles.headerText}>Gönderi Paylaş</ThemedText>
           </View>
           
-          {media && mediaType === 'video' && (
-            <View style={styles.selectedMedia}>
-              <Ionicons name="videocam" size={24} color="#4CAF50" />
-              <ThemedText style={styles.selectedText} numberOfLines={1} ellipsizeMode="middle">
-                {media.name || 'Seçilen video'} ({media.size ? (media.size / (1024 * 1024)).toFixed(2) : '?'} MB)
-              </ThemedText>
-              <TouchableOpacity 
-                style={styles.previewButton} 
-                onPress={() => setPreviewVisible(true)}
-              >
-                <Ionicons name="eye" size={16} color="#388E3C" />
-                <ThemedText style={styles.previewButtonText}>Önizle</ThemedText>
-              </TouchableOpacity>
+          {/* Form Alanları */}
+          <View style={styles.formContainer}>
+            {/* Başlık */}
+            <View style={styles.inputGroup}>
+              <ThemedText style={styles.label}>Başlık</ThemedText>
+              <TextInput
+                style={styles.input}
+                placeholder="Başlık giriniz"
+                placeholderTextColor="#888"
+                value={title}
+                onChangeText={setTitle}
+              />
             </View>
-          )}
-        </View>
-        
-        <TouchableOpacity
-          style={[styles.shareButton, (uploading || (!content.trim() && !media)) && styles.disabledButton]}
-          onPress={sharePost}
-          disabled={uploading || (!content.trim() && !media)}
-        >
-          {uploading ? (
-            <>
-              <ActivityIndicator color="#FFFFFF" size="small" style={{ marginRight: 8 }} />
-              <ThemedText style={styles.shareButtonText}>Paylaşılıyor... {uploadProgress}%</ThemedText>
-            </>
-          ) : (
-            <>
-              <IconSymbol name="square.and.arrow.up" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.shareButtonText}>Paylaş</ThemedText>
-            </>
-          )}
-        </TouchableOpacity>
-        
-        {uploading && (
-          <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: `${uploadProgress}%` }]} />
-          </View>
-        )}
-        
-        <View style={styles.recentPostsSection}>
-          <ThemedText style={styles.sectionTitle}>Son Gönderileriniz</ThemedText>
-          
-          {loading ? (
-            <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />
-          ) : posts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <IconSymbol name="doc.text" size={48} color="#CCCCCC" />
-              <ThemedText style={styles.emptyText}>Henüz gönderi paylaşmadınız</ThemedText>
+            
+            {/* Açıklama */}
+            <View style={styles.inputGroup}>
+              <ThemedText style={styles.label}>Açıklama</ThemedText>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Açıklama giriniz"
+                placeholderTextColor="#888"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={4}
+              />
             </View>
-          ) : (
-            <FlatList
-              data={posts}
-              keyExtractor={(item) => item._id || item.id || Math.random().toString()}
-              renderItem={({ item }) => (
-                <View style={styles.postItem}>
-                  <View style={styles.postHeader}>
-                    <Image 
-                      source={{ uri: item.user?.profilePicture || 'https://via.placeholder.com/50' }} 
-                      style={styles.userAvatar} 
-                    />
-                    <View style={styles.postInfo}>
-                      <ThemedText style={styles.username}>{item.user?.username || item.username || 'Kullanıcı'}</ThemedText>
-                      <ThemedText style={styles.timestamp}>{new Date(item.createdAt || item.timestamp || '').toLocaleDateString()}</ThemedText>
-                    </View>
-                  </View>
-                  
-                  <ThemedText style={styles.postContent}>{item.content}</ThemedText>
-                  
-                  {item.image && (
-                    <Image source={{ uri: item.image }} style={styles.postImage} />
-                  )}
-                  
-                  {item.video && (
-                    <TouchableOpacity 
-                      style={styles.videoThumbnail}
-                      onPress={() => {
-                        setSelectedVideoUrl(item.video || '');
-                        setModalVisible(true);
-                      }}
+            
+            {/* Kategori */}
+            <View style={styles.inputGroup}>
+              <ThemedText style={styles.label}>Kategori</ThemedText>
+              <View style={styles.categoryContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {categories.map((cat) => (
+                    <TouchableOpacity
+                      key={cat.value}
+                      style={[
+                        styles.categoryItem,
+                        category === cat.value && styles.categoryItemSelected
+                      ]}
+                      onPress={() => setCategory(cat.value)}
                     >
-                      <Image 
-                        source={{ uri: 'https://via.placeholder.com/300x150?text=Video+Preview' }} 
-                        style={styles.videoPlaceholder} 
-                      />
-                      <View style={styles.playButton}>
-                        <IconSymbol name="play.fill" size={32} color="#FFFFFF" />
-                      </View>
+                      <ThemedText 
+                        style={[
+                          styles.categoryText,
+                          category === cat.value && styles.categoryTextSelected
+                        ]}
+                      >
+                        {cat.label}
+                      </ThemedText>
                     </TouchableOpacity>
-                  )}
-                </View>
-              )}
-            />
-          )}
-        </View>
-      </ScrollView>
-      
-      {/* Video Modal */}
-      <Modal
-        animationType="fade"
-        transparent={false}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setModalVisible(false)}
-          >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          
-          {selectedVideoUrl && (
-            <Video
-              source={{ uri: selectedVideoUrl }}
-              style={styles.videoPlayer}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay
-            />
-          )}
-        </View>
-      </Modal>
-      
-      {/* Video önizleme modalı */}
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={previewVisible && !!media && mediaType === 'video'}
-        onRequestClose={() => setPreviewVisible(false)}
-      >
-        <View style={styles.previewModalContainer}>
-          <View style={styles.previewHeader}>
-            <ThemedText style={styles.previewTitle}>Video Önizleme</ThemedText>
-            <TouchableOpacity
-              style={styles.closePreviewButton}
-              onPress={() => setPreviewVisible(false)}
-            >
-              <Ionicons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-          
-          {media && mediaType === 'video' && (
-            <Video
-              ref={videoRef}
-              source={{ uri: media.uri }}
-              rate={1.0}
-              volume={1.0}
-              isMuted={false}
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay
-              useNativeControls
-              style={styles.previewVideo}
-            />
-          )}
-          
-          <View style={styles.previewActions}>
-            <TouchableOpacity
-              style={styles.previewActionButton}
-              onPress={() => setPreviewVisible(false)}
-            >
-              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.previewActionText}>Geri Dön</ThemedText>
-            </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
             
+            {/* Etiketler */}
+            <View style={styles.inputGroup}>
+              <ThemedText style={styles.label}>Etiketler</ThemedText>
+              <TextInput
+                style={styles.input}
+                placeholder="Etiketleri virgülle ayırarak giriniz"
+                placeholderTextColor="#888"
+                value={tags}
+                onChangeText={setTags}
+              />
+            </View>
+            
+            {/* Yayın Durumu */}
+            <View style={styles.inputGroup}>
+              <View style={styles.toggleContainer}>
+                <ThemedText style={styles.label}>Herkese Açık</ThemedText>
+                <TouchableOpacity 
+                  style={[styles.toggle, isPublic ? styles.toggleActive : styles.toggleInactive]} 
+                  onPress={() => setIsPublic(!isPublic)}
+                >
+                  <View style={[styles.toggleCircle, isPublic ? styles.toggleCircleRight : styles.toggleCircleLeft]} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {/* Medya Seçme Butonları */}
+            <View style={styles.mediaButtons}>
+              <TouchableOpacity 
+                style={[styles.mediaButton, mediaType === 'image' ? styles.mediaButtonActive : null]} 
+                onPress={pickImage}
+              >
+                <Ionicons name="image-outline" size={24} color={mediaType === 'image' ? "#3498db" : "#555"} />
+                <ThemedText style={styles.mediaButtonText}>Resim</ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.mediaButton, mediaType === 'video' ? styles.mediaButtonActive : null]} 
+                onPress={pickVideo}
+              >
+                <Ionicons name="videocam-outline" size={24} color={mediaType === 'video' ? "#3498db" : "#555"} />
+                <ThemedText style={styles.mediaButtonText}>Video</ThemedText>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Medya Önizleme */}
+            {media && (
+              <View style={styles.previewContainer}>
+                <TouchableOpacity style={styles.clearButton} onPress={clearMedia}>
+                  <Ionicons name="close-circle" size={28} color="#ff3b30" />
+                </TouchableOpacity>
+                
+                {mediaType === 'image' ? (
+                  <Image source={{ uri: media.uri }} style={styles.mediaPreview} resizeMode="cover" />
+                ) : (
+                  <Video
+                    ref={videoPlayerRef}
+                    source={{ uri: media.uri }}
+                    style={styles.mediaPreview}
+                    useNativeControls
+                    resizeMode={ResizeMode.CONTAIN}
+                  />
+                )}
+              </View>
+            )}
+            
+            {/* Paylaş Butonu */}
             <TouchableOpacity
-              style={[styles.previewActionButton, styles.uploadActionButton]}
-              onPress={() => {
-                setPreviewVisible(false);
-                sharePost();
-              }}
-              disabled={uploading || !content.trim()}
+              style={[
+                styles.shareButton,
+                (!title.trim() || !description.trim() || !media) ? styles.shareButtonDisabled : null
+              ]}
+              onPress={sharePost}
+              disabled={!title.trim() || !description.trim() || !media || uploading}
             >
-              <Ionicons name="cloud-upload" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.previewActionText}>Paylaş</ThemedText>
+              {uploading ? (
+                <View style={styles.uploadingContainer}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <ThemedText style={styles.uploadingText}>Yükleniyor... ({uploadProgress}%)</ThemedText>
+                </View>
+              ) : (
+                <ThemedText style={styles.shareButtonText}>Paylaş</ThemedText>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </ThemedView>
+        </ThemedView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 16,
   },
-  headerGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  header: {
+    marginBottom: 20,
   },
   headerText: {
-    color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   formContainer: {
     flex: 1,
-    padding: 16,
   },
-  formSection: {
-    marginBottom: 24,
+  inputGroup: {
+    marginBottom: 16,
   },
   label: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
   },
-  contentInput: {
+  input: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    minHeight: 120,
+    backgroundColor: '#f9f9f9',
+  },
+  textArea: {
+    height: 100,
     textAlignVertical: 'top',
   },
-  mediaSection: {
-    marginBottom: 24,
-  },
-  mediaButtonsRow: {
+  categoryContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginVertical: 8,
   },
-  mediaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+  categoryItem: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginRight: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    backgroundColor: '#f0f0f0',
   },
-  mediaButtonActive: {
-    backgroundColor: '#4CAF50',
+  categoryItemSelected: {
+    backgroundColor: '#3498db',
   },
-  mediaButtonText: {
-    fontSize: 16,
-    marginLeft: 8,
-    color: '#4CAF50',
+  categoryText: {
+    color: '#333',
   },
-  mediaButtonTextActive: {
-    color: '#FFFFFF',
+  categoryTextSelected: {
+    color: '#fff',
   },
-  clearButton: {
+  toggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFEBEE',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    justifyContent: 'space-between',
   },
-  clearButtonText: {
-    fontSize: 16,
-    marginLeft: 8,
-    color: '#FF5252',
+  toggle: {
+    width: 51,
+    height: 31,
+    borderRadius: 15,
+    padding: 2,
   },
-  selectedMedia: {
+  toggleActive: {
+    backgroundColor: '#4cd964',
+  },
+  toggleInactive: {
+    backgroundColor: '#e9e9e9',
+  },
+  toggleCircle: {
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: 'white',
+  },
+  toggleCircleLeft: {
+    alignSelf: 'flex-start',
+  },
+  toggleCircleRight: {
+    alignSelf: 'flex-end',
+  },
+  mediaButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    padding: 12,
-    borderRadius: 8,
-  },
-  selectedText: {
-    marginLeft: 8,
-    flex: 1,
-  },
-  shareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4CAF50',
-    padding: 16,
-    borderRadius: 8,
+    justifyContent: 'space-around',
     marginVertical: 16,
   },
-  disabledButton: {
-    backgroundColor: '#CCCCCC',
-  },
-  shareButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  recentPostsSection: {
-    marginTop: 16,
-    marginBottom: 80,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  loader: {
-    marginVertical: 20,
-  },
-  emptyState: {
+  mediaButton: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    marginTop: 16,
-    color: '#757575',
-    textAlign: 'center',
-  },
-  postItem: {
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: '#ddd',
+    width: '45%',
   },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+  mediaButtonActive: {
+    borderColor: '#3498db',
+    backgroundColor: 'rgba(52, 152, 219, 0.1)',
   },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  mediaButtonText: {
+    marginTop: 4,
   },
-  postInfo: {
-    marginLeft: 12,
-  },
-  username: {
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#757575',
-  },
-  postContent: {
-    marginBottom: 12,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  postImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-  },
-  videoThumbnail: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
+  previewContainer: {
+    marginVertical: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
     position: 'relative',
   },
-  videoPlaceholder: {
+  mediaPreview: {
     width: '100%',
-    height: '100%',
-    borderRadius: 8,
+    height: 200,
+    backgroundColor: '#f0f0f0',
   },
-  playButton: {
+  clearButton: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 15,
+  },
+  shareButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 14,
     borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
   },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
+  shareButtonDisabled: {
+    backgroundColor: '#b0c4de',
+  },
+  shareButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  uploadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  closeButton: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    zIndex: 1,
-  },
-  videoPlayer: {
-    width: '100%',
-    height: 300,
-  },
-  previewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+  uploadingText: {
+    color: '#fff',
     marginLeft: 8,
-  },
-  previewButtonText: {
-    color: '#388E3C',
-    fontSize: 12,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  progressBarContainer: {
-    height: 6,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 3,
-    marginTop: 12,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
-    borderRadius: 3,
-  },
-  previewModalContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  previewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  previewTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#212121',
-  },
-  closePreviewButton: {
-    padding: 4,
-  },
-  previewVideo: {
-    width: '100%',
-    height: 300,
-    backgroundColor: '#000',
-  },
-  previewActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  previewActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#757575',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    justifyContent: 'center',
-    minWidth: 120,
-  },
-  uploadActionButton: {
-    backgroundColor: '#4CAF50',
-  },
-  previewActionText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
 export default SharePostScreen;
+

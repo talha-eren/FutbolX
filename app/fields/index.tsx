@@ -5,8 +5,9 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { primaryColor, secondaryColor, backgroundColor, textColor } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { getApiUrl, getApiBaseUrl } from '@/services/networkConfig';
-import { useAuth } from '@/context/AuthContext';
+
+// API URL'sini platform'a göre ayarla
+const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
 
 interface Field {
   _id: string;
@@ -20,7 +21,6 @@ interface Field {
 
 export default function FieldsScreen() {
   const router = useRouter();
-  const { token } = useAuth();
   
   const [fields, setFields] = useState<Field[]>([]);
   const [filteredFields, setFilteredFields] = useState<Field[]>([]);
@@ -28,43 +28,19 @@ export default function FieldsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [baseApiUrl, setBaseApiUrl] = useState<string>('');
-  
-  // API base URL'yi al
-  useEffect(() => {
-    const fetchBaseUrl = async () => {
-      try {
-        const baseUrl = await getApiBaseUrl();
-        setBaseApiUrl(baseUrl);
-      } catch (err) {
-        console.error('Base URL alınamadı:', err);
-      }
-    };
-    
-    fetchBaseUrl();
-  }, []);
   
   // Halı sahaları getir
   const fetchFields = async () => {
     try {
       setLoading(true);
       
-      const apiUrl = await getApiUrl('/fields');
-      console.log('Halı saha listesi isteği URL:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        }
-      });
+      const response = await fetch(`${API_URL}/fields`);
       
       if (!response.ok) {
         throw new Error('Halı sahalar alınamadı');
       }
       
-      const data = await response.json() as Field[];
+      const data = await response.json();
       setFields(data);
       setFilteredFields(data);
     } catch (err: any) {
@@ -98,13 +74,6 @@ export default function FieldsScreen() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchFields();
-  };
-
-  // Görsel URL'sini düzelt
-  const getImageUrl = (image: string) => {
-    if (!image) return 'https://via.placeholder.com/300';
-    if (image.startsWith('http')) return image;
-    return `${baseApiUrl}${image}`;
   };
   
   if (loading && !refreshing) {
@@ -143,6 +112,13 @@ export default function FieldsScreen() {
           </TouchableOpacity>
           <ThemedText style={styles.title}>Halı Sahalar</ThemedText>
         </View>
+        <TouchableOpacity 
+          style={styles.reservationsButton}
+          onPress={() => router.push('/reservations' as any)}
+        >
+          <Ionicons name="calendar" size={20} color="white" />
+          <ThemedText style={styles.reservationsButtonText}>Rezervasyonlarım</ThemedText>
+        </TouchableOpacity>
       </View>
       
       {/* Arama Kutusu */}
@@ -184,7 +160,7 @@ export default function FieldsScreen() {
               onPress={() => router.push(`/field/${item._id}` as any)}
             >
               <Image 
-                source={{ uri: getImageUrl(item.image) }} 
+                source={{ uri: item.image.startsWith('http') ? item.image : `${API_URL}${item.image}` }} 
                 style={styles.fieldImage} 
                 resizeMode="cover"
               />
@@ -248,6 +224,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  reservationsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: primaryColor,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  reservationsButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 5,
   },
   searchContainer: {
     flexDirection: 'row',

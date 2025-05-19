@@ -21,6 +21,33 @@ const postSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Yeni eklenen alanlar
+  title: {
+    type: String,
+    default: ''
+  },
+  description: {
+    type: String,
+    default: ''
+  },
+  category: {
+    type: String,
+    default: ''
+  },
+  tags: {
+    type: String,
+    default: ''
+  },
+  isPublic: {
+    type: Boolean,
+    default: true
+  },
+  post_type: {
+    type: String,
+    enum: ['text', 'image', 'video'],
+    default: 'text'
+  },
+  // Eski "content" alanı geriye dönük uyumluluk için korundu
   content: {
     type: String,
     required: true

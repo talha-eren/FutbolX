@@ -2,18 +2,20 @@ import React, { createContext, useState, useContext, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/api';
 
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  username: string;
+interface User {
+  id?: string;
+  _id?: string;
+  name?: string;
+  email?: string;
+  username?: string;
+  profileImage?: string;
   profilePicture?: string;
-  favoriteTeams?: string[];
+  bio?: string;
   location?: string;
   level?: string;
   position?: string;
   footPreference?: string;
-  bio?: string;
+  favoriteTeams?: string[];
   isAdmin?: boolean;
   stats?: {
     matches: number;
@@ -22,35 +24,34 @@ type User = {
     playHours: number;
     rating: number;
   };
-};
+  // Diğer kullanıcı özellikleri buraya eklenebilir
+}
 
 // Kayıt için profil bilgileri tipi
-type UserProfileData = {
-  location?: string;
-  level?: string;
-  position?: string;
-  footPreference?: string;
+interface UserProfileData {
   bio?: string;
-  stats?: {
-    matches: number;
-    goals: number;
-    assists: number;
-    playHours: number;
-    rating: number;
-  };
-};
+  location?: string;
+  website?: string;
+  // Diğer profil özellikleri
+}
 
-type AuthContextType = {
+interface SocialLoginData {
+  token: string;
+  user: User;
+  provider?: string;
+}
+
+interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isLoggedIn: boolean;
   error: string;
   token: string | null;
-  login: (username: string | null, password: string | null, socialLoginData?: any) => Promise<boolean>;
+  login: (username: string, password: string, social?: boolean, socialData?: SocialLoginData) => Promise<void>;
   register: (name: string, username: string, email: string, password: string, profileData?: UserProfileData) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [token, setToken] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     // Uygulama başladığında AsyncStorage'dan kullanıcı bilgilerini yükle
@@ -103,119 +105,148 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Kullanıcı verilerini yenileme fonksiyonu
   const refreshUserData = async (): Promise<void> => {
     try {
+      console.log('refreshUserData: Kullanıcı verileri yenileniyor...');
       const userData = await AsyncStorage.getItem('user');
       const savedToken = await AsyncStorage.getItem('token');
+      const tokenExpiry = await AsyncStorage.getItem('tokenExpiry');
+      
+      // Token geçerliliğini kontrol et
+      let isTokenValid = false;
+      if (savedToken && tokenExpiry) {
+        const expiryDate = new Date(tokenExpiry);
+        const now = new Date();
+        // Token'ın geçerlilik süresini kontrol et
+        isTokenValid = expiryDate > now;
+        console.log('refreshUserData: Token geçerlilik durumu:', isTokenValid, 'Şu anki zaman:', now.toISOString(), 'Son geçerlilik:', expiryDate.toISOString());
+      }
       
       if (userData) {
-        setUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        console.log('refreshUserData: Kullanıcı verileri başarıyla yüklendi.', { 
+          id: parsedUser?.id || parsedUser?._id,
+          username: parsedUser?.username || parsedUser?.email
+        });
+      } else {
+        setUser(null);
+        console.warn('refreshUserData: Kullanıcı verisi AsyncStorage\'da bulunamadı, state temizleniyor.');
       }
       
-      if (savedToken) {
+      if (savedToken && isTokenValid) {
         setToken(savedToken);
+        console.log('refreshUserData: Token başarıyla yüklendi. İlk 10 karakter:', savedToken.substring(0, 10));
+      } else if (savedToken && !isTokenValid) {
+        console.warn('refreshUserData: Token süresi dolmuş, oturumu yenilemek gerekiyor.');
+        // Token süresi dolmuş ama kullanıcı bilgileri varsa, yeniden oturum açma işlemi başlat
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            // Eğer refresh token varsa kullanabilirsiniz
+            // Ya da sessiz bir şekilde yeni token almaya çalışabilirsiniz
+            console.log('refreshUserData: Token yenileme işlemi başlatılabilir.');
+          } catch (e) {
+            console.error('refreshUserData: Kullanıcı verisi parse edilemedi:', e);
+            // Hata durumunda token ve kullanıcı verilerini temizle
+            await AsyncStorage.multiRemove(['token', 'tokenExpiry', 'user']);
+            setToken(null);
+            setUser(null);
+          }
+        } else {
+          // Token geçersiz ve kullanıcı verisi yok, temizle
+          await AsyncStorage.multiRemove(['token', 'tokenExpiry']);
+          setToken(null);
+        }
+      } else {
+        // Token yok, state'i temizle
+        setToken(null);
+        console.warn('refreshUserData: Token AsyncStorage\'da bulunamadı, state temizleniyor.');
       }
     } catch (error) {
-      console.error('Kullanıcı verileri yenilenirken hata:', error);
+      console.error('refreshUserData: Kullanıcı verileri yenilenirken hata:', error);
+      setUser(null);
+      setToken(null);
     }
   };
 
   // Giriş fonksiyonu - Normal ve sosyal giriş destekli
-  const login = async (username: string | null, password: string | null, socialLoginData?: any): Promise<boolean> => {
-    try {
+  const login = async (
+    username: string,
+    password: string,
+    social?: boolean,
+    socialData?: SocialLoginData
+  ): Promise<void> => {
       setIsLoading(true);
       setError('');
       
-      // Sosyal giriş kontrolü
-      if (socialLoginData) {
-        console.log('AuthContext: Sosyal giriş verileri işleniyor...');
-        
-        // Sosyal giriş verilerini doğrudan kullan
-        const response = socialLoginData;
-        
-        if (!response.token || !response.user) {
-          const errorMsg = 'Sosyal giriş verileri geçersiz';
-          console.error('Geçersiz sosyal giriş verileri:', response);
-          setError(errorMsg);
-          throw new Error(errorMsg);
-        }
-        
-        console.log('Sosyal giriş başarılı, kullanıcı bilgileri alındı:', { id: response.user.id, username: response.user.username });
-        
-        // Token ve kullanıcı bilgilerini AsyncStorage'a kaydet
-        try {
-          await AsyncStorage.setItem('token', response.token);
-          await AsyncStorage.setItem('user', JSON.stringify(response.user));
-          console.log('Sosyal giriş kullanıcı bilgileri kaydedildi');
-        } catch (storageError) {
-          console.error('AsyncStorage hatası:', storageError);
-          // Depolama hatası olsa bile devam et
-        }
-        
-        // Kullanıcı bilgilerini state'e ayarla
-        setUser(response.user);
-        setToken(response.token);
-        return true;
-      }
-      
-      // Normal giriş için parametreleri kontrol et
-      if (!username || !password) {
-        const errorMsg = 'Kullanıcı adı ve şifre gereklidir';
-        console.error('Eksik parametreler:', { username: !!username, password: !!password });
-        setError(errorMsg);
-        throw new Error(errorMsg);
-      }
-      
-      // Şifre uzunluğunu kontrol et
-      if (password.length < 6) {
-        const errorMsg = 'Şifre en az 6 karakter olmalıdır';
-        console.error('Şifre çok kısa');
-        setError(errorMsg);
-        throw new Error(errorMsg);
-      }
-      
+    try {
       console.log('AuthContext: Giriş isteği gönderiliyor...', { username, passwordLength: password.length });
       
       // Backend API'sine giriş isteği gönder
       const response = await authService.login(username, password);
+      console.log('AuthContext: authService.login yanıtı ALINDI:', JSON.stringify(response, null, 2));
       
       // Yanıtı kontrol et
       if (!response) {
-        const errorMsg = 'Sunucudan yanıt alınamadı';
-        console.error('Yanıt alınamadı');
-        setError(errorMsg);
-        throw new Error(errorMsg);
+        throw new Error('Sunucudan yanıt alınamadı.');
       }
       
       if (!response.token || !response.user) {
-        const errorMsg = 'Sunucudan geçerli yanıt alınamadı';
-        console.error('Geçersiz yanıt formatı:', response);
-        setError(errorMsg);
-        throw new Error(errorMsg);
+        console.error('AuthContext: API yanıtında token veya user eksik:', response);
+        throw new Error('Geçersiz API yanıtı: Token veya kullanıcı bilgileri eksik.');
       }
       
-      console.log('Giriş başarılı, kullanıcı bilgileri alındı:', { id: response.user.id, username: response.user.username });
+      // Token'ı ve kullanıcı verilerini sakla
+      const token = response.token;
+      const user = response.user;
       
-      // Token ve kullanıcı bilgilerini AsyncStorage'a kaydet
-      try {
-        await AsyncStorage.setItem('token', response.token);
-        await AsyncStorage.setItem('user', JSON.stringify(response.user));
-        console.log('Kullanıcı bilgileri kaydedildi');
-      } catch (storageError) {
-        console.error('AsyncStorage hatası:', storageError);
-        // Depolama hatası olsa bile devam et
-      }
+      console.log('AuthContext: API yanıtından alınan token (ilk 10 karakter):', token.substring(0, 10));
+      console.log('AuthContext: API yanıtından alınan kullanıcı:', {
+        id: user.id || user._id,
+        username: user.username || user.email
+      });
       
-      // Kullanıcı bilgilerini state'e ayarla
-      setUser(response.user);
-      setToken(response.token);
-      return true;
+      // JWT token'ın sona erme süresini hesapla (varsayılan olarak 24 saat)
+      const tokenExpiry = new Date();
+      tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+      
+      // AsyncStorage'e kaydet
+      await AsyncStorage.setItem('token', token);
+      await AsyncStorage.setItem('tokenExpiry', tokenExpiry.toISOString());
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      
+      console.log('AuthContext: Token ve kullanıcı bilgileri AsyncStorage\'e kaydedildi.');
+      
+      // Context state'ini güncelle
+      setIsLoggedIn(true);
+      setToken(token);
+      setUser(user);
+      
+      console.log('AuthContext: Giriş başarılı, state güncellendi.');
     } catch (error: any) {
-      console.error('Giriş yaparken hata:', error?.message || error);
-      // Hata fırlat, böylece UI tarafında yakalanabilir
+      console.error('AuthContext: Giriş işlemi sırasında hata:', error.message || error);
+      // Hata durumunda state ve storage temizle
+      setIsLoggedIn(false);
+      setToken(null);
+      setUser(null);
+      
+      // AsyncStorage'den silinse iyi olur
+      try {
+        await AsyncStorage.multiRemove(['token', 'tokenExpiry', 'user']);
+      } catch (storageError) {
+        console.error('AuthContext: AsyncStorage temizleme hatası:', storageError);
+      }
+      
+      setError(error.message || 'Giriş işlemi sırasında bir hata oluştu.');
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Token durumunu izle ve oturum durumunu güncelle
+  useEffect(() => {
+    setIsLoggedIn(!!token && !!user);
+  }, [token, user]);
 
   // Kayıt fonksiyonu
   const register = async (
@@ -286,7 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
     user,
     isLoading,
-    isLoggedIn: !!user,
+    isLoggedIn,
     error,
         token,
     login,

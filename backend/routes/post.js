@@ -10,20 +10,33 @@ const fs = require('fs');
 // Dosya yüklemeleri için multer konfigürasyonu
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads/posts');
+    // Dosya türüne göre klasör belirle
+    let uploadDir;
+    if (file.mimetype.includes('image')) {
+      uploadDir = path.join(__dirname, '../public/uploads/images');
+    } else if (file.mimetype.includes('video')) {
+      uploadDir = path.join(__dirname, '../public/uploads/videos');
+    } else {
+      uploadDir = path.join(__dirname, '../public/uploads/files');
+    }
+    
+    // Klasör yoksa oluştur
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
+    // Dosya adını benzersiz yap
+    const fileExtension = path.extname(file.originalname);
+    const uniqueName = `file-${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExtension}`;
+    cb(null, uniqueName);
   }
 });
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -49,6 +62,11 @@ router.get('/', async (req, res) => {
     const enhancedPosts = posts.map(post => {
       return {
         _id: post._id,
+        title: post.title,
+        description: post.description,
+        category: post.category,
+        tags: post.tags,
+        isPublic: post.isPublic,
         content: post.content,
         image: post.image,
         video: post.video,
@@ -57,7 +75,8 @@ router.get('/', async (req, res) => {
         username: post.author ? post.author.username : 'Bilinmeyen Kullanıcı',
         userImage: post.author ? post.author.profilePicture : '',
         user: post.author,
-        likes: post.likes || 0
+        likes: post.likes || 0,
+        post_type: post.post_type
       };
     });
     
@@ -83,16 +102,20 @@ router.get('/:id', async (req, res) => {
 });
 
 // Yeni gönderi ekle
-router.post('/', auth, upload.single('media'), async (req, res) => {
+router.post('/', auth, upload.single('file'), async (req, res) => {
   try {
-    console.log('Gönderi isteği alındı:', {
-      body: req.body,
-      file: req.file ? {
-        filename: req.file.filename,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      } : 'Medya dosyası yok'
-    });
+    console.log('Gönderi yükleme isteği alındı. Tür:', req.body.post_type);
+    console.log('Request files:', req.file ? [{
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      encoding: req.file.encoding,
+      mimetype: req.file.mimetype,
+      destination: req.file.destination,
+      filename: req.file.filename,
+      path: req.file.path,
+      size: req.file.size
+    }] : 'File yok');
+    console.log('Request body:', req.body);
     
     const user = await User.findById(req.user.id).select('-password');
     
@@ -106,8 +129,14 @@ router.post('/', auth, upload.single('media'), async (req, res) => {
       user: req.user.id,
       username: user.username,
       userImage: user.profilePicture || '',
-      content: req.body.content,
-      contentType: req.body.contentType || 'text'
+      title: req.body.title || '',
+      description: req.body.description || '',
+      category: req.body.category || '',
+      tags: req.body.tags || '',
+      isPublic: req.body.isPublic === 'true',
+      content: req.body.description || req.body.content || '',
+      post_type: req.body.post_type || 'image',
+      contentType: req.body.post_type || 'image'
     });
 
     // Medya dosyası yüklendiyse
@@ -116,16 +145,22 @@ router.post('/', auth, upload.single('media'), async (req, res) => {
       const isVideo = req.file.mimetype.includes('video') || 
                        /mp4|mov|avi/i.test(path.extname(req.file.filename));
       
+      // Dosya yolu oluştur
+      const fileDir = isVideo ? '/uploads/videos/' : '/uploads/images/';
+      const filePath = fileDir + req.file.filename;
+      
       if (isVideo) {
-        newPost.video = `/uploads/posts/${req.file.filename}`;
+        newPost.video = filePath;
         newPost.contentType = 'video';
+        newPost.post_type = 'video';
       } else {
-        newPost.image = `/uploads/posts/${req.file.filename}`;
+        newPost.image = filePath;
         newPost.contentType = 'image';
+        newPost.post_type = 'image';
       }
       
       console.log('Medya türü:', isVideo ? 'Video' : 'Image');
-      console.log('Medya dosya yolu:', isVideo ? newPost.video : newPost.image);
+      console.log('Medya dosya yolu:', filePath);
     }
 
     const savedPost = await newPost.save();
