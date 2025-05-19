@@ -314,9 +314,9 @@ function Register() {
           </Button>
           <Grid container justifyContent="flex-end">
             <Grid item>
-              <Link component={RouterLink} to="/login" variant="body2">
+            <Link component={RouterLink} to="/login" variant="body2">
                 Zaten bir hesabınız var mı? Giriş yap
-              </Link>
+            </Link>
             </Grid>
           </Grid>
         </Box>

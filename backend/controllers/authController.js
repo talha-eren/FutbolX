@@ -109,7 +109,7 @@ exports.login = async (req, res) => {
       profilePicture: user.profilePicture,
       position: user.position,
       level: user.level,
-      preferredFoot: user.preferredFoot, 
+      preferredFoot: user.preferredFoot,
       matchesPlayed: user.matchesPlayed,
       goalsScored: user.goalsScored,
       assists: user.assists,

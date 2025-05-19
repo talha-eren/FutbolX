@@ -22,7 +22,9 @@ import {
   DialogActions,
   Menu,
   MenuItem,
-  Snackbar
+  Snackbar,
+  Card,
+  CardContent
 } from '@mui/material';
 import { 
   Favorite, 
@@ -41,6 +43,7 @@ import {
 import ReactPlayer from 'react-player';
 import axios from 'axios';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { blueGrey } from '@mui/material/colors';
 
 function VideoDetail() {
   const { id } = useParams();
@@ -300,6 +303,8 @@ function VideoDetail() {
           startIcon={<ArrowBack />}
           onClick={() => navigate(-1)}
           sx={{ mb: 2 }}
+          variant="text"
+          color="primary"
         >
           Geri Dön
         </Button>
@@ -314,58 +319,116 @@ function VideoDetail() {
           </Alert>
         ) : video ? (
           <>
-            <Paper elevation={3} sx={{ p: 0, mb: 3, overflow: 'hidden', borderRadius: 2 }}>
-              <Box sx={{ position: 'relative', width: '100%', paddingTop: '56.25%', bgcolor: '#000' }}>
+            <Card sx={{ mb: 3, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', borderRadius: 3 }}>
+              <Box sx={{ 
+                position: 'relative', 
+                width: '100%', 
+                paddingTop: '56.25%', 
+                bgcolor: '#000', 
+                overflow: 'hidden' 
+              }}>
                 <ReactPlayer
                   url={getVideoUrl(video.filePath)}
                   width="100%"
                   height="100%"
                   controls
+                  playing
+                  playsinline
                   style={{ position: 'absolute', top: 0, left: 0 }}
+                  config={{
+                    file: {
+                      attributes: {
+                        controlsList: 'nodownload',
+                        crossOrigin: 'anonymous',
+                        preload: 'auto'
+                      },
+                      forceVideo: true
+                    }
+                  }}
+                  fallback={
+                    <Box 
+                      sx={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: '#1c1c1c',
+                        color: 'white'
+                      }}
+                    >
+                      <Typography>Video yüklenemiyor...</Typography>
+                    </Box>
+                  }
+                  onError={(e) => {
+                    console.error("Video oynatma hatası:", e);
+                  }}
                 />
               </Box>
               
-              <Box sx={{ p: 3 }}>
+              <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Typography variant="h4" component="h1" gutterBottom>
-                    {video.title}
+                  <Typography 
+                    variant="h5" 
+                    component="h1" 
+                    gutterBottom 
+                    fontWeight="bold"
+                    sx={{ 
+                      color: '#424242',
+                      fontSize: { xs: '1.2rem', md: '1.5rem' },
+                      mb: 1.5
+                    }}
+                  >
+                    {video.title || 'Video Başlığı'}
                   </Typography>
                   
                   {isLoggedIn && video.uploadedBy?._id === localStorage.getItem('userId') && (
-                    <IconButton onClick={handleMenuOpen}>
+                    <IconButton onClick={handleMenuOpen} sx={{ color: 'text.secondary' }}>
                       <MoreVert />
                     </IconButton>
                   )}
                 </Box>
                 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Visibility sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mr: 3 }}>
-                      {video.views} görüntülenme
-                    </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                    <Chip 
+                      icon={<Visibility />} 
+                      label={`${video.views || 0} görüntülenme`} 
+                      variant="outlined" 
+                      size="small" 
+                      sx={{ bgcolor: 'rgba(0,0,0,0.04)', fontWeight: 'medium' }} 
+                    />
                     
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(video.createdAt)}
-                    </Typography>
+                    <Chip 
+                      label={video.createdAt ? formatDate(video.createdAt) : 'Tarih bilgisi yok'} 
+                      variant="outlined" 
+                      size="small" 
+                      sx={{ bgcolor: 'rgba(0,0,0,0.04)', fontWeight: 'medium' }} 
+                    />
                   </Box>
                   
                   <Box>
                     <Button 
-                      startIcon={likeLoading ? <CircularProgress size={16} /> : (isLiked ? <ThumbUp /> : <FavoriteBorder />)}
-                      variant="outlined"
+                      startIcon={likeLoading ? <CircularProgress size={16} /> : (isLiked ? <ThumbUp color="primary" /> : <ThumbUp />)}
+                      variant={isLiked ? "contained" : "outlined"}
                       color="primary"
                       onClick={handleLike}
                       disabled={likeLoading || !isLoggedIn}
-                      sx={{ mr: 1 }}
+                      sx={{ mr: 1, borderRadius: 5, fontWeight: 'bold' }}
+                      size="small"
                     >
-                      {video.likes}
+                      {video.likes || 0}
                     </Button>
                     
                     <Button 
                       startIcon={<Share />}
                       variant="outlined"
                       color="primary"
+                      sx={{ borderRadius: 5, fontWeight: 'bold' }}
+                      size="small"
                     >
                       Paylaş
                     </Button>
@@ -393,17 +456,30 @@ function VideoDetail() {
                   </Box>
                 </Box>
                 
-                <Typography variant="body1" sx={{ mt: 2, mb: 3, whiteSpace: 'pre-wrap' }}>
-                  {video.description}
+                <Typography variant="body1" sx={{ 
+                  mt: 2, 
+                  mb: 3, 
+                  whiteSpace: 'pre-wrap', 
+                  color: '#424242',
+                  px: 1,
+                  py: 1.5,
+                  bgcolor: 'rgba(0,0,0,0.02)',
+                  borderRadius: 2,
+                  fontSize: '0.95rem',
+                  lineHeight: 1.6
+                }}>
+                  {video.description || 'Bu gönderinin açıklaması bulunmuyor.'}
                 </Typography>
                 
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  <Chip 
-                    label={video.category} 
-                    color="primary" 
-                    size="medium"
-                    sx={{ fontWeight: 'bold' }}
-                  />
+                  {video.category && (
+                    <Chip 
+                      label={video.category} 
+                      color="primary" 
+                      size="medium"
+                      sx={{ fontWeight: 'bold', borderRadius: 2 }}
+                    />
+                  )}
                   
                   {video.tags && video.tags.map((tag, index) => (
                     <Chip 
@@ -411,94 +487,162 @@ function VideoDetail() {
                       label={tag} 
                       variant="outlined" 
                       size="medium"
+                      sx={{ borderRadius: 2 }}
                     />
                   ))}
                 </Box>
-              </Box>
-            </Paper>
+              </CardContent>
+            </Card>
             
-            <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                <CommentIcon sx={{ mr: 1 }} />
-                Yorumlar ({video.comments?.length || 0})
-              </Typography>
-              
-              {isLoggedIn ? (
-                <Box component="form" onSubmit={handleAddComment} sx={{ display: 'flex', mb: 3, mt: 2 }}>
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    placeholder="Bir yorum yazın..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    disabled={commentLoading}
-                  />
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    disabled={!comment.trim() || commentLoading}
-                    sx={{ ml: 1, minWidth: 100 }}
-                    endIcon={commentLoading ? <CircularProgress size={16} color="inherit" /> : <Send />}
-                  >
-                    Gönder
-                  </Button>
-                </Box>
-              ) : (
-                <Alert severity="info" sx={{ mb: 2, mt: 2 }}>
-                  Yorum yapmak için <Link to="/login">giriş</Link> yapmalısınız.
-                </Alert>
-              )}
-              
-              <List>
-                {video.comments && video.comments.length > 0 ? (
-                  video.comments.map((comment, index) => (
-                    <React.Fragment key={comment._id || index}>
-                      <ListItem alignItems="flex-start">
-                        <ListItemAvatar>
-                          <Avatar 
-                            src={comment.user?.profilePicture?.startsWith('http') 
-                              ? comment.user.profilePicture 
-                              : comment.user?.profilePicture 
-                                ? `http://localhost:5000${comment.user.profilePicture}` 
-                                : null}
-                          />
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                {comment.user?.username || 'Kullanıcı'}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {formatCommentDate(comment.createdAt)}
-                              </Typography>
-                            </Box>
-                          }
-                          secondary={
-                            <Typography
-                              variant="body2"
-                              color="text.primary"
-                              sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
-                            >
-                              {comment.text}
-                            </Typography>
-                          }
-                        />
-                      </ListItem>
-                      {index < video.comments.length - 1 && <Divider variant="inset" component="li" />}
-                    </React.Fragment>
-                  ))
+            <Card sx={{ mb: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', borderRadius: 3 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  fontWeight: 'bold',
+                  color: '#333',
+                  mb: 2 
+                }}>
+                  <CommentIcon sx={{ mr: 1, color: '#666' }} />
+                  Yorumlar ({video.comments?.length || 0})
+                </Typography>
+                
+                {isLoggedIn ? (
+                  <Box component="form" onSubmit={handleAddComment} sx={{ 
+                    display: 'flex', 
+                    mb: 3, 
+                    mt: 2, 
+                    bgcolor: 'rgba(25, 118, 210, 0.04)',
+                    p: 2,
+                    borderRadius: 2,
+                    border: '1px solid rgba(25, 118, 210, 0.12)'
+                  }}>
+                    <TextField
+                      fullWidth
+                      variant="outlined"
+                      placeholder="Yorumunuzu buraya yazın..."
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      disabled={commentLoading}
+                      multiline
+                      rows={2}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          bgcolor: '#fff'
+                        }
+                      }}
+                    />
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="primary"
+                      disabled={!comment.trim() || commentLoading}
+                      sx={{ ml: 2, minWidth: 100, borderRadius: 2, alignSelf: 'flex-start' }}
+                      endIcon={commentLoading ? <CircularProgress size={16} color="inherit" /> : <Send />}
+                    >
+                      Gönder
+                    </Button>
+                  </Box>
                 ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                    Henüz yorum yapılmamış. İlk yorumu siz yapın!
-                  </Typography>
+                  <Alert severity="info" sx={{ mb: 2, mt: 2, borderRadius: 2 }}>
+                    Yorum yapmak için <Link to="/login" style={{ textDecoration: 'none', fontWeight: 'bold', color: '#1976d2' }}>giriş</Link> yapmalısınız.
+                  </Alert>
                 )}
-              </List>
-            </Paper>
+                
+                <List sx={{ p: 0 }}>
+                  {video.comments && video.comments.length > 0 ? (
+                    video.comments.map((comment, index) => (
+                      <React.Fragment key={comment._id || index}>
+                        <ListItem 
+                          alignItems="flex-start" 
+                          sx={{ 
+                            px: 2, 
+                            py: 2, 
+                            borderRadius: 2, 
+                            my: 1,
+                            bgcolor: index % 2 === 0 ? 'rgba(0,0,0,0.03)' : 'rgba(0,0,0,0.01)',
+                            border: '1px solid rgba(0,0,0,0.06)',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                              bgcolor: 'rgba(0,0,0,0.05)',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                            }
+                          }}
+                        >
+                          <ListItemAvatar>
+                            <Avatar 
+                              src={comment.user?.profilePicture?.startsWith('http') 
+                                ? comment.user.profilePicture 
+                                : comment.user?.profilePicture 
+                                  ? `http://localhost:5000${comment.user.profilePicture}` 
+                                  : null}
+                              sx={{ 
+                                bgcolor: blueGrey[500],
+                                width: 40,
+                                height: 40
+                              }}
+                            />
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: blueGrey[800] }}>
+                                  {comment.user?.username || 'Kullanıcı'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ 
+                                  bgcolor: 'rgba(0,0,0,0.05)', 
+                                  px: 1.5, 
+                                  py: 0.5, 
+                                  borderRadius: 5,
+                                  fontWeight: 'medium',
+                                  fontSize: '0.7rem'
+                                }}>
+                                  {formatCommentDate(comment.createdAt)}
+                                </Typography>
+                              </Box>
+                            }
+                            secondary={
+                              <Typography
+                                variant="body2"
+                                color="text.primary"
+                                sx={{ 
+                                  mt: 1, 
+                                  whiteSpace: 'pre-wrap', 
+                                  px: 0.5,
+                                  color: '#424242',
+                                  fontSize: '0.9rem',
+                                  lineHeight: 1.5
+                                }}
+                              >
+                                {comment.text}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                        {index < video.comments.length - 1 && <Divider component="li" sx={{ opacity: 0.06 }} />}
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    <Box sx={{ 
+                      py: 4, 
+                      textAlign: 'center', 
+                      bgcolor: 'rgba(0,0,0,0.02)', 
+                      borderRadius: 2,
+                      border: '1px dashed rgba(0,0,0,0.1)'
+                    }}>
+                      <CommentIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Henüz yorum yapılmamış. İlk yorumu siz yapın!
+                      </Typography>
+                    </Box>
+                  )}
+                </List>
+              </CardContent>
+            </Card>
           </>
         ) : (
-          <Alert severity="info">Video bulunamadı</Alert>
+          <Alert severity="info" sx={{ borderRadius: 2 }}>Video bulunamadı</Alert>
         )}
         
         {/* İşlem menüsü */}
@@ -506,6 +650,10 @@ function VideoDetail() {
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
+          PaperProps={{
+            elevation: 3,
+            sx: { borderRadius: 2, minWidth: 150 }
+          }}
         >
           <MenuItem component={Link} to={`/edit-video/${id}`}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -523,21 +671,28 @@ function VideoDetail() {
         </Menu>
         
         {/* Silme Onay Dialogu */}
-        <Dialog open={openDeleteDialog} onClose={handleDeleteClose}>
-          <DialogTitle>Videoyu Sil</DialogTitle>
+        <Dialog 
+          open={openDeleteDialog} 
+          onClose={handleDeleteClose}
+          PaperProps={{
+            sx: { borderRadius: 3, p: 1 }
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 'bold' }}>Videoyu Sil</DialogTitle>
           <DialogContent>
             <Typography>
               "{video?.title}" videosunu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
             </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleDeleteClose} disabled={deleteLoading}>İptal</Button>
+            <Button onClick={handleDeleteClose} disabled={deleteLoading} sx={{ borderRadius: 2 }}>İptal</Button>
             <Button 
               onClick={handleDeleteVideo} 
               color="error" 
               variant="contained"
               disabled={deleteLoading}
               startIcon={deleteLoading && <CircularProgress size={16} color="inherit" />}
+              sx={{ borderRadius: 2 }}
             >
               Sil
             </Button>
@@ -550,6 +705,12 @@ function VideoDetail() {
           autoHideDuration={4000}
           onClose={() => setSnackbarOpen(false)}
           message={snackbarMessage}
+          sx={{ 
+            '& .MuiSnackbarContent-root': { 
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+            } 
+          }}
         />
       </Box>
     </Container>

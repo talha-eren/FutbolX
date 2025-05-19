@@ -12,7 +12,8 @@ import {
 import {
   SportsSoccer, Edit, EmojiEvents, Timeline,
   Group, Star, Place, CalendarToday, Save,
-  PhotoCamera, Close, Info, Person, Add
+  PhotoCamera, Close, Info, Person, Add,
+  Delete, Videocam, Image, TextSnippet
 } from '@mui/icons-material';
 
 // API URL
@@ -29,6 +30,8 @@ function Profile() {
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [dialogType, setDialogType] = useState(''); // 'match', 'highlight', 'profile'
+  const [userVideos, setUserVideos] = useState([]); // Kullanıcının videoları
+  const [confirmDeleteDialog, setConfirmDeleteDialog] = useState({ open: false, videoId: null });
   
   // Kullanıcı verileri
   const [userInfo, setUserInfo] = useState({
@@ -155,9 +158,32 @@ function Profile() {
     }
   };
   
+  // Kullanıcının videolarını çek
+  const fetchUserVideos = async () => {
+    try {
+      const config = getConfig();
+      
+      if (!config) {
+        console.error('Token bulunamadı');
+        return;
+      }
+      
+      const response = await axios.get(`${API_URL}/videos/user/my-videos`, config);
+      setUserVideos(response.data);
+    } catch (error) {
+      console.error('Videolar yüklenirken hata oluştu:', error);
+      setNotification({
+        open: true,
+        message: 'Videolarınız yüklenirken bir hata oluştu.',
+        severity: 'error'
+      });
+    }
+  };
+  
   // Sayfa yüklendiğinde kullanıcı verilerini çek
   useEffect(() => {
     fetchUserData();
+    fetchUserVideos(); // Kullanıcının videolarını da çek
   }, []);
 
   const handleTabChange = (event, newValue) => {
@@ -169,40 +195,21 @@ function Profile() {
     setMainTabValue(newValue);
   };
 
-  // Kullanıcı bilgilerini düzenle
+  // Profil düzenleme modunu aç
   const handleEditUserInfo = () => {
-    // Düzenleme için mevcut kullanıcı bilgilerini editedData'ya yükle
-    setEditedData({
-      username: userInfo.username,
-      email: userInfo.email,
-      firstName: userInfo.firstName,
-      lastName: userInfo.lastName
-    });
-    setDialogType('userInfo');
-    setOpenDialog(true);
+    // Düzenleme butonuna tıklandığında yapılacak işlemler
+    console.log("Kullanıcı bilgilerini düzenle");
   };
   
   // Futbol özelliklerini düzenle
   const handleEditFootballInfo = () => {
-    setEditedData({
-      position: userStats.position,
-      level: userStats.level,
-      preferredFoot: userStats.preferredFoot
-    });
-    setDialogType('footballInfo');
-    setOpenDialog(true);
+    // Düzenleme butonuna tıklandığında yapılacak işlemler
+    console.log("Futbol özelliklerini düzenle");
   };
   
   // İstatistikleri düzenle
   const handleEditStats = () => {
-    setEditedData({
-      matches: userStats.matches,
-      goals: userStats.goals,
-      assists: userStats.assists,
-      hoursPlayed: userStats.hoursPlayed
-    });
-    setDialogType('stats');
-    setOpenDialog(true);
+    console.log("İstatistikleri düzenle");
   };
 
   const handleLogout = () => {
@@ -225,29 +232,24 @@ function Profile() {
       }
       
       // Profil verilerini hazırla
-      let profileData = {};
-      
-      if (dialogType === 'userInfo') {
-        profileData = {
-          username: editedData.username,
-          email: editedData.email,
-          firstName: editedData.firstName,
-          lastName: editedData.lastName
-        };
-      } else if (dialogType === 'footballInfo') {
-        profileData = {
-          position: editedData.position,
-          level: editedData.level,
-          preferredFoot: editedData.preferredFoot
-        };
-      } else if (dialogType === 'stats') {
-        profileData = {
-          matchesPlayed: editedData.matches,
-          goalsScored: editedData.goals,
-          assists: editedData.assists,
-          hoursPlayed: editedData.hoursPlayed
-        };
-      }
+      const profileData = {
+        username: editedData.username,
+        email: editedData.email,
+        firstName: editedData.firstName,
+        lastName: editedData.lastName,
+        bio: editedData.bio,
+        phone: editedData.phone,
+        location: editedData.location,
+        // İstatistik verileri
+        position: editedData.position,
+        preferredFoot: editedData.preferredFoot,
+        height: editedData.height,
+        weight: editedData.weight,
+        matchesPlayed: editedData.matches,
+        goalsScored: editedData.goals,
+        assists: editedData.assists,
+        favoriteTeam: editedData.favoriteTeam
+      };
       
       console.log('Gönderilecek profil verileri:', profileData);
       
@@ -256,56 +258,53 @@ function Profile() {
       
       if (response.data) {
         console.log('Profil güncellemesi başarılı:', response.data);
+      
+      // State'i güncelle
+      setUserInfo({
+          ...userInfo,
+          username: editedData.username,
+          firstName: editedData.firstName,
+          lastName: editedData.lastName,
+          email: editedData.email,
+          bio: editedData.bio,
+          phone: editedData.phone,
+          location: editedData.location
+      });
+      
+      setUserStats({
+        ...userStats,
+          position: editedData.position,
+          preferredFoot: editedData.preferredFoot,
+          height: editedData.height,
+          weight: editedData.weight,
+          matches: editedData.matches,
+          goals: editedData.goals,
+          assists: editedData.assists,
+          favoriteTeam: editedData.favoriteTeam
+        });
         
-        // State'i güncelle - dialogType'a göre gerekli alanları güncelle
-        if (dialogType === 'userInfo') {
-          setUserInfo({
-            ...userInfo,
-            username: editedData.username,
-            firstName: editedData.firstName,
-            lastName: editedData.lastName,
-            email: editedData.email
-          });
-          
-          // localStorage'daki kullanıcı bilgilerini güncelle
-          const storedUserInfo = localStorage.getItem('userInfo');
-          if (storedUserInfo) {
-            try {
-              const parsedUserInfo = JSON.parse(storedUserInfo);
-              const updatedUserInfo = {
-                ...parsedUserInfo,
-                username: editedData.username,
-                firstName: editedData.firstName,
-                lastName: editedData.lastName,
-                email: editedData.email
-              };
-              localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
-            } catch (error) {
-              console.error('localStorage kullanıcı bilgileri güncellenemedi:', error);
-            }
+        // localStorage'daki kullanıcı bilgilerini güncelle
+        const storedUserInfo = localStorage.getItem('userInfo');
+        if (storedUserInfo) {
+          try {
+            const parsedUserInfo = JSON.parse(storedUserInfo);
+            const updatedUserInfo = {
+              ...parsedUserInfo,
+              username: editedData.username,
+              firstName: editedData.firstName,
+              lastName: editedData.lastName
+            };
+            localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+          } catch (error) {
+            console.error('localStorage kullanıcı bilgileri güncellenemedi:', error);
           }
-        } else if (dialogType === 'footballInfo') {
-          setUserStats({
-            ...userStats,
-            position: editedData.position,
-            level: editedData.level,
-            preferredFoot: editedData.preferredFoot
-          });
-        } else if (dialogType === 'stats') {
-          setUserStats({
-            ...userStats,
-            matches: editedData.matches,
-            goals: editedData.goals,
-            assists: editedData.assists,
-            hoursPlayed: editedData.hoursPlayed
-          });
         }
         
-        setNotification({
-          open: true,
+      setNotification({
+        open: true,
           message: 'Profiliniz başarıyla güncellendi!',
-          severity: 'success'
-        });
+        severity: 'success'
+      });
       } else {
         setNotification({
           open: true,
@@ -324,7 +323,7 @@ function Profile() {
       });
     } finally {
       setLoading(false);
-      setOpenDialog(false);
+      setEditMode(false);
     }
   };
   
@@ -448,146 +447,6 @@ function Profile() {
   // Dialog içeriğini render et
   const renderDialogContent = () => {
     switch (dialogType) {
-      case 'userInfo':
-        return (
-          <>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Ad"
-                  value={editedData.firstName || ''}
-                  onChange={(e) => setEditedData({ ...editedData, firstName: e.target.value })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Soyad"
-                  value={editedData.lastName || ''}
-                  onChange={(e) => setEditedData({ ...editedData, lastName: e.target.value })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Kullanıcı Adı"
-                  value={editedData.username || ''}
-                  onChange={(e) => setEditedData({ ...editedData, username: e.target.value })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="E-posta"
-                  value={editedData.email || ''}
-                  onChange={(e) => setEditedData({ ...editedData, email: e.target.value })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-            </Grid>
-          </>
-        );
-        
-      case 'footballInfo':
-        return (
-          <>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Pozisyon</InputLabel>
-                  <Select
-                    value={editedData.position || ''}
-                    onChange={(e) => setEditedData({ ...editedData, position: e.target.value })}
-                    label="Pozisyon"
-                  >
-                    <MenuItem value="">Seçiniz</MenuItem>
-                    <MenuItem value="Kaleci">Kaleci</MenuItem>
-                    <MenuItem value="Defans">Defans</MenuItem>
-                    <MenuItem value="Orta Saha">Orta Saha</MenuItem>
-                    <MenuItem value="Forvet">Forvet</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Seviye"
-                  value={editedData.level || '-'}
-                  onChange={(e) => setEditedData({ ...editedData, level: e.target.value })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Ayak Tercihi</InputLabel>
-                  <Select
-                    value={editedData.preferredFoot || '-'}
-                    onChange={(e) => setEditedData({ ...editedData, preferredFoot: e.target.value })}
-                    label="Ayak Tercihi"
-                  >
-                    <MenuItem value="-">Belirtilmemiş</MenuItem>
-                    <MenuItem value="Sağ">Sağ</MenuItem>
-                    <MenuItem value="Sol">Sol</MenuItem>
-                    <MenuItem value="Her İkisi">Her İkisi</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </>
-        );
-        
-      case 'stats':
-        return (
-          <>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Maçlar"
-                  type="number"
-                  value={editedData.matches || 0}
-                  onChange={(e) => setEditedData({ ...editedData, matches: parseInt(e.target.value) || 0 })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Goller"
-                  type="number"
-                  value={editedData.goals || 0}
-                  onChange={(e) => setEditedData({ ...editedData, goals: parseInt(e.target.value) || 0 })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Asistler"
-                  type="number"
-                  value={editedData.assists || 0}
-                  onChange={(e) => setEditedData({ ...editedData, assists: parseInt(e.target.value) || 0 })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Saat"
-                  type="number"
-                  value={editedData.hoursPlayed || 0}
-                  onChange={(e) => setEditedData({ ...editedData, hoursPlayed: parseInt(e.target.value) || 0 })}
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-            </Grid>
-          </>
-        );
-        
       case 'match':
         return (
           <>
@@ -750,6 +609,118 @@ function Profile() {
                 variant="contained"
               >
                 Ekle
+              </Button>
+            </DialogActions>
+          </>
+        );
+      case 'stats':
+        return (
+          <>
+            <DialogTitle>İstatistikleri Düzenle</DialogTitle>
+            <DialogContent>
+              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Oynadığım Maç Sayısı"
+                    type="number"
+                    value={editedData.matches || 0}
+                    onChange={(e) => setEditedData({ ...editedData, matches: parseInt(e.target.value) || 0 })}
+                    sx={{ mb: 2 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Gol Sayısı"
+                    type="number"
+                    value={editedData.goals || 0}
+                    onChange={(e) => setEditedData({ ...editedData, goals: parseInt(e.target.value) || 0 })}
+                    sx={{ mb: 2 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Asist Sayısı"
+                    type="number"
+                    value={editedData.assists || 0}
+                    onChange={(e) => setEditedData({ ...editedData, assists: parseInt(e.target.value) || 0 })}
+                    sx={{ mb: 2 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth sx={{ mb: 2 }}>
+                    <InputLabel>Pozisyon</InputLabel>
+                    <Select
+                      value={editedData.position || ''}
+                      onChange={(e) => setEditedData({ ...editedData, position: e.target.value })}
+                      label="Pozisyon"
+                    >
+                      <MenuItem value="">Seçiniz</MenuItem>
+                      <MenuItem value="Kaleci">Kaleci</MenuItem>
+                      <MenuItem value="Defans">Defans</MenuItem>
+                      <MenuItem value="Orta Saha">Orta Saha</MenuItem>
+                      <MenuItem value="Forvet">Forvet</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Boy (cm)"
+                    type="number"
+                    value={editedData.height || 0}
+                    onChange={(e) => setEditedData({ ...editedData, height: parseInt(e.target.value) || 0 })}
+                    sx={{ mb: 2 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Kilo (kg)"
+                    type="number"
+                    value={editedData.weight || 0}
+                    onChange={(e) => setEditedData({ ...editedData, weight: parseInt(e.target.value) || 0 })}
+                    sx={{ mb: 2 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth sx={{ mb: 2 }}>
+                    <InputLabel>Tercih Ettiğin Ayak</InputLabel>
+                    <Select
+                      value={editedData.preferredFoot || 'Sağ'}
+                      onChange={(e) => setEditedData({ ...editedData, preferredFoot: e.target.value })}
+                      label="Tercih Ettiğin Ayak"
+                    >
+                      <MenuItem value="Sağ">Sağ</MenuItem>
+                      <MenuItem value="Sol">Sol</MenuItem>
+                      <MenuItem value="Her İkisi">Her İkisi</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Favori Takım"
+                    value={editedData.favoriteTeam || ''}
+                    onChange={(e) => setEditedData({ ...editedData, favoriteTeam: e.target.value })}
+                    sx={{ mb: 2 }}
+                  />
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseDialog} color="inherit">
+                İptal
+              </Button>
+              <Button 
+                onClick={handleSaveProfile} 
+                variant="contained" 
+                color="primary"
+                disabled={loading}
+              >
+                {loading ? 'Kaydediliyor...' : 'Kaydet'}
               </Button>
             </DialogActions>
           </>
@@ -1085,8 +1056,164 @@ function Profile() {
           </Grid>
         );
 
+      case 3: // Paylaşımlarım
+        return (
+          <Box sx={{ mt: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                Paylaşımlarım
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Add />}
+                size="small"
+                onClick={() => window.location.href = '/upload'}
+              >
+                Yeni Paylaşım
+              </Button>
+            </Box>
+            
+            {userVideos.length === 0 ? (
+              <Typography variant="body1" sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                Henüz paylaşım yapmamışsınız.
+              </Typography>
+            ) : (
+              <Grid container spacing={2}>
+                {userVideos.map((video) => (
+                  <Grid item xs={12} sm={6} md={4} key={video._id}>
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <Box 
+                        sx={{ 
+                          position: 'relative',
+                          height: 180,
+                          bgcolor: 'rgba(0,0,0,0.05)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {video.postType === 'video' && (
+                          <Videocam sx={{ fontSize: 48, color: 'rgba(0,0,0,0.2)' }} />
+                        )}
+                        {video.postType === 'image' && (
+                          <Image sx={{ fontSize: 48, color: 'rgba(0,0,0,0.2)' }} />
+                        )}
+                        {video.postType === 'text' && (
+                          <TextSnippet sx={{ fontSize: 48, color: 'rgba(0,0,0,0.2)' }} />
+                        )}
+                        {video.filePath && (
+                          <Box
+                            component="img"
+                            src={`http://localhost:5000${video.filePath}`}
+                            sx={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              objectFit: video.postType === 'image' ? 'contain' : 'cover'
+                            }}
+                            alt={video.title}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        )}
+                      </Box>
+                      <CardContent sx={{ flexGrow: 1 }}>
+                        <Typography variant="h6" sx={{ mb: 1 }}>
+                          {video.title}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          {new Date(video.createdAt).toLocaleDateString('tr-TR')}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {video.views} görüntülenme
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {video.likes} beğeni
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                      <Box sx={{ p: 2, pt: 0, display: 'flex', justifyContent: 'space-between' }}>
+                        <Button 
+                          size="small" 
+                          variant="outlined"
+                          onClick={() => window.location.href = `/video/${video._id}`}
+                        >
+                          Görüntüle
+                        </Button>
+                        <IconButton 
+                          color="error" 
+                          size="small"
+                          onClick={() => handleOpenDeleteDialog(video._id)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </Box>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Box>
+        );
+
       default:
         return null;
+    }
+  };
+
+  // Video silme onay dialogunu aç
+  const handleOpenDeleteDialog = (videoId) => {
+    setConfirmDeleteDialog({
+      open: true,
+      videoId
+    });
+  };
+  
+  // Video silme onay dialogunu kapat
+  const handleCloseDeleteDialog = () => {
+    setConfirmDeleteDialog({
+      open: false,
+      videoId: null
+    });
+  };
+  
+  // Video sil
+  const handleDeleteVideo = async () => {
+    try {
+      setLoading(true);
+      const config = getConfig();
+      
+      if (!config) {
+        setError('Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.');
+        setLoading(false);
+        return;
+      }
+      
+      await axios.delete(`${API_URL}/videos/${confirmDeleteDialog.videoId}`, config);
+      
+      // Videoları yeniden çek
+      fetchUserVideos();
+      
+      setNotification({
+        open: true,
+        message: 'Video başarıyla silindi!',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Video silme hatası:', error);
+      setNotification({
+        open: true,
+        message: 'Video silinirken bir hata oluştu.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+      handleCloseDeleteDialog();
     }
   };
 
@@ -1111,18 +1238,18 @@ function Profile() {
             }}
           >
             <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Avatar
-                  src={userInfo.profilePicture}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Avatar
+                src={userInfo.profilePicture}
                   alt={`${userInfo.firstName} ${userInfo.lastName}`}
                   sx={{ width: 80, height: 80, mb: 1, border: '2px solid white' }}
-                />
+                    />
                 <Typography variant="h5">
-                  {userInfo.firstName} {userInfo.lastName}
-                </Typography>
+                      {userInfo.firstName} {userInfo.lastName}
+                    </Typography>
                 <Typography variant="body2" sx={{ mb: 2 }}>
-                  @{userInfo.username}
-                </Typography>
+                      @{userInfo.username}
+                    </Typography>
                 
                 {/* İstatistikler */}
                 <Box sx={{ 
@@ -1134,11 +1261,11 @@ function Profile() {
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h6">{userStats.matches}</Typography>
                     <Typography variant="body2">Maçlar</Typography>
-                  </Box>
+                          </Box>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h6">{userStats.goals}</Typography>
                     <Typography variant="body2">Goller</Typography>
-                  </Box>
+                        </Box>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h6">{userStats.assists}</Typography>
                     <Typography variant="body2">Asistler</Typography>
@@ -1146,30 +1273,30 @@ function Profile() {
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h6">{userStats.hoursPlayed}</Typography>
                     <Typography variant="body2">Saat</Typography>
-                  </Box>
-                </Box>
-                
+                      </Box>
+                    </Box>
+                    
                 {/* Butonlar */}
                 <Box sx={{ display: 'flex', width: '100%', gap: 2 }}>
-                  <Button 
-                    variant="contained" 
+                        <Button 
+                          variant="contained" 
                     color="success"
                     fullWidth
-                    sx={{ 
+                sx={{
                       bgcolor: 'rgba(0,0,0,0.15)', 
                       '&:hover': { bgcolor: 'rgba(0,0,0,0.25)' } 
-                    }}
-                  >
+                }}
+              >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <span>Maç Bul</span>
                     </Box>
-                  </Button>
-                  <Button 
+                        </Button>
+                        <Button 
                     variant="outlined"
                     color="inherit" 
                     fullWidth
                     onClick={handleLogout}
-                    sx={{ 
+                sx={{
                       borderColor: 'white', 
                       color: 'white',
                       '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } 
@@ -1178,242 +1305,37 @@ function Profile() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <span>Çıkış Yap</span>
                     </Box>
-                  </Button>
-                </Box>
-              </Box>
+                        </Button>
+            </Box>
+                  </Box>
             </CardContent>
           </Card>
-          
+
           {/* Sekmeler */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs 
-              value={activeTab} 
-              onChange={handleTabChange} 
+                <Tabs 
+                  value={activeTab} 
+                  onChange={handleTabChange}
               variant="fullWidth"
-            >
+                >
               <Tab icon={<Person />} label="Profil" />
               <Tab label="Yaklaşan" />
               <Tab label="Geçmiş" />
-            </Tabs>
-          </Box>
-          
+              <Tab icon={<Videocam />} label="Paylaşımlarım" />
+                </Tabs>
+              </Box>
+              
           {/* Sekme İçerikleri */}
-          {activeTab === 0 && (
-            <Box>
-              {/* Kullanıcı Bilgileri Kartı */}
-              <Card sx={{ mt: 3 }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">Kullanıcı Bilgileri</Typography>
-                    <IconButton 
-                      size="small" 
-                      onClick={handleEditUserInfo}
-                      sx={{ 
-                        bgcolor: '#4CAF50', 
-                        color: 'white',
-                        '&:hover': { bgcolor: '#43A047' }
-                      }}
-                    >
-                      <Edit fontSize="small" />
-                    </IconButton>
-                  </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  
-                  <List disablePadding>
-                    <ListItem>
-                      <Grid container>
-                        <Grid item xs={4}>
-                          <Typography variant="subtitle1" color="text.secondary">Ad Soyad:</Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body1">{userInfo.firstName} {userInfo.lastName}</Typography>
-                        </Grid>
-                      </Grid>
-                    </ListItem>
-                    <ListItem>
-                      <Grid container>
-                        <Grid item xs={4}>
-                          <Typography variant="subtitle1" color="text.secondary">Kullanıcı Adı:</Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body1">{userInfo.username}</Typography>
-                        </Grid>
-                      </Grid>
-                    </ListItem>
-                    <ListItem>
-                      <Grid container>
-                        <Grid item xs={4}>
-                          <Typography variant="subtitle1" color="text.secondary">E-posta:</Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body1">{userInfo.email}</Typography>
-                        </Grid>
-                      </Grid>
-                    </ListItem>
-                    <ListItem>
-                      <Grid container>
-                        <Grid item xs={4}>
-                          <Typography variant="subtitle1" color="text.secondary">Konum:</Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body1">{userInfo.location || '-'}</Typography>
-                        </Grid>
-                      </Grid>
-                    </ListItem>
-                    <ListItem>
-                      <Grid container>
-                        <Grid item xs={4}>
-                          <Typography variant="subtitle1" color="text.secondary">Telefon:</Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body1">{userInfo.phone || '-'}</Typography>
-                        </Grid>
-                      </Grid>
-                    </ListItem>
-                    <ListItem>
-                      <Grid container>
-                        <Grid item xs={4}>
-                          <Typography variant="subtitle1" color="text.secondary">Hakkında:</Typography>
-                        </Grid>
-                        <Grid item xs={8}>
-                          <Typography variant="body1">{userInfo.bio || '-'}</Typography>
-                        </Grid>
-                      </Grid>
-                    </ListItem>
-                  </List>
-                </CardContent>
-              </Card>
-              
-              {/* Futbol Özellikleri Kartı */}
-              <Card sx={{ mt: 3 }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">Futbol Özellikleri</Typography>
-                    <IconButton 
-                      size="small" 
-                      onClick={handleEditFootballInfo}
-                      sx={{ 
-                        bgcolor: '#4CAF50', 
-                        color: 'white',
-                        '&:hover': { bgcolor: '#43A047' }
-                      }}
-                    >
-                      <Edit fontSize="small" />
-                    </IconButton>
-                  </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={4}>
-                      <Card sx={{ bgcolor: '#f5f5f5', height: '100%' }}>
-                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Seviye
-                          </Typography>
-                          <Typography variant="h6" sx={{ mt: 1 }}>
-                            {userStats.level}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Card sx={{ bgcolor: '#f5f5f5', height: '100%' }}>
-                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Pozisyon
-                          </Typography>
-                          <Typography variant="h6" sx={{ mt: 1 }}>
-                            {userStats.position || '-'}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Card sx={{ bgcolor: '#f5f5f5', height: '100%' }}>
-                        <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Ayak Tercihi
-                          </Typography>
-                          <Typography variant="h6" sx={{ mt: 1 }}>
-                            {userStats.preferredFoot}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-              
-              {/* İstatistikler Kartı */}
-              <Card sx={{ mt: 3 }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">İstatistikler</Typography>
-                    <IconButton 
-                      size="small" 
-                      onClick={handleEditStats}
-                      sx={{ 
-                        bgcolor: '#4CAF50', 
-                        color: 'white',
-                        '&:hover': { bgcolor: '#43A047' }
-                      }}
-                    >
-                      <Edit fontSize="small" />
-                    </IconButton>
-                  </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={3} sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6">{userStats.matches}</Typography>
-                      <Typography variant="body2" color="text.secondary">Maçlar</Typography>
-                    </Grid>
-                    <Grid item xs={3} sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6">{userStats.goals}</Typography>
-                      <Typography variant="body2" color="text.secondary">Goller</Typography>
-                    </Grid>
-                    <Grid item xs={3} sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6">{userStats.assists}</Typography>
-                      <Typography variant="body2" color="text.secondary">Asistler</Typography>
-                    </Grid>
-                    <Grid item xs={3} sx={{ textAlign: 'center' }}>
-                      <Typography variant="h6">{userStats.hoursPlayed}</Typography>
-                      <Typography variant="body2" color="text.secondary">Saat</Typography>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Box>
-          )}
-          
-          {activeTab === 1 && (
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h6" align="center">Yaklaşan Maçlarınız</Typography>
-              <Typography variant="body1" align="center" sx={{ mt: 2 }}>
-                Henüz yaklaşan maçınız bulunmuyor.
-              </Typography>
-            </Box>
-          )}
-          
-          {activeTab === 2 && (
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h6" align="center">Geçmiş Maçlarınız</Typography>
-              <Typography variant="body1" align="center" sx={{ mt: 2 }}>
-                Henüz geçmiş maçınız bulunmuyor.
-              </Typography>
-            </Box>
-          )}
+              {renderTabContent()}
         </Box>
       )}
       
       {/* Dialog penceresi */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: '#4CAF50', color: 'white' }}>
-          {dialogType === 'userInfo' ? 'Kullanıcı Bilgilerini Düzenle' :
-           dialogType === 'footballInfo' ? 'Futbol Özelliklerini Düzenle' :
-           dialogType === 'stats' ? 'İstatistikleri Düzenle' :
-           dialogType === 'match' ? 'Yeni Maç Ekle' : 
-           dialogType === 'highlight' ? 'Yeni Öne Çıkan Ekle' : 'Profili Düzenle'}
+          {dialogType === 'match' ? 'Yeni Maç Ekle' : 
+           dialogType === 'highlight' ? 'Yeni Öne Çıkan Ekle' : 
+           dialogType === 'stats' ? 'İstatistikleri Düzenle' : 'Profili Düzenle'}
           <IconButton
             aria-label="close"
             onClick={handleCloseDialog}
@@ -1425,21 +1347,43 @@ function Profile() {
         <DialogContent dividers>
           {renderDialogContent()}
         </DialogContent>
-        {(dialogType === 'userInfo' || dialogType === 'footballInfo' || dialogType === 'stats') && (
-          <DialogActions>
-            <Button onClick={handleCloseDialog} color="inherit">
-              İptal
-            </Button>
-            <Button 
-              onClick={handleSaveProfile} 
-              variant="contained" 
-              color="primary"
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Kaydet'}
-            </Button>
-          </DialogActions>
-        )}
+      </Dialog>
+      
+      {/* Video silme onay dialog'u */}
+      <Dialog
+        open={confirmDeleteDialog.open}
+        onClose={handleCloseDeleteDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: '#f44336', color: 'white' }}>
+          Paylaşımı Sil
+          <IconButton
+            aria-label="close"
+            onClick={handleCloseDeleteDialog}
+            sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2, mt: 2 }}>
+          <Typography>
+            Bu paylaşımı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog} color="inherit">
+            İptal
+          </Button>
+          <Button 
+            onClick={handleDeleteVideo} 
+            variant="contained" 
+            color="error"
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Sil'}
+          </Button>
+        </DialogActions>
       </Dialog>
       
       {/* Bildirim */}

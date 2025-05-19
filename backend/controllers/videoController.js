@@ -79,129 +79,22 @@ exports.getAllVideos = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate('uploadedBy', 'username profilePicture');
     
-    // Hiç kayıt yoksa örnek veri oluştur
-    if (videos.length === 0) {
-      console.log('Veritabanında gönderi bulunamadı, örnek veri döndürülüyor');
-      const sampleVideos = getSampleVideos();
-      return res.status(200).json(sampleVideos);
-    }
-    
     res.status(200).json(videos);
   } catch (error) {
     console.error('Gönderileri getirme hatası:', error);
-    // Hata durumunda örnek veriler gönder
-    const sampleVideos = getSampleVideos();
-    res.status(200).json(sampleVideos);
+    res.status(500).json({ message: error.message });
   }
 };
-
-// Örnek video verisi fonksiyonu
-function getSampleVideos() {
-  return [
-    {
-      _id: 'sample001',
-      title: 'FutbolX Turnuvası Final Maçı',
-      description: '2024 FutbolX Turnuvası final maçı özeti',
-      fileName: 'sample-video-1.mp4',
-      filePath: '/uploads/videos/sample-video-1.mp4',
-      postType: 'video',
-      category: 'maç',
-      tags: ['maç', 'turnuva', 'final', 'futbolx'],
-      isPublic: true,
-      views: 120,
-      likes: 24,
-      comments: [],
-      uploadedBy: {
-        _id: 'user001',
-        username: 'futbolcu1',
-        profilePicture: '/uploads/images/default-profile.png'
-      },
-      createdAt: new Date()
-    },
-    {
-      _id: 'sample002',
-      title: 'Serbest Vuruş Tekniği',
-      description: 'Profesyonel futbolcudan serbest vuruş teknikleri',
-      fileName: 'sample-video-2.mp4',
-      filePath: '/uploads/videos/sample-video-2.mp4',
-      postType: 'video',
-      category: 'antrenman',
-      tags: ['antrenman', 'teknik', 'serbest vuruş'],
-      isPublic: true,
-      views: 85,
-      likes: 15,
-      comments: [],
-      uploadedBy: {
-        _id: 'user002',
-        username: 'futbolcu2',
-        profilePicture: '/uploads/images/default-profile.png'
-      },
-      createdAt: new Date()
-    },
-    {
-      _id: 'sample003',
-      title: 'Haftalık Futbol Analizi',
-      description: 'Bu haftanın en iyi futbol hareketleri ve analizleri',
-      textContent: 'Bu haftasonu oynanan maçlarda birçok ilginç taktik varyasyon gördük. Özellikle orta saha presingi yapan takımlar rakiplerini baskı altına almayı başardı. Forvet bölgesinde ise dar alanda oynayan takımlar daha çok gol fırsatı yakaladı.',
-      postType: 'text',
-      category: 'diğer',
-      tags: ['analiz', 'taktik', 'futbol'],
-      isPublic: true,
-      views: 65,
-      likes: 12,
-      comments: [],
-      uploadedBy: {
-        _id: 'user001',
-        username: 'futbolcu1',
-        profilePicture: '/uploads/images/default-profile.png'
-      },
-      createdAt: new Date()
-    },
-    {
-      _id: 'sample004',
-      title: 'Özel Halı Saha Turnuvası',
-      description: 'Halı saha turnuvamızdan görüntüler',
-      fileName: 'sample-image-1.jpg',
-      filePath: '/uploads/images/sample-image-1.jpg',
-      postType: 'image',
-      category: 'maç',
-      tags: ['turnuva', 'halı saha', 'etkinlik'],
-      isPublic: true,
-      views: 43,
-      likes: 8,
-      comments: [],
-      uploadedBy: {
-        _id: 'user002',
-        username: 'futbolcu2',
-        profilePicture: '/uploads/images/default-profile.png'
-      },
-      createdAt: new Date()
-    }
-  ];
-}
 
 // Belirli bir videoyu getir
 exports.getVideoById = async (req, res) => {
   try {
-    // Örnek ID'leri kontrol et
-    if (req.params.id.startsWith('sample')) {
-      const allSamples = getSampleVideos();
-      const sample = allSamples.find(v => v._id === req.params.id);
-      
-      if (sample) {
-        return res.status(200).json(sample);
-      }
-    }
-    
     const video = await Video.findById(req.params.id)
       .populate('uploadedBy', 'username profilePicture')
       .populate('comments.user', 'username profilePicture');
     
     if (!video) {
-      // Veritabanında bulunamadıysa örnek veri döndür
-      const sampleVideos = getSampleVideos();
-      const sample = sampleVideos[0]; // İlk örnek videoyu döndür
-      return res.status(200).json(sample);
+      return res.status(404).json({ message: 'Video bulunamadı' });
     }
     
     // İzlenme sayısını artır
@@ -211,10 +104,7 @@ exports.getVideoById = async (req, res) => {
     res.status(200).json(video);
   } catch (error) {
     console.error('Video getirme hatası:', error);
-    // Hata durumunda örnek video döndür
-    const sampleVideos = getSampleVideos();
-    const sample = sampleVideos[0];
-    res.status(200).json(sample);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -272,21 +162,31 @@ exports.deleteVideo = async (req, res) => {
       return res.status(403).json({ message: 'Bu videoyu silme yetkiniz yok' });
     }
     
-    // Dosyayı fiziksel olarak sil
-    if (video.filePath && video.postType !== 'text') {
-      try {
+    // Dosyayı fiziksel olarak sil (video, resim veya thumbnail)
+    if (video.filePath) {
     const filePath = path.join(__dirname, '..', 'public', video.filePath);
-        console.log('Silinecek dosya yolu:', filePath);
-        
     if (fs.existsSync(filePath)) {
+        try {
       fs.unlinkSync(filePath);
-          console.log('Dosya başarıyla silindi:', filePath);
-        } else {
-          console.warn('Dosya bulunamadı, sadece veritabanından siliniyor:', filePath);
+          console.log(`Dosya silindi: ${filePath}`);
+        } catch (fileError) {
+          console.error(`Dosya silinirken hata oluştu: ${filePath}`, fileError);
+          // Dosya silinmese bile işleme devam et
         }
-      } catch (fileError) {
-        console.error('Dosya silme hatası:', fileError);
-        // Dosya silme hatası olsa bile işleme devam et, en azından veritabanından silinsin
+      }
+    }
+    
+    // Thumbnail varsa ve default değilse sil
+    if (video.thumbnail && video.thumbnail !== 'default-thumbnail.jpg') {
+      const thumbnailPath = path.join(__dirname, '..', 'public', 'uploads', 'thumbnails', video.thumbnail);
+      if (fs.existsSync(thumbnailPath)) {
+        try {
+          fs.unlinkSync(thumbnailPath);
+          console.log(`Thumbnail silindi: ${thumbnailPath}`);
+        } catch (thumbError) {
+          console.error(`Thumbnail silinirken hata oluştu: ${thumbnailPath}`, thumbError);
+          // Thumbnail silinmese bile işleme devam et
+        }
       }
     }
     
@@ -299,7 +199,7 @@ exports.deleteVideo = async (req, res) => {
     });
   } catch (error) {
     console.error('Video silme hatası:', error);
-    res.status(500).json({ message: 'Video silinirken bir hata oluştu: ' + error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -312,39 +212,10 @@ exports.addComment = async (req, res) => {
       return res.status(400).json({ message: 'Yorum metni gereklidir' });
     }
     
-    // Örnek ID'leri kontrol et
-    if (req.params.id.startsWith('sample')) {
-      // Örnek video için yorum ekleme işlemi gibi davran
-      const newComment = {
-        _id: 'comment' + Date.now(),
-        user: {
-          _id: req.user._id,
-          username: req.user.username || 'Kullanıcı',
-          profilePicture: req.user.profilePicture || '/uploads/images/default-profile.png'
-        },
-        text: text,
-        createdAt: new Date()
-      };
-      
-      return res.status(201).json(newComment);
-    }
-    
     const video = await Video.findById(req.params.id);
     
     if (!video) {
-      // Veritabanında bulunamadıysa örnek yorum gibi davran
-      const newComment = {
-        _id: 'comment' + Date.now(),
-        user: {
-          _id: req.user._id,
-          username: req.user.username || 'Kullanıcı',
-          profilePicture: req.user.profilePicture || '/uploads/images/default-profile.png'
-        },
-        text: text,
-        createdAt: new Date()
-      };
-      
-      return res.status(201).json(newComment);
+      return res.status(404).json({ message: 'Video bulunamadı' });
     }
     
     const comment = {
@@ -364,44 +235,17 @@ exports.addComment = async (req, res) => {
     res.status(201).json(newComment);
   } catch (error) {
     console.error('Yorum ekleme hatası:', error);
-    // Hata durumunda örnek yorum döndür
-    const newComment = {
-      _id: 'comment' + Date.now(),
-      user: {
-        _id: req.user?._id || 'user001',
-        username: req.user?.username || 'Kullanıcı',
-        profilePicture: req.user?.profilePicture || '/uploads/images/default-profile.png'
-      },
-      text: req.body.text || 'Yorum',
-      createdAt: new Date()
-    };
-    
-    res.status(201).json(newComment);
+    res.status(500).json({ message: error.message });
   }
 };
 
 // Videoya beğeni ekle/kaldır
 exports.toggleLike = async (req, res) => {
   try {
-    // Örnek ID'leri kontrol et
-    if (req.params.id.startsWith('sample')) {
-      // Örnek video için beğeni islemine izin ver
-      return res.status(200).json({
-        success: true,
-        likes: 25, // Beğeni sayısı artırılmış gibi davran
-        isLiked: true // Beğenildiğini varsay
-      });
-    }
-    
     const video = await Video.findById(req.params.id);
     
     if (!video) {
-      // Veritabanında bulunamadıysa örnek video için beğeni gibi davran
-      return res.status(200).json({
-        success: true,
-        likes: 25,
-        isLiked: true
-      });
+      return res.status(404).json({ message: 'Video bulunamadı' });
     }
     
     const userId = req.user._id.toString();
@@ -428,12 +272,7 @@ exports.toggleLike = async (req, res) => {
     });
   } catch (error) {
     console.error('Beğeni hatası:', error);
-    // Hata durumunda olumlu yanıt döndür
-    res.status(200).json({
-      success: true,
-      likes: 25,
-      isLiked: true
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -488,23 +327,7 @@ exports.searchVideosByTags = async (req, res) => {
   }
 };
 
-// Öne çıkan videoları getir (en çok görüntülenen ve beğenilen)
-exports.getFeaturedVideos = async (req, res) => {
-  try {
-    // En çok görüntülenen ve beğenilen videoları getir
-    const videos = await Video.find({ isPublic: true })
-      .sort({ views: -1, likes: -1 })
-      .limit(4)
-      .populate('uploadedBy', 'username profilePicture');
-    
-    res.status(200).json(videos);
-  } catch (error) {
-    console.error('Öne çıkan videoları getirme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Videoya görüntülenme ekle
+// Video görüntülenme sayısını artır
 exports.incrementViews = async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
@@ -513,7 +336,7 @@ exports.incrementViews = async (req, res) => {
       return res.status(404).json({ message: 'Video bulunamadı' });
     }
     
-    // Görüntülenme sayısını artır
+    // İzlenme sayısını artır
     video.views = (video.views || 0) + 1;
     await video.save();
     
@@ -522,7 +345,24 @@ exports.incrementViews = async (req, res) => {
       views: video.views
     });
   } catch (error) {
-    console.error('Video görüntülenme hatası:', error);
+    console.error('Görüntülenme sayısı artırma hatası:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Öne çıkan videoları getir
+exports.getFeaturedVideos = async (req, res) => {
+  try {
+    const videos = await Video.find({ 
+      isPublic: true 
+    })
+    .sort({ views: -1, likes: -1 })
+    .limit(10)
+    .populate('uploadedBy', 'username profilePicture');
+    
+    res.status(200).json(videos);
+  } catch (error) {
+    console.error('Öne çıkan videoları getirme hatası:', error);
     res.status(500).json({ message: error.message });
   }
 };
