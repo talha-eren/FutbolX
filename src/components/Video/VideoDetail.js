@@ -292,8 +292,13 @@ function VideoDetail() {
       return `http://localhost:5000${filePath}`;
     }
     
+    // uploads/ ile başlıyorsa doğru yolu oluştur
+    if (filePath.startsWith('uploads/')) {
+      return `http://localhost:5000/${filePath}`;
+    }
+    
     // Diğer durumlarda tam yolu oluştur
-    return `http://localhost:5000/${filePath}`;
+    return `http://localhost:5000/uploads/${filePath}`;
   };
 
   return (
@@ -327,46 +332,67 @@ function VideoDetail() {
                 bgcolor: '#000', 
                 overflow: 'hidden' 
               }}>
+                {video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/')) ? (
+                  <img
+                    src={getVideoUrl(video.filePath)}
+                    alt={video.title}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain'
+                    }}
+                    onError={(e) => {
+                      console.error('Image load error:', e);
+                      e.target.src = '/images/placeholder-image.jpg';
+                    }}
+                  />
+                ) : (
                 <ReactPlayer
-                  url={getVideoUrl(video.filePath)}
+                    url={getVideoUrl(video.filePath)}
                   width="100%"
                   height="100%"
                   controls
-                  playing
-                  playsinline
+                    playing
+                    playsinline
                   style={{ position: 'absolute', top: 0, left: 0 }}
-                  config={{
-                    file: {
-                      attributes: {
-                        controlsList: 'nodownload',
-                        crossOrigin: 'anonymous',
-                        preload: 'auto'
-                      },
-                      forceVideo: true
+                    config={{
+                      file: {
+                        attributes: {
+                          controlsList: 'nodownload',
+                          crossOrigin: 'anonymous',
+                          preload: 'auto'
+                        },
+                        forceVideo: true
+                      }
+                    }}
+                    onReady={() => console.log("Video ready to play")}
+                    fallback={
+                      <Box 
+                        sx={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: '#1c1c1c',
+                          color: 'white'
+                        }}
+                      >
+                        <Typography>Video yüklenemiyor...</Typography>
+                      </Box>
                     }
-                  }}
-                  fallback={
-                    <Box 
-                      sx={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        bgcolor: '#1c1c1c',
-                        color: 'white'
-                      }}
-                    >
-                      <Typography>Video yüklenemiyor...</Typography>
-                    </Box>
-                  }
-                  onError={(e) => {
-                    console.error("Video oynatma hatası:", e);
-                  }}
-                />
+                    onError={(e) => {
+                      console.error("Video oynatma hatası:", e);
+                      console.error("Video URL:", getVideoUrl(video.filePath));
+                    }}
+                                    />
+                )}
               </Box>
               
               <CardContent sx={{ p: 3 }}>
@@ -383,7 +409,7 @@ function VideoDetail() {
                     }}
                   >
                     {video.title || 'Video Başlığı'}
-                  </Typography>
+                </Typography>
                   
                   {isLoggedIn && video.uploadedBy?._id === localStorage.getItem('userId') && (
                     <IconButton onClick={handleMenuOpen} sx={{ color: 'text.secondary' }}>
@@ -442,7 +468,9 @@ function VideoDetail() {
                     src={video.uploadedBy?.profilePicture?.startsWith('http') 
                       ? video.uploadedBy.profilePicture 
                       : video.uploadedBy?.profilePicture 
-                        ? `http://localhost:5000${video.uploadedBy.profilePicture}` 
+                        ? (video.uploadedBy.profilePicture.startsWith('/') 
+                          ? `http://localhost:5000${video.uploadedBy.profilePicture}` 
+                          : `http://localhost:5000/uploads/${video.uploadedBy.profilePicture}`)
                         : null}
                     sx={{ width: 50, height: 50, mr: 2 }}
                   />
@@ -473,19 +501,19 @@ function VideoDetail() {
                 
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                   {video.category && (
-                    <Chip 
-                      label={video.category} 
-                      color="primary" 
+                  <Chip 
+                    label={video.category} 
+                    color="primary" 
                       size="medium"
                       sx={{ fontWeight: 'bold', borderRadius: 2 }}
-                    />
+                  />
                   )}
                   
                   {video.tags && video.tags.map((tag, index) => (
                     <Chip 
                       key={index} 
                       label={tag} 
-                      variant="outlined" 
+                      variant="outlined"
                       size="medium"
                       sx={{ borderRadius: 2 }}
                     />
@@ -504,9 +532,9 @@ function VideoDetail() {
                   mb: 2 
                 }}>
                   <CommentIcon sx={{ mr: 1, color: '#666' }} />
-                  Yorumlar ({video.comments?.length || 0})
-                </Typography>
-                
+                Yorumlar ({video.comments?.length || 0})
+              </Typography>
+              
                 {isLoggedIn ? (
                   <Box component="form" onSubmit={handleAddComment} sx={{ 
                     display: 'flex', 
@@ -517,12 +545,12 @@ function VideoDetail() {
                     borderRadius: 2,
                     border: '1px solid rgba(25, 118, 210, 0.12)'
                   }}>
-                    <TextField
-                      fullWidth
+                <TextField
+                  fullWidth
                       variant="outlined"
                       placeholder="Yorumunuzu buraya yazın..."
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
                       disabled={commentLoading}
                       multiline
                       rows={2}
@@ -532,27 +560,27 @@ function VideoDetail() {
                           bgcolor: '#fff'
                         }
                       }}
-                    />
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      color="primary"
+                />
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
                       disabled={!comment.trim() || commentLoading}
                       sx={{ ml: 2, minWidth: 100, borderRadius: 2, alignSelf: 'flex-start' }}
-                      endIcon={commentLoading ? <CircularProgress size={16} color="inherit" /> : <Send />}
-                    >
-                      Gönder
-                    </Button>
-                  </Box>
+                  endIcon={commentLoading ? <CircularProgress size={16} color="inherit" /> : <Send />}
+                >
+                  Gönder
+                </Button>
+              </Box>
                 ) : (
                   <Alert severity="info" sx={{ mb: 2, mt: 2, borderRadius: 2 }}>
                     Yorum yapmak için <Link to="/login" style={{ textDecoration: 'none', fontWeight: 'bold', color: '#1976d2' }}>giriş</Link> yapmalısınız.
-                  </Alert>
-                )}
-                
+                </Alert>
+              )}
+              
                 <List sx={{ p: 0 }}>
-                  {video.comments && video.comments.length > 0 ? (
-                    video.comments.map((comment, index) => (
+                {video.comments && video.comments.length > 0 ? (
+                  video.comments.map((comment, index) => (
                       <React.Fragment key={comment._id || index}>
                         <ListItem 
                           alignItems="flex-start" 
@@ -570,12 +598,14 @@ function VideoDetail() {
                             }
                           }}
                         >
-                          <ListItemAvatar>
+                        <ListItemAvatar>
                             <Avatar 
                               src={comment.user?.profilePicture?.startsWith('http') 
                                 ? comment.user.profilePicture 
                                 : comment.user?.profilePicture 
-                                  ? `http://localhost:5000${comment.user.profilePicture}` 
+                                  ? (comment.user.profilePicture.startsWith('/') 
+                                    ? `http://localhost:5000${comment.user.profilePicture}` 
+                                    : `http://localhost:5000/uploads/${comment.user.profilePicture}`)
                                   : null}
                               sx={{ 
                                 bgcolor: blueGrey[500],
@@ -583,13 +613,13 @@ function VideoDetail() {
                                 height: 40
                               }}
                             />
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: blueGrey[800] }}>
-                                  {comment.user?.username || 'Kullanıcı'}
-                                </Typography>
+                                {comment.user?.username || 'Kullanıcı'}
+                              </Typography>
                                 <Typography variant="caption" color="text.secondary" sx={{ 
                                   bgcolor: 'rgba(0,0,0,0.05)', 
                                   px: 1.5, 
@@ -598,10 +628,10 @@ function VideoDetail() {
                                   fontWeight: 'medium',
                                   fontSize: '0.7rem'
                                 }}>
-                                  {formatCommentDate(comment.createdAt)}
-                                </Typography>
-                              </Box>
-                            }
+                                {formatCommentDate(comment.createdAt)}
+                              </Typography>
+                            </Box>
+                          }
                             secondary={
                               <Typography
                                 variant="body2"
@@ -618,12 +648,12 @@ function VideoDetail() {
                                 {comment.text}
                               </Typography>
                             }
-                          />
-                        </ListItem>
+                        />
+                      </ListItem>
                         {index < video.comments.length - 1 && <Divider component="li" sx={{ opacity: 0.06 }} />}
-                      </React.Fragment>
-                    ))
-                  ) : (
+                    </React.Fragment>
+                  ))
+                ) : (
                     <Box sx={{ 
                       py: 4, 
                       textAlign: 'center', 
@@ -632,12 +662,12 @@ function VideoDetail() {
                       border: '1px dashed rgba(0,0,0,0.1)'
                     }}>
                       <CommentIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary">
                         Henüz yorum yapılmamış. İlk yorumu siz yapın!
-                      </Typography>
-                    </Box>
-                  )}
-                </List>
+                    </Typography>
+                  </Box>
+                )}
+              </List>
               </CardContent>
             </Card>
           </>

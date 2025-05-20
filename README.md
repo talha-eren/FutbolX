@@ -183,3 +183,51 @@ Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır.
 <div align="center">
   <p style="font-size: 18px; margin-top: 20px;">FutbolX - Futbolun yeni sosyal deneyimi</p>
 </div>
+
+# FutbolX - Halı Saha Rezervasyon Sistemi
+
+Bu projede halı saha rezervasyon sistemi geliştirilmiştir. Kullanıcılar halı saha rezervasyonu yapabilir, admin ise rezervasyonları yönetebilir.
+
+## Kurulum ve Çalıştırma
+
+1. Bağımlılıkları yükleyin:
+```
+npm install
+```
+
+2. Backend ve frontend uygulamalarını eş zamanlı başlatın:
+```
+npm run dev
+```
+
+## Admin Kullanıcısı Oluşturma
+
+Talha Eren kullanıcısını admin yapmak için aşağıdaki komutu çalıştırın:
+```
+npm run make-admin
+```
+
+Bu komut, `talhaeren` kullanıcısını süper admin olarak ayarlar ve rezervasyonları yönetme yetkisi verir.
+
+## Sistem Özellikleri
+
+1. **Rezervasyon Oluşturma**
+   - Tarih ve saat seçimi
+   - Oyuncu sayısı belirtme
+   - Not ekleme
+
+2. **Rezervasyon Yönetimi (Admin)**
+   - Rezervasyon onaylama
+   - Rezervasyon iptal etme
+   - Durum güncelleme
+
+3. **Üyelik Sistemi**
+   - Kayıt olma
+   - Giriş yapma
+   - Profil düzenleme
+
+## Teknik Detaylar
+
+- Frontend: React.js, Material-UI
+- Backend: Node.js, Express
+- Veritabanı: MongoDB

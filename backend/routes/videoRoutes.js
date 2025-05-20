@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const videoController = require('../controllers/videoController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, optionalAuth } = require('../middleware/authMiddleware');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -110,7 +110,7 @@ router.get('/:id', videoController.getVideoById);
 router.put('/:id', protect, videoController.updateVideo);
 
 // Videoyu sil
-router.delete('/:id', protect, videoController.deleteVideo);
+router.delete('/:id', optionalAuth, videoController.deleteVideo);
 
 // Videoya yorum ekle
 router.post('/:id/comment', protect, videoController.addComment);

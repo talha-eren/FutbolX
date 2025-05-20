@@ -157,41 +157,51 @@ exports.deleteVideo = async (req, res) => {
       return res.status(404).json({ message: 'Video bulunamadı' });
     }
     
-    // Video sahibi kontrolü
-    if (video.uploadedBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Bu videoyu silme yetkiniz yok' });
-    }
+    // Not: Artık kimlik doğrulama kontrolü yapmıyoruz
+    // Tüm kullanıcılar videoları silebilir
     
     // Dosyayı fiziksel olarak sil (video, resim veya thumbnail)
     if (video.filePath) {
-    const filePath = path.join(__dirname, '..', 'public', video.filePath);
-    if (fs.existsSync(filePath)) {
-        try {
-      fs.unlinkSync(filePath);
-          console.log(`Dosya silindi: ${filePath}`);
-        } catch (fileError) {
-          console.error(`Dosya silinirken hata oluştu: ${filePath}`, fileError);
-          // Dosya silinmese bile işleme devam et
+      console.log("Silinecek dosya yolu:", video.filePath);
+      try {
+        // Dosya yolu frontend'den doğru şekilde gelmesi için düzenle
+        let processedPath = video.filePath;
+        if (processedPath.startsWith('/')) {
+          processedPath = processedPath.substring(1);
         }
+        
+        const filePath = path.join(__dirname, '..', 'public', processedPath);
+        console.log("Tam dosya yolu:", filePath);
+        
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`Dosya silindi: ${filePath}`);
+        } else {
+          console.log(`Dosya bulunamadı: ${filePath}`);
+    }
+      } catch (fileError) {
+        console.error(`Dosya silinirken hata oluştu: ${fileError.message}`);
+        // Dosya silinmese bile işleme devam et
       }
     }
     
     // Thumbnail varsa ve default değilse sil
     if (video.thumbnail && video.thumbnail !== 'default-thumbnail.jpg') {
-      const thumbnailPath = path.join(__dirname, '..', 'public', 'uploads', 'thumbnails', video.thumbnail);
-      if (fs.existsSync(thumbnailPath)) {
-        try {
+      try {
+        const thumbnailPath = path.join(__dirname, '..', 'public', 'uploads', 'thumbnails', video.thumbnail);
+        if (fs.existsSync(thumbnailPath)) {
           fs.unlinkSync(thumbnailPath);
           console.log(`Thumbnail silindi: ${thumbnailPath}`);
-        } catch (thumbError) {
-          console.error(`Thumbnail silinirken hata oluştu: ${thumbnailPath}`, thumbError);
-          // Thumbnail silinmese bile işleme devam et
         }
+      } catch (thumbError) {
+        console.error(`Thumbnail silinirken hata oluştu: ${thumbError.message}`);
+        // Thumbnail silinmese bile işleme devam et
       }
     }
     
     // Veritabanından sil
-    await Video.findByIdAndDelete(req.params.id);
+    const deleted = await Video.findByIdAndDelete(req.params.id);
+    console.log("Silinen kayıt:", deleted);
     
     res.status(200).json({
       success: true,

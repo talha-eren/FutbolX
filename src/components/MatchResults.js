@@ -3,11 +3,12 @@ import axios from 'axios';
 import {
   Container, Box, Typography, Card, CardContent,
   Avatar, Chip, Grid, IconButton, Button, Divider,
-  Rating, Alert, CircularProgress
+  Rating, Alert, CircularProgress, Paper, Tabs, Tab, Tooltip
 } from '@mui/material';
 import {
   SportsSoccer, EmojiEvents, Star, Place,
-  ThumbUp, Comment, Share, CalendarToday
+  ThumbUp, Comment, Share, CalendarToday, Today,
+  CalendarMonth, AccessTime, ArrowForward
 } from '@mui/icons-material';
 
 // API URL
@@ -55,7 +56,7 @@ const generateRandomMatches = () => {
     const awayScore = Math.floor(Math.random() * 6);
     const totalGoals = homeScore + awayScore;
     const manOfTheMatch = ['Ahmet', 'Mehmet', 'Ali', 'Can', 'Burak'][Math.floor(Math.random() * 5)];
-    const venue = ['Yıldız Halı Saha', 'Gol Park', 'Futbol Arena', 'Yeşil Vadi'][Math.floor(Math.random() * 4)];
+    const venue = ['Yıldız Halı Saha', 'Gol Park', 'Futbol Arena', 'Sporyum 23'][Math.floor(Math.random() * 4)];
     const highlights = Math.floor(Math.random() * 8) + 2;
     const likes = Math.floor(Math.random() * 50) + 10;
     const comments = Math.floor(Math.random() * 20) + 5;
@@ -79,9 +80,9 @@ const generateRandomMatches = () => {
 };
 
 function MatchResults() {
-  const [matches, setMatches] = useState(generateRandomMatches());
-  const [filter, setFilter] = useState('all');
-  const [loading, setLoading] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userData, setUserData] = useState(null);
 
@@ -134,11 +135,56 @@ function MatchResults() {
     fetchUserData();
   }, []);
 
-  const filteredMatches = matches.filter(match => {
-    if (filter === 'high-scoring') return match.totalGoals >= 5;
-    if (filter === 'recent') return new Date(match.date) > new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-    return true;
-  });
+  // Veri yükleme simülasyonu
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // API çağrısı burada yapılacak
+        // const response = await fetch('api/matches/yesilVadi');
+        // const data = await response.json();
+        
+        // Şimdilik mock veri kullanıyoruz
+        setTimeout(() => {
+          setMatches(generateRandomMatches());
+          setLoading(false);
+        }, 500);
+      } catch (error) {
+        console.error('Veri yükleme hatası:', error);
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
+  // Filtreleme fonksiyonları
+  const filterMatches = () => {
+    switch (tabValue) {
+      case 0: // Tümü
+        return matches;
+      case 1: // Gollü Maçlar (3+ gol)
+        return matches.filter(match => match.totalGoals >= 3);
+      case 2: // Son Maçlar (son 3 maç)
+        return matches.slice(0, 3);
+      default:
+        return matches;
+    }
+  };
+
+  const getTeamBgColor = (color) => {
+    switch (color) {
+      case 'red': return '#e53935';
+      case 'blue': return '#1e88e5';
+      case 'green': return '#43a047';
+      case 'orange': return '#fb8c00';
+      case 'purple': return '#8e24aa';
+      default: return '#757575';
+    }
+  };
 
   // Profil güncellemesi işlemi
   const handleSaveProfile = async (profileData) => {
@@ -207,191 +253,204 @@ function MatchResults() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 10, mb: 4 }}>
-      {/* Başlık ve Filtreler */}
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h5" sx={{ 
-          mb: 3, 
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1
-        }}>
-          <SportsSoccer sx={{ color: '#4CAF50' }} />
-          Maç Sonuçları
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <SportsSoccer sx={{ color: 'primary.main', mr: 1, fontSize: 28 }} />
+          <Typography variant="h4" component="h1" fontWeight="bold" color="primary.main">
+            Sporyum 23
+          </Typography>
+        </Box>
+        <Typography variant="h5" color="text.secondary" sx={{ mb: 3 }}>
+          Son Oynanan Maçlar
         </Typography>
-
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant={filter === 'all' ? 'contained' : 'outlined'}
-            onClick={() => setFilter('all')}
-            sx={{ 
-              borderRadius: '20px',
-              textTransform: 'none',
-              bgcolor: filter === 'all' ? '#4CAF50' : 'transparent',
-              '&:hover': { bgcolor: filter === 'all' ? '#388E3C' : 'rgba(76, 175, 80, 0.08)' }
-            }}
+        
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange} 
+            textColor="primary"
+            indicatorColor="primary"
+            variant="scrollable"
+            scrollButtons="auto"
           >
-            Tümü
-          </Button>
-          <Button
-            variant={filter === 'high-scoring' ? 'contained' : 'outlined'}
-            onClick={() => setFilter('high-scoring')}
-            sx={{ 
-              borderRadius: '20px',
-              textTransform: 'none',
-              bgcolor: filter === 'high-scoring' ? '#4CAF50' : 'transparent',
-              '&:hover': { bgcolor: filter === 'high-scoring' ? '#388E3C' : 'rgba(76, 175, 80, 0.08)' }
-            }}
-          >
-            Gollü Maçlar
-          </Button>
-          <Button
-            variant={filter === 'recent' ? 'contained' : 'outlined'}
-            onClick={() => setFilter('recent')}
-            sx={{ 
-              borderRadius: '20px',
-              textTransform: 'none',
-              bgcolor: filter === 'recent' ? '#4CAF50' : 'transparent',
-              '&:hover': { bgcolor: filter === 'recent' ? '#388E3C' : 'rgba(76, 175, 80, 0.08)' }
-            }}
-          >
-            Son Maçlar
-          </Button>
+            <Tab 
+              label="Tümü" 
+              icon={<SportsSoccer />} 
+              iconPosition="start" 
+              sx={{ 
+                minHeight: 48, 
+                textTransform: 'none',
+                fontWeight: 'medium'
+              }} 
+            />
+            <Tab 
+              label="Gollü Maçlar" 
+              icon={<SportsSoccer />} 
+              iconPosition="start" 
+              sx={{ 
+                minHeight: 48, 
+                textTransform: 'none',
+                fontWeight: 'medium'
+              }} 
+            />
+            <Tab 
+              label="Son Maçlar" 
+              icon={<Today />} 
+              iconPosition="start" 
+              sx={{ 
+                minHeight: 48, 
+                textTransform: 'none',
+                fontWeight: 'medium'
+              }} 
+            />
+          </Tabs>
         </Box>
       </Box>
 
-      {/* Maç Kartları */}
-      <Grid container spacing={3}>
-        {filteredMatches.map(match => (
-          <Grid item xs={12} md={6} key={match.id}>
-            <Card sx={{ 
-              borderRadius: 3,
-              '&:hover': {
-                boxShadow: 3,
-                transform: 'translateY(-2px)',
-                transition: 'all 0.2s'
-              }
-            }}>
-              <CardContent>
-                {/* Maç Detayları */}
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <CalendarToday sx={{ color: '#666', mr: 1, fontSize: 20 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {match.date} - {match.time}
-                  </Typography>
-                  <Box sx={{ flex: 1 }} />
-                  <Place sx={{ color: '#666', mr: 1, fontSize: 20 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {match.venue}
-                  </Typography>
+      {loading ? (
+        <Typography>Yükleniyor...</Typography>
+      ) : (
+        <Grid container spacing={3}>
+          {filterMatches().map((match) => (
+            <Grid item xs={12} md={6} key={match.id}>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 3, 
+                  borderRadius: 4, 
+                  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+                  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-5px)',
+                    boxShadow: '0 6px 15px rgba(0,0,0,0.1)'
+                  }
+                }}
+              >
+                {/* Tarih ve Yer Bilgisi */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, color: 'text.secondary' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CalendarMonth fontSize="small" sx={{ mr: 0.5 }} />
+                    <Typography variant="body2" sx={{ mr: 1 }}>{match.date}</Typography>
+                    <AccessTime fontSize="small" sx={{ mr: 0.5 }} />
+                    <Typography variant="body2">{match.time}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Place fontSize="small" sx={{ mr: 0.5 }} />
+                    <Typography variant="body2">Sporyum 23</Typography>
+                  </Box>
                 </Box>
-
-                {/* Skor */}
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between',
-                  backgroundColor: 'rgba(76, 175, 80, 0.05)',
-                  borderRadius: 2,
-                  p: 2,
-                  mb: 2
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ bgcolor: match.homeTeam.color }}>
+                
+                {/* Takımlar ve Skor */}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  {/* Takım A */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                    <Avatar 
+                      sx={{ 
+                        bgcolor: getTeamBgColor(match.homeTeam.color),
+                        color: 'white',
+                        fontWeight: 'bold',
+                        width: 40,
+                        height: 40,
+                        mr: 1
+                      }}
+                    >
                       {match.homeTeam.name[0]}
                     </Avatar>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      {match.homeTeam.name}
-                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">{match.homeTeam.name}</Typography>
                   </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                  
+                  {/* Skor */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    px: 2,
+                    py: 1,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(0,0,0,0.04)',
+                    minWidth: 80
+                  }}>
+                    <Typography variant="h5" fontWeight="bold" color="text.primary">
                       {match.homeScore} - {match.awayScore}
                     </Typography>
                   </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      {match.awayTeam.name}
-                    </Typography>
-                    <Avatar sx={{ bgcolor: match.awayTeam.color }}>
+                  
+                  {/* Takım B */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
+                    <Typography variant="body1" fontWeight="medium" sx={{ mr: 1 }}>{match.awayTeam.name}</Typography>
+                    <Avatar 
+                      sx={{ 
+                        bgcolor: getTeamBgColor(match.awayTeam.color),
+                        color: 'white',
+                        fontWeight: 'bold',
+                        width: 40,
+                        height: 40
+                      }}
+                    >
                       {match.awayTeam.name[0]}
                     </Avatar>
                   </Box>
                 </Box>
-
-                {/* Maç İstatistikleri */}
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <Chip 
-                    icon={<EmojiEvents sx={{ color: '#FFD700' }} />}
-                    label={`Maçın Yıldızı: ${match.manOfTheMatch}`}
-                    sx={{ 
-                      bgcolor: 'rgba(255, 215, 0, 0.1)',
-                      '& .MuiChip-label': { color: '#B7950B' }
-                    }}
-                  />
-                  <Chip 
-                    icon={<SportsSoccer />}
-                    label={`${match.totalGoals} Gol`}
-                    sx={{ 
-                      bgcolor: 'rgba(76, 175, 80, 0.1)',
-                      '& .MuiChip-label': { color: '#388E3C' }
-                    }}
-                  />
-                  <Chip 
-                    icon={<Star sx={{ color: '#FFA000' }} />}
-                    label={`${match.highlights} Öne Çıkan`}
-                    sx={{ 
-                      bgcolor: 'rgba(255, 160, 0, 0.1)',
-                      '& .MuiChip-label': { color: '#FFA000' }
-                    }}
-                  />
-                </Box>
-
+                
                 <Divider sx={{ my: 2 }} />
-
-                {/* Etkileşim Butonları */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton size="small">
-                      <ThumbUp />
-                    </IconButton>
-                    <Typography variant="body2" color="text.secondary">
-                      {match.likes}
-                    </Typography>
-                    <IconButton size="small">
-                      <Comment />
-                    </IconButton>
-                    <Typography variant="body2" color="text.secondary">
-                      {match.comments}
+                
+                {/* Maç Bilgileri */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <Tooltip title="Maçın Yıldızı">
+                      <EmojiEvents fontSize="small" color="primary" sx={{ mr: 0.5 }} />
+                    </Tooltip>
+                    <Typography variant="body2">
+                      <strong>MVP:</strong> {match.manOfTheMatch}
                     </Typography>
                   </Box>
-                  <IconButton size="small">
-                    <Share />
-                  </IconButton>
+                  
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <Tooltip title="Toplam Gol">
+                      <SportsSoccer fontSize="small" color="primary" sx={{ mr: 0.5 }} />
+                    </Tooltip>
+                    <Typography variant="body2">
+                      <strong>Toplam Gol:</strong> {match.totalGoals}
+                    </Typography>
+                  </Box>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Daha Fazla Maç Butonu */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <Button
-          variant="outlined"
-          onClick={() => setMatches(generateRandomMatches())}
-          sx={{ 
-            borderRadius: '20px',
-            textTransform: 'none',
-            px: 4
-          }}
-        >
-          Daha Fazla Maç
-        </Button>
-      </Box>
+                
+                {/* Etkileşim Düğmeleri */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button 
+                      size="small" 
+                      startIcon={<ThumbUp />} 
+                      variant="text" 
+                      color="primary"
+                    >
+                      {match.likes}
+                    </Button>
+                    <Button 
+                      size="small" 
+                      startIcon={<Comment />} 
+                      variant="text" 
+                      color="primary"
+                    >
+                      {match.comments}
+                    </Button>
+                  </Box>
+                  
+                  <Button 
+                    size="small" 
+                    endIcon={<ArrowForward />} 
+                    color="primary"
+                    variant="text"
+                  >
+                    Detaylar
+                  </Button>
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      )}
     </Container>
   );
 }

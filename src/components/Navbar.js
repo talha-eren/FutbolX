@@ -222,6 +222,15 @@ function Navbar() {
             >
               {t('common.videos')}
             </Button>
+            <Button
+              component={Link}
+              to="/about"
+              startIcon={<People />}
+              onClick={() => handleButtonClick('/about')}
+              sx={getButtonStyle('/about')}
+            >
+              Hakkımızda
+            </Button>
             {isLoggedIn && (
               <Button
                 component={Link}
@@ -422,6 +431,15 @@ function Navbar() {
                   </svg>
                 </ListItemIcon>
                 <Typography variant="body1">İstatistiklerim</Typography>
+              </MenuItem>
+
+              <MenuItem component={Link} to="/admin" sx={{ my: 0.5 }}>
+                <ListItemIcon>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#666">
+                    <path d="M13 21V11h8v10h-8zm-10 0V11h8v10H3zm5-4h2v2H8v-2zm0-4h2v2H8v-2zm10 4h2v2h-2v-2zm0-4h2v2h-2v-2zM3 9V3h18v6H3zm14-2h2v2h-2V7zM5 7h8v2H5V7z"/>
+                  </svg>
+                </ListItemIcon>
+                <Typography variant="body1">Halı Saha Yönetimi</Typography>
               </MenuItem>
 
               <Divider sx={{ my: 1, opacity: 0.6 }} />

@@ -24,7 +24,7 @@ function TeamFinder() {
       players: 5,
       neededPlayers: 1,
       time: '21:00',
-      venue: 'Yeşil Vadi Halı Saha',
+      venue: 'Sporyum 23',
       rating: 4.8,
       contact: '0535xxxxxxx',
       matchHistory: '8G 1B 1M'

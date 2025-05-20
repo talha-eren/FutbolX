@@ -1,306 +1,552 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Container, Grid, Paper, Tabs, Tab, Card, CardMedia, CardContent, Avatar, Button, CircularProgress, Alert, Divider, Chip, Rating } from '@mui/material';
-import { SportsSoccer, LocationOn, Star, EmojiEvents, Person, AccessTime } from '@mui/icons-material';
+import { SportsSoccer, LocationOn, Star, EmojiEvents, Person, AccessTime, EventAvailable, MonetizationOn, Bolt, Speed, CheckCircle, LocalParking, Shower, Restaurant, Wifi, Groups } from '@mui/icons-material';
 import VideoFeed from './Feed/VideoFeed';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
+import { format, addDays } from 'date-fns';
+
+// Sporyum 23 halı saha bilgileri
+const SPORYUM_23 = {
+  id: 'sporyum23',
+  name: 'Sporyum 23',
+  location: 'Ümraniye, İstanbul',
+  address: 'Saray Mah. Ahmet Tevfik İleri Cad. No:23, 34768 Ümraniye/İstanbul',
+  description: 'Sporyum 23, İstanbul\'un en modern halı saha tesislerinden biridir. 3 adet profesyonel halı saha, duş ve soyunma odaları, kafeterya ve ücretsiz otopark imkanı sunmaktadır.',
+  rating: 4.8,
+  price: 450,
+  openingHours: '09:00 - 23:00',
+  contactPhone: '0555 123 4567',
+  contactEmail: 'info@sporyum23.com',
+  website: 'www.sporyum23.com',
+  fields: [
+    { id: 1, name: 'Saha 1', size: '30x50m', indoor: false, surface: 'Suni Çim', light: true },
+    { id: 2, name: 'Saha 2', size: '25x45m', indoor: false, surface: 'Suni Çim', light: true },
+    { id: 3, name: 'Saha 3', size: '25x45m', indoor: true, surface: 'Suni Çim', light: true }
+  ],
+  amenities: ['Duş', 'Soyunma Odası', 'Ücretsiz Otopark', 'Kafeterya', 'WiFi', 'Aydınlatma'],
+  images: [
+    'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80',
+    'https://images.unsplash.com/photo-1624880357913-a8539238245b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80',
+    'https://images.unsplash.com/photo-1518604666860-9ed391f76460?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80'
+  ],
+  testimonials: [
+    { id: 1, name: 'Ahmet Y.', comment: 'Harika bir tesis, sahalar çok bakımlı ve personel çok ilgili.', rating: 5 },
+    { id: 2, name: 'Mehmet K.', comment: 'Düzenli olarak haftada 2 kez maç yapıyoruz. Saha kalitesi mükemmel.', rating: 5 },
+    { id: 3, name: 'Ali D.', comment: 'Rezervasyon sistemi çok pratik, online ödeme imkanı harika.', rating: 4 }
+  ]
+};
+
+// Son maç sonuçları
+const RECENT_MATCHES = [
+  { id: 1, date: '20.05.2025', time: '10:00', team1: 'Boğalar', team2: 'Kartallar', score: '5-0', field: 1 },
+  { id: 2, date: '14.05.2025', time: '12:00', team1: 'Aslanlar', team2: 'Şimşekler', score: '1-3', field: 2 },
+  { id: 3, date: '14.05.2025', time: '21:00', team1: 'Boğalar', team2: 'Kartallar', score: '1-0', field: 3 },
+  { id: 4, date: '15.05.2025', time: '16:00', team1: 'Kartallar', team2: 'Şimşekler', score: '3-2', field: 1 }
+];
+
+// Saha doluluk oranı (Saat - Hafta bazında)
+const OCCUPANCY_DATA = {
+  weeklyRate: 85, // %85 doluluk
+  topHours: ['18:00-19:00', '19:00-20:00', '20:00-21:00'],
+  topDays: ['Salı', 'Perşembe', 'Cumartesi']
+};
+
+// Halı saha işletmecilerine sağladığımız avantajlar
+const OWNER_BENEFITS = [
+  { 
+    title: 'Kolay Rezervasyon Yönetimi', 
+    description: 'Web ve mobil uygulama üzerinden anlık rezervasyon takibi ve yönetimi', 
+    icon: <EventAvailable sx={{ fontSize: 40, color: '#4CAF50' }} /> 
+  },
+  { 
+    title: 'Gelir Artışı', 
+    description: 'Boş saatlerin doldurulması ve müşteri sadakati ile %30\'a varan gelir artışı', 
+    icon: <MonetizationOn sx={{ fontSize: 40, color: '#4CAF50' }} /> 
+  },
+  { 
+    title: 'Verimli Takım Yönetimi', 
+    description: 'Personel ve bakım görevlerinin takibi ve yönetimi', 
+    icon: <Groups sx={{ fontSize: 40, color: '#4CAF50' }} /> 
+  }
+];
 
 function Feed() {
-  const [activeTab, setActiveTab] = useState(0);
   const { t } = useTranslation();
-  const [players, setPlayers] = useState([]);
-  const [venues, setVenues] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
-  
-  // API'den verileri çek
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Paralel olarak her iki isteği de yolla
-        const [playersRes, venuesRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/players'),
-          axios.get('http://localhost:5000/api/venues')
-        ]);
-        
-        setPlayers(playersRes.data);
-        setVenues(venuesRes.data);
-        setError(null);
-      } catch (err) {
-        console.error('Veri çekme hatası:', err);
-        setError('Veriler yüklenirken bir hata oluştu');
-        
-        // API'den veri çekemediyse örnek veriler kullan
-        setPlayers([
-          { id: 1, name: 'Erling Haaland', position: 'Forvet', rating: 4.8, matches: 24, goals: 18, image: 'https://img.a.transfermarkt.technology/portrait/big/418560-1695021323.jpg' },
-          { id: 2, name: 'Kevin De Bruyne', position: 'Orta Saha', rating: 4.7, matches: 30, goals: 12, image: 'https://img.a.transfermarkt.technology/portrait/big/88755-1695021291.jpg' },
-          { id: 3, name: 'Virgil van Dijk', position: 'Defans', rating: 4.6, matches: 28, goals: 3, image: 'https://img.a.transfermarkt.technology/portrait/big/139208-1692877595.jpg' },
-          { id: 4, name: 'Alisson Becker', position: 'Kaleci', rating: 4.9, matches: 22, goals: 0, image: 'https://img.a.transfermarkt.technology/portrait/big/105470-1692877790.jpg' },
-          { id: 5, name: 'Jude Bellingham', position: 'Orta Saha', rating: 4.7, matches: 26, goals: 10, image: 'https://img.a.transfermarkt.technology/portrait/big/581678-1694590326.jpg' },
-          { id: 6, name: 'Kylian Mbappé', position: 'Forvet', rating: 4.9, matches: 32, goals: 28, image: 'https://img.a.transfermarkt.technology/portrait/big/342229-1694590409.jpg' },
-          { id: 7, name: 'Rodri', position: 'Orta Saha', rating: 4.6, matches: 29, goals: 5, image: 'https://img.a.transfermarkt.technology/portrait/big/357565-1695021243.jpg' },
-          { id: 8, name: 'Vinicius Jr.', position: 'Forvet', rating: 4.8, matches: 30, goals: 16, image: 'https://img.a.transfermarkt.technology/portrait/big/371998-1694590349.jpg' },
-        ]);
-        
-        setVenues([
-          { id: 1, name: 'FutbolX Merkez', location: 'İstanbul, Kadıköy', rating: 4.5, price: '250 TL/saat', image: 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80', facilities: ['Duş', 'Soyunma Odası', 'Otopark'] },
-          { id: 2, name: 'FutbolX Arena', location: 'İstanbul, Beşiktaş', rating: 4.3, price: '300 TL/saat', image: 'https://images.unsplash.com/photo-1624880357913-a8539238245b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80', facilities: ['Duş', 'Kafeterya', 'Otopark', 'Soyunma Odası'] },
-          { id: 3, name: 'Gol Stadyumu', location: 'İstanbul, Şişli', rating: 4.8, price: '280 TL/saat', image: 'https://images.unsplash.com/photo-1518604666860-9ed391f76460?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80', facilities: ['Duş', 'Soyunma Odası', 'Wi-Fi'] },
-          { id: 4, name: 'Yıldız Sahası', location: 'İstanbul, Ümraniye', rating: 4.4, price: '220 TL/saat', image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80', facilities: ['Duş', 'Otopark'] },
-          { id: 5, name: 'Futbol Akademi', location: 'İstanbul, Maltepe', rating: 4.6, price: '260 TL/saat', image: 'https://images.unsplash.com/photo-1487466365202-1afdb86c764e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1173&q=80', facilities: ['Duş', 'Soyunma Odası', 'Kafeterya', 'Otopark'] },
-          { id: 6, name: 'Spor Vadisi', location: 'İstanbul, Kartal', rating: 4.2, price: '230 TL/saat', image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1171&q=80', facilities: ['Duş', 'Soyunma Odası'] },
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, []);
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ mt: 4, mb: 4 }}>
-        <Grid container spacing={3}>
-          {/* Sol Sütun - Futbolcu Keşfet */}
-          <Grid item xs={12} md={3}>
-            <Box sx={{ 
-              backgroundColor: '#f8f9fa', 
-              p: 2, 
-              borderRadius: 2, 
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              mb: 2
-            }}>
-              <Typography 
-                variant="h6" 
+      {/* Son Maç Sonuçları Kartı */}
+      <Card sx={{ 
+        borderRadius: 3, 
+        overflow: 'hidden',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        mb: 3,
+        mt: 2
+      }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4CAF50', mb: 2 }}>
+            <SportsSoccer sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Son Maç Sonuçları
+          </Typography>
+          
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            {RECENT_MATCHES.map((match, index) => (
+              <Box 
+                key={match.id}
                 sx={{ 
-                  mb: 2, 
-                  fontWeight: 'bold', 
-                  textAlign: 'center',
-                  borderBottom: '2px solid #4CAF50',
-                  pb: 1,
-                  color: '#2E7D32'
+                  flexBasis: { xs: '100%', sm: '48%', md: '23%' },
+                  py: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: 2,
+                  p: 1
                 }}
               >
-                <SportsSoccer sx={{ mr: 1, verticalAlign: 'middle' }} />
-                {t('feed.players')}
-              </Typography>
-              
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-                  <CircularProgress color="success" />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {match.date} • {match.time} • Saha {match.field}
+                  </Typography>
                 </Box>
-              ) : error ? (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  {error}
-                </Alert>
-              ) : players.length === 0 ? (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Henüz futbolcu kaydı bulunmuyor.
-                </Alert>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {players.map(player => (
-                    <Card 
-                      key={player._id || player.id} 
+                
+                <Box sx={{ 
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center' 
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', width: '40%' }}>
+                    <Avatar sx={{ 
+                      bgcolor: '#1976d2', 
+                      width: 36, 
+                      height: 36,
+                      mr: 1
+                    }}>
+                      {match.team1.charAt(0)}
+                    </Avatar>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                      {match.team1}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ 
+                    px: 2,
+                    py: 0.5,
+                    bgcolor: 'rgba(0,0,0,0.05)',
+                    borderRadius: 1
+                  }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                      {match.score}
+              </Typography>
+                  </Box>
+                  
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    width: '40%',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
+                      {match.team2}
+                    </Typography>
+                    <Avatar sx={{ 
+                      bgcolor: '#d32f2f',
+                      width: 36, 
+                      height: 36
+                    }}>
+                      {match.team2.charAt(0)}
+                    </Avatar>
+                  </Box>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+          
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Button 
+              variant="outlined" 
+              color="primary"
+              href="/matches"
+              sx={{ borderRadius: 20 }}
+            >
+              Tüm Maçları Gör
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Sporyum 23 Ana Banner */}
+      <Box 
                       sx={{ 
+          position: 'relative',
+          borderRadius: 4,
+          overflow: 'hidden',
+          height: 300,
+          mb: 4,
                         display: 'flex',
-                        height: '80px',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 4px 8px rgba(0,0,0,0.12)'
-                        },
-                        overflow: 'hidden',
-                        borderRadius: 1.5
-                      }}
-                    >
-                      <Box sx={{ position: 'relative', width: '80px', flexShrink: 0 }}>
-                        <Avatar 
-                          src={player.image.startsWith('http') ? player.image : `http://localhost:5000${player.image}`} 
-                          alt={player.name} 
+          alignItems: 'flex-end',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.7)), url(${SPORYUM_23.images[0]})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <Box sx={{ p: 4, width: '100%' }}>
+          <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'white', mb: 1 }}>
+            {SPORYUM_23.name}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <LocationOn sx={{ color: 'white', mr: 1 }} />
+            <Typography variant="h6" sx={{ color: 'white' }}>
+              {SPORYUM_23.location}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button 
+              variant="contained" 
+              color="primary"
+              size="large"
+              href="/reservations"
                           sx={{ 
-                            width: '100%',
-                            height: '100%',
-                            borderRadius: 0
-                          }} 
-                        />
-                        <Chip 
-                          label={player.position} 
-                          size="small"
+                bgcolor: '#4CAF50', 
+                '&:hover': { bgcolor: '#388E3C' },
+                borderRadius: '24px',
+                px: 3
+              }}
+            >
+              Saha Rezervasyonu Yap
+            </Button>
+            <Button 
+              variant="outlined" 
                           sx={{ 
-                            position: 'absolute', 
-                            top: 3, 
-                            right: 3,
-                            height: '18px',
-                            fontSize: '0.6rem',
-                            backgroundColor: '#4CAF50',
                             color: 'white',
-                            fontWeight: 'bold'
-                          }}
-                        />
+                borderColor: 'white',
+                '&:hover': { 
+                  borderColor: 'white',
+                  bgcolor: 'rgba(255,255,255,0.1)' 
+                },
+                borderRadius: '24px',
+                px: 3
+              }}
+              href="/teams"
+            >
+              Takımları Görüntüle
+            </Button>
+          </Box>
+        </Box>
                       </Box>
                       
-                      <Box sx={{ display: 'flex', flexDirection: 'column', p: 1, justifyContent: 'space-between', width: '100%' }}>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>
-                            {player.name}
+      <Grid container spacing={4}>
+        {/* Sol Sütun - Halı Saha Bilgileri ve İstatistikler */}
+        <Grid item xs={12} md={4}>
+          {/* Halı Saha Kartı */}
+          <Card sx={{ 
+            borderRadius: 3, 
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            mb: 3
+          }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4CAF50', mb: 2 }}>
+                Tesis Bilgileri
                           </Typography>
                           
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.3 }}>
-                            <Rating 
-                              value={player.rating / 5 * 5} 
-                              readOnly 
-                              precision={0.1}
-                              size="small"
-                              sx={{ fontSize: '0.7rem' }}
-                            />
-                            <Typography variant="caption" sx={{ ml: 0.5, fontSize: '0.7rem' }}>
-                              ({player.rating})
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  {SPORYUM_23.description}
+                </Typography>
+              </Box>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              {/* İletişim ve Temel Bilgiler */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <AccessTime sx={{ color: '#4CAF50', mr: 1, fontSize: 20 }} />
+                  <Typography variant="body2">
+                    <strong>Çalışma Saatleri:</strong> {SPORYUM_23.openingHours}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <MonetizationOn sx={{ color: '#4CAF50', mr: 1, fontSize: 20 }} />
+                  <Typography variant="body2">
+                    <strong>Fiyat:</strong> {SPORYUM_23.price} TL/saat
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Person sx={{ color: '#4CAF50', mr: 1, fontSize: 20 }} />
+                  <Typography variant="body2">
+                    <strong>İletişim:</strong> {SPORYUM_23.contactPhone}
                             </Typography>
                           </Box>
                         </Box>
                         
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <SportsSoccer sx={{ fontSize: 14, mr: 0.3, color: 'text.secondary' }} />
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              {player.matches} Maç
+              <Divider sx={{ my: 2 }} />
+              
+              {/* Sahalar */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1.5 }}>
+                Sahalarımız
+              </Typography>
+              
+              {SPORYUM_23.fields.map(field => (
+                <Box key={field.id} sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(76, 175, 80, 0.08)',
+                  mb: 1
+                }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                      {field.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {field.size} • {field.surface} • {field.indoor ? 'Kapalı' : 'Açık'}
+                    </Typography>
+                  </Box>
+                  <Chip 
+                    label={field.light ? 'Aydınlatmalı' : 'Gündüz'} 
+                    size="small"
+                    color={field.light ? 'success' : 'default'}
+                  />
+                </Box>
+              ))}
+              
+              <Divider sx={{ my: 2 }} />
+              
+              {/* Olanaklar */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1.5 }}>
+                Olanaklar
+              </Typography>
+              
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {SPORYUM_23.amenities.map((amenity, index) => {
+                  let icon;
+                  switch(amenity) {
+                    case 'Duş': icon = <Shower fontSize="small" />; break;
+                    case 'Soyunma Odası': icon = <Person fontSize="small" />; break;
+                    case 'Ücretsiz Otopark': icon = <LocalParking fontSize="small" />; break;
+                    case 'Kafeterya': icon = <Restaurant fontSize="small" />; break;
+                    case 'WiFi': icon = <Wifi fontSize="small" />; break;
+                    case 'Aydınlatma': icon = <Bolt fontSize="small" />; break;
+                    default: icon = <CheckCircle fontSize="small" />;
+                  }
+                  
+                  return (
+                    <Chip 
+                      key={index}
+                      icon={icon}
+                      label={amenity}
+                      variant="outlined"
+                      size="small"
+                      sx={{ borderColor: '#4CAF50', color: '#4CAF50' }}
+                    />
+                  );
+                })}
+              </Box>
+            </CardContent>
+          </Card>
+          
+          {/* Doluluk İstatistikleri */}
+          <Card sx={{ 
+            borderRadius: 3, 
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            mb: 3
+          }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4CAF50' }}>
+                Doluluk İstatistikleri
+              </Typography>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Box sx={{ position: 'relative', display: 'inline-flex', mr: 2 }}>
+                  <CircularProgress 
+                    variant="determinate" 
+                    value={OCCUPANCY_DATA.weeklyRate} 
+                    size={80}
+                    thickness={4}
+                    sx={{ color: '#4CAF50' }}
+                  />
+                  <Box
+                    sx={{
+                      top: 0,
+                      left: 0,
+                      bottom: 0,
+                      right: 0,
+                      position: 'absolute',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Typography variant="h6" component="div" color="text.secondary">
+                      {OCCUPANCY_DATA.weeklyRate}%
                             </Typography>
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <EmojiEvents sx={{ fontSize: 14, mr: 0.3, color: 'text.secondary' }} />
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              {player.goals} Gol
+                </Box>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                    Haftalık Doluluk Oranı
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Son 7 günün ortalaması
                             </Typography>
                           </Box>
                         </Box>
-                      </Box>
-                    </Card>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  En Yoğun Saatler
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                  {OCCUPANCY_DATA.topHours.map((hour, index) => (
+                    <Chip key={index} label={hour} size="small" />
                   ))}
+                      </Box>
+                
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  En Yoğun Günler
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  {OCCUPANCY_DATA.topDays.map((day, index) => (
+                    <Chip key={index} label={day} size="small" />
+            ))}
                 </Box>
-              )}
             </Box>
+            </CardContent>
+          </Card>
           </Grid>
 
           {/* Orta Sütun - Video Feed */}
-          <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={5}>
+          {/* Video İçerikleri */}
             <VideoFeed />
           </Grid>
 
-          {/* Sağ Sütun - Halı Saha Keşfet */}
+        {/* Sağ Sütun - Saha Sahiplerine Özel ve Müşteri Yorumları */}
           <Grid item xs={12} md={3}>
-            <Box sx={{ 
-              backgroundColor: '#f8f9fa', 
-              p: 2, 
-              borderRadius: 2, 
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              mb: 2
-            }}>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  mb: 2, 
-                  fontWeight: 'bold', 
-                  textAlign: 'center',
-                  borderBottom: '2px solid #2196F3',
-                  pb: 1,
-                  color: '#0D47A1'
-                }}
-              >
-                <LocationOn sx={{ mr: 1, verticalAlign: 'middle' }} />
-                {t('feed.venues')}
+          {/* Saha Sahiplerine Özel */}
+          <Card sx={{ 
+            borderRadius: 3, 
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            mb: 3,
+            backgroundImage: 'linear-gradient(to bottom right, #4CAF50, #2E7D32)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+                Halı Saha Sahiplerine Özel
               </Typography>
               
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-                  <CircularProgress color="primary" />
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                FutbolX ile işletmenizi büyütün! Rezervasyon sistemimize kaydolun ve işinizi dijitalleştirin.
+              </Typography>
+              
+              {OWNER_BENEFITS.map((benefit, index) => (
+                <Box key={index} sx={{ 
+                  display: 'flex', 
+                  mb: 2,
+                  p: 1.5,
+              borderRadius: 2, 
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                }}>
+                  <Box sx={{ mr: 2 }}>
+                    {benefit.icon}
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      {benefit.title}
+                    </Typography>
+                    <Typography variant="caption">
+                      {benefit.description}
+                    </Typography>
+                  </Box>
                 </Box>
-              ) : error ? (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  {error}
-                </Alert>
-              ) : venues.length === 0 ? (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Henüz halı saha kaydı bulunmuyor.
-                </Alert>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {venues.map(venue => (
-                    <Card 
-                      key={venue._id || venue.id} 
-                      sx={{ 
-                        display: 'flex',
-                        height: '80px',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 4px 8px rgba(0,0,0,0.12)'
-                        },
-                        overflow: 'hidden',
-                        borderRadius: 1.5
-                      }}
-                    >
-                      <CardMedia 
-                        component="img" 
-                        sx={{ 
-                          width: '80px',
-                          flexShrink: 0,
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                        image={venue.image.startsWith('http') ? venue.image : `http://localhost:5000${venue.image}`} 
-                        alt={venue.name}
-                      />
-                      
-                      <Box sx={{ display: 'flex', flexDirection: 'column', p: 1, justifyContent: 'space-between', width: '100%' }}>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>
-                            {venue.name}
-                          </Typography>
-                          
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.3 }}>
-                            <LocationOn sx={{ fontSize: 14, color: '#2196F3', mr: 0.3 }} />
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              {venue.location}
-                            </Typography>
-                          </Box>
-                        </Box>
-                        
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              ))}
+              
+              <Button 
+                variant="contained" 
+                fullWidth
+                sx={{ 
+                  mt: 1, 
+                  bgcolor: 'white', 
+                  color: '#4CAF50',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.9)'
+                  }
+                }}
+              >
+                Ücretsiz Kaydolun
+              </Button>
+            </CardContent>
+          </Card>
+          
+          {/* Müşteri Yorumları */}
+          <Card sx={{ 
+            borderRadius: 3, 
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            mb: 3
+          }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4CAF50', mb: 2 }}>
+                Müşteri Yorumları
+              </Typography>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                             <Rating 
-                              value={venue.rating / 5 * 5} 
+                  value={SPORYUM_23.rating}
                               readOnly 
                               precision={0.1}
-                              size="small"
-                              sx={{ fontSize: '0.7rem' }}
+                  sx={{ mr: 1 }}
                             />
-                            <Typography variant="caption" sx={{ ml: 0.5, fontSize: '0.7rem' }}>
-                              ({venue.rating})
+                <Typography variant="body2" color="text.secondary">
+                  ({SPORYUM_23.rating}/5)
                             </Typography>
                           </Box>
-                          <Typography variant="caption" color="primary" fontWeight="bold" sx={{ fontSize: '0.7rem' }}>
-                            {venue.price}
+              
+              {SPORYUM_23.testimonials.map((testimonial, index) => (
+                <React.Fragment key={testimonial.id}>
+                  <Box sx={{ 
+                    py: 1.5,
+                  }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        {testimonial.name}
                           </Typography>
+                      <Rating value={testimonial.rating} readOnly size="small" />
                         </Box>
-                      </Box>
-                    </Card>
-                  ))}
+                    <Typography variant="body2" color="text.secondary">
+                      "{testimonial.comment}"
+                    </Typography>
+                  </Box>
+                  {index < SPORYUM_23.testimonials.length - 1 && <Divider sx={{ my: 1 }} />}
+                </React.Fragment>
+              ))}
+              
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Button 
+                  variant="text" 
+                  color="primary"
+                >
+                  Yorum Ekle
+                </Button>
                 </Box>
-              )}
-            </Box>
-          </Grid>
+            </CardContent>
+          </Card>
         </Grid>
-      </Box>
+      </Grid>
     </Container>
   );
 }

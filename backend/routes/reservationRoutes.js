@@ -1,287 +1,214 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
-const Reservation = require('../models/Reservation');
-const Venue = require('../models/Venue');
+const mongoose = require('mongoose');
+const { protect, isAdmin, optionalAuth } = require('../middleware/authMiddleware');
+const reservationController = require('../controllers/reservationController');
 
-// Tüm rezervasyonları getir (admin için)
-router.get('/all', protect, async (req, res) => {
-  try {
-    // Admin kontrolü yapılabilir
-    const reservations = await Reservation.find()
-      .populate('venue', 'name location image')
-      .populate('user', 'username profilePicture')
-      .sort({ date: 1, startTime: 1 });
-    
-    res.json(reservations);
-  } catch (error) {
-    console.error('Rezervasyonları getirme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
+// ÖNEMLİ: Parametreli rotalardan önce spesifik rotaları tanımla
+// Belirli bir tarih için boş saatleri getir
+router.get('/available-slots', reservationController.getAvailableTimeSlots);
 
-// Kullanıcının rezervasyonlarını getir
-router.get('/', protect, async (req, res) => {
+// Doğrudan MongoDB'den rezervasyonları getir - basitleştirilmiş endpoint
+router.get('/direct-mongodb', async (req, res) => {
   try {
-    const reservations = await Reservation.find({ user: req.user._id })
-      .populate('venue', 'name location image rating')
-      .sort({ date: 1, startTime: 1 });
+    console.log('Direkt MongoDB\'den rezervasyon getirme endpoint\'i çağrıldı');
+    const Reservation = require('../models/Reservation');
     
-    res.json(reservations);
-  } catch (error) {
-    console.error('Kullanıcı rezervasyonlarını getirme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Rezervasyon detaylarını getir
-router.get('/:id', protect, async (req, res) => {
-  try {
-    const reservation = await Reservation.findById(req.params.id)
-      .populate('venue', 'name location image rating price amenities')
-      .populate('user', 'username profilePicture')
-      .populate('participants', 'username profilePicture');
+    // Tüm rezervasyonları basitçe getir
+    const allReservations = await Reservation.find()
+      .sort({ createdAt: -1 });
     
-    if (!reservation) {
-      return res.status(404).json({ message: 'Rezervasyon bulunamadı' });
+    console.log(`MongoDB'den ${allReservations.length} adet rezervasyon bulundu`);
+    
+    // Detaylı log
+    if (allReservations.length > 0) {
+      for (let i = 0; i < Math.min(allReservations.length, 3); i++) {
+        console.log(`Rezervasyon #${i+1}:`, {
+          id: allReservations[i]._id,
+          date: allReservations[i].date,
+          startTime: allReservations[i].startTime,
+          status: allReservations[i].status
+        });
+      }
     }
     
-    // Sadece rezervasyonu yapan kişi veya admin görebilir
-    if (reservation.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Bu rezervasyonu görüntüleme yetkiniz yok' });
-    }
-    
-    res.json(reservation);
+    res.json(allReservations);
   } catch (error) {
-    console.error('Rezervasyon detayı getirme hatası:', error);
+    console.error('Direkt MongoDB rezervasyon getirme hatası:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Yeni rezervasyon oluştur
-router.post('/', protect, async (req, res) => {
+// Sporyum 23 halı sahası için özel endpoint - kimlik doğrulama olmadan
+router.get('/venue/sporyum23', async (req, res) => {
   try {
-    // Halı saha kontrolü
-    const venue = await Venue.findById(req.body.venue);
+    console.log('Sporyum 23 rezervasyonlarını getirme endpoint\'i çağrıldı');
+    
+    // Sporyum 23 halı sahasının ID'sini bul veya oluştur
+    const Venue = require('../models/Venue');
+    let venue = await Venue.findOne({ name: 'Sporyum 23' });
+    
     if (!venue) {
-      return res.status(404).json({ message: 'Halı saha bulunamadı' });
-    }
-    
-    // Aynı tarih ve saatte başka rezervasyon var mı kontrol et
-    const existingReservation = await Reservation.findOne({
-      venue: req.body.venue,
-      date: new Date(req.body.date),
-      $or: [
-        {
-          $and: [
-            { startTime: { $lte: req.body.startTime } },
-            { endTime: { $gt: req.body.startTime } }
-          ]
+      console.log('Sporyum 23 tesisi bulunamadı, yeni tesis oluşturuluyor...');
+      venue = new Venue({
+        name: 'Sporyum 23',
+        location: 'İstanbul',
+        address: 'Sporyum 23 Halı Saha Tesisi',
+        city: 'İstanbul',
+        district: 'Ümraniye',
+        price: 450,
+        priceUnit: 'TL/saat',
+        image: 'S',
+        contact: '0555 123 4567',
+        email: 'info@sporyum23.com',
+        description: 'Sporyum 23 Halı Saha Tesisi',
+        amenities: ['Duş', 'Soyunma Odası', 'Otopark', 'Kafeterya'],
+        workingHours: '09:00 - 23:00',
+        workingDays: {
+          monday: { open: '09:00', close: '23:00' },
+          tuesday: { open: '09:00', close: '23:00' },
+          wednesday: { open: '09:00', close: '23:00' },
+          thursday: { open: '09:00', close: '23:00' },
+          friday: { open: '09:00', close: '23:00' },
+          saturday: { open: '09:00', close: '23:00' },
+          sunday: { open: '09:00', close: '23:00' }
         },
-        {
-          $and: [
-            { startTime: { $lt: req.body.endTime } },
-            { endTime: { $gte: req.body.endTime } }
-          ]
-        },
-        {
-          $and: [
-            { startTime: { $gte: req.body.startTime } },
-            { endTime: { $lte: req.body.endTime } }
-          ]
-        }
-      ],
-      status: { $nin: ['iptal edildi'] }
-    });
-    
-    if (existingReservation) {
-      return res.status(400).json({ message: 'Bu tarih ve saatte başka bir rezervasyon bulunuyor' });
-    }
-    
-    const reservation = new Reservation({
-      ...req.body,
-      user: req.user._id,
-      participants: req.body.participants || [req.user._id]
-    });
-    
-    const savedReservation = await reservation.save();
-    
-    // Populate edilmiş rezervasyon bilgilerini döndür
-    const populatedReservation = await Reservation.findById(savedReservation._id)
-      .populate('venue', 'name location image rating')
-      .populate('user', 'username profilePicture');
-    
-    res.status(201).json(populatedReservation);
-  } catch (error) {
-    console.error('Rezervasyon oluşturma hatası:', error);
-    res.status(400).json({ message: error.message });
-  }
-});
-
-// Rezervasyon güncelle
-router.put('/:id', protect, async (req, res) => {
-  try {
-    const reservation = await Reservation.findById(req.params.id);
-    
-    if (!reservation) {
-      return res.status(404).json({ message: 'Rezervasyon bulunamadı' });
-    }
-    
-    // Sadece rezervasyonu yapan kişi güncelleyebilir
-    if (reservation.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Bu rezervasyonu güncelleme yetkiniz yok' });
-    }
-    
-    // Tarih veya saat değişiyorsa çakışma kontrolü yap
-    if (req.body.date || req.body.startTime || req.body.endTime) {
-      const existingReservation = await Reservation.findOne({
-        _id: { $ne: req.params.id }, // Kendisi hariç
-        venue: reservation.venue,
-        date: req.body.date ? new Date(req.body.date) : reservation.date,
-        $or: [
-          {
-            $and: [
-              { startTime: { $lte: req.body.startTime || reservation.startTime } },
-              { endTime: { $gt: req.body.startTime || reservation.startTime } }
-            ]
-          },
-          {
-            $and: [
-              { startTime: { $lt: req.body.endTime || reservation.endTime } },
-              { endTime: { $gte: req.body.endTime || reservation.endTime } }
-            ]
-          },
-          {
-            $and: [
-              { startTime: { $gte: req.body.startTime || reservation.startTime } },
-              { endTime: { $lte: req.body.endTime || reservation.endTime } }
-            ]
-          }
-        ],
-        status: { $nin: ['iptal edildi'] }
+        size: '30x50',
+        capacity: 14,
+        indoor: false
       });
       
-      if (existingReservation) {
-        return res.status(400).json({ message: 'Bu tarih ve saatte başka bir rezervasyon bulunuyor' });
+      await venue.save();
+      console.log('Sporyum 23 tesisi başarıyla oluşturuldu:', venue._id);
+    }
+    
+    // MongoDB'den Sporyum 23 için tüm rezervasyonları getir
+    const Reservation = require('../models/Reservation');
+    const User = require('../models/User');
+    
+    console.log('Rezervasyonları MongoDB\'den getiriliyor...');
+    console.log('MongoDB connection URL:', mongoose.connection.host);
+    console.log('Venue ID:', venue._id);
+    
+    // Tüm rezervasyonları getir - venue filtresini kaldırıyoruz
+    console.log('MongoDB veritabanında tüm rezervasyonları getiriyoruz...');
+    
+    const allReservations = await Reservation.find()
+      .sort({ date: -1, startTime: 1 });
+    
+    console.log(`MongoDB'de toplam ${allReservations.length} adet rezervasyon bulundu`);
+    
+    if (allReservations.length > 0) {
+      console.log('İlk rezervasyon bilgileri:', {
+        id: allReservations[0]._id,
+        date: allReservations[0].date,
+        field: allReservations[0].field,
+        startTime: allReservations[0].startTime,
+        venue: allReservations[0].venue
+      });
+    }
+    
+    // Bütün rezervasyonları kullanıcı bilgileriyle birlikte getir
+    const reservations = await Reservation.find()
+      .populate({
+        path: 'user',
+        select: 'username firstName lastName email phone profilePicture'
+      })
+      .sort({ date: -1, startTime: 1 });
+    
+    console.log(`Tüm rezervasyonlar (venue filtresi ile): ${reservations.length} adet`);
+    
+    console.log(`Sporyum 23 için ${reservations.length} adet rezervasyon bulundu`);
+    
+    // Detaylı veriler için tüm rezervasyonları işle
+    const processedReservations = reservations.map(res => {
+      const reservation = res.toObject();
+      
+      // User olmayan veya null user durumları için
+      if (!reservation.user) {
+        console.log(`Rezervasyon ID: ${reservation._id} için kullanıcı bilgisi yok, varsayılan bilgiler ekleniyor`);
+        reservation.user = {
+          firstName: 'Rezervasyon',
+          lastName: 'Sahibi',
+          phone: 'Telefon Bilgisi Yok',
+          email: ''
+        };
+      } 
+      // "Misafir" veya "guest" kullanıcılar için daha açıklayıcı bilgiler
+      else if (reservation.user.firstName === 'Misafir' || 
+               reservation.user.username === 'guest' || 
+               !reservation.user.firstName) {
+        
+        console.log(`Misafir kullanıcı tespit edildi, rezervasyon: ${reservation._id}`);
+        
+        // Daha açıklayıcı bilgiler ekle
+        const reservationDate = new Date(reservation.date);
+        const formattedDate = reservationDate.toLocaleDateString('tr-TR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        
+        reservation.user = {
+          ...reservation.user,
+          firstName: `${formattedDate}`,
+          lastName: `${reservation.startTime} Rezervasyon`,
+          phone: reservation.user.phone || 'Telefon Bilgisi Yok'
+        };
+      }
+      
+      return reservation;
+    });
+    
+    // Detaylı log için en son birkaç rezervasyonu göster
+    if (processedReservations.length > 0) {
+      console.log('İşlenmiş rezervasyonlardan örnekler:');
+      const sampleCount = Math.min(3, processedReservations.length);
+      
+      for (let i = 0; i < sampleCount; i++) {
+        const res = processedReservations[i];
+        console.log(`Örnek #${i+1}:`, {
+          id: res._id,
+          date: res.date,
+          time: `${res.startTime}-${res.endTime}`,
+          user: `${res.user.firstName} ${res.user.lastName}`,
+          phone: res.user.phone,
+          status: res.status
+        });
       }
     }
     
-    // Güncellenemeyecek alanlar
-    const { user, ...updateData } = req.body;
-    
-    Object.keys(updateData).forEach(key => {
-      reservation[key] = updateData[key];
+    // Başarılı yanıt döndür
+    res.json({
+      venue,
+      reservations: processedReservations
     });
-    
-    const updatedReservation = await reservation.save();
-    
-    res.json(updatedReservation);
   } catch (error) {
-    console.error('Rezervasyon güncelleme hatası:', error);
-    res.status(400).json({ message: error.message });
+    console.error('Sporyum 23 bilgilerini getirme hatası:', error);
+    res.status(500).json({ message: error.message });
   }
 });
+
+// Tüm rezervasyonları getir (admin için)
+router.get('/all', isAdmin, reservationController.getAllReservations);
+
+// Kullanıcının rezervasyonlarını getir
+router.get('/', protect, reservationController.getUserReservations);
+
+// Yeni rezervasyon oluştur - kimlik doğrulama olmadan
+router.post('/', reservationController.createReservation);
+
+// Rezervasyon ile ilgili parametreli rotalar - en sona koy
+// Rezervasyon detaylarını getir - ID parametreli rotaları en sona koy
+router.get('/:id', optionalAuth, reservationController.getReservationById);
+
+// Rezervasyon güncelle
+router.put('/:id', protect, reservationController.updateReservation);
 
 // Rezervasyon iptal et
-router.delete('/:id', protect, async (req, res) => {
-  try {
-    const reservation = await Reservation.findById(req.params.id);
-    
-    if (!reservation) {
-      return res.status(404).json({ message: 'Rezervasyon bulunamadı' });
-    }
-    
-    // Sadece rezervasyonu yapan kişi iptal edebilir
-    if (reservation.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Bu rezervasyonu iptal etme yetkiniz yok' });
-    }
-    
-    reservation.status = 'iptal edildi';
-    await reservation.save();
-    
-    res.json({ message: 'Rezervasyon başarıyla iptal edildi' });
-  } catch (error) {
-    console.error('Rezervasyon iptal hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
+router.delete('/:id', protect, reservationController.cancelReservation);
 
-// Halı sahaya göre rezervasyonları getir
-router.get('/venue/:venueId', async (req, res) => {
-  try {
-    const reservations = await Reservation.find({
-      venue: req.params.venueId,
-      status: { $ne: 'iptal edildi' }
-    })
-    .select('date startTime endTime status')
-    .sort({ date: 1, startTime: 1 });
-    
-    res.json(reservations);
-  } catch (error) {
-    console.error('Halı sahaya göre rezervasyon getirme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Tarih aralığına göre rezervasyonları getir
-router.get('/date/:startDate/:endDate', protect, async (req, res) => {
-  try {
-    const startDate = new Date(req.params.startDate);
-    const endDate = new Date(req.params.endDate);
-    
-    if (isNaN(startDate) || isNaN(endDate)) {
-      return res.status(400).json({ message: 'Geçersiz tarih formatı' });
-    }
-    
-    const reservations = await Reservation.find({
-      user: req.user._id,
-      date: { $gte: startDate, $lte: endDate },
-      status: { $ne: 'iptal edildi' }
-    })
-    .populate('venue', 'name location image rating')
-    .sort({ date: 1, startTime: 1 });
-    
-    res.json(reservations);
-  } catch (error) {
-    console.error('Tarih aralığına göre rezervasyon getirme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Rezervasyona katılımcı ekle
-router.post('/:id/participants', protect, async (req, res) => {
-  try {
-    const { participantIds } = req.body;
-    
-    if (!participantIds || !Array.isArray(participantIds)) {
-      return res.status(400).json({ message: 'Geçerli katılımcı listesi gerekli' });
-    }
-    
-    const reservation = await Reservation.findById(req.params.id);
-    
-    if (!reservation) {
-      return res.status(404).json({ message: 'Rezervasyon bulunamadı' });
-    }
-    
-    // Sadece rezervasyonu yapan kişi katılımcı ekleyebilir
-    if (reservation.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Bu rezervasyona katılımcı ekleme yetkiniz yok' });
-    }
-    
-    // Yeni katılımcıları ekle (tekrarları önle)
-    participantIds.forEach(id => {
-      if (!reservation.participants.includes(id)) {
-        reservation.participants.push(id);
-      }
-    });
-    
-    await reservation.save();
-    
-    res.json({ message: 'Katılımcılar başarıyla eklendi', participants: reservation.participants });
-  } catch (error) {
-    console.error('Rezervasyona katılımcı ekleme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
+// Admin için rezervasyon durumunu güncelle - admin yetkisi ile
+router.patch('/:id/status', optionalAuth, reservationController.updateReservationStatus);
 
 module.exports = router; 

@@ -225,8 +225,13 @@ function VideoEdit() {
       return `http://localhost:5000${filePath}`;
     }
     
+    // uploads/ ile başlıyorsa doğru yolu oluştur
+    if (filePath.startsWith('uploads/')) {
+      return `http://localhost:5000/${filePath}`;
+    }
+    
     // Diğer durumlarda tam yolu oluştur
-    return `http://localhost:5000/${filePath}`;
+    return `http://localhost:5000/uploads/${filePath}`;
   };
 
   return (
@@ -380,13 +385,47 @@ function VideoEdit() {
             <Grid item xs={12} md={6}>
               <Paper elevation={3} sx={{ p: 0, mb: 3, overflow: 'hidden', borderRadius: 2 }}>
                 <Box sx={{ position: 'relative', width: '100%', paddingTop: '56.25%', bgcolor: '#000' }}>
-                  <ReactPlayer
-                    url={getVideoUrl(video.filePath)}
-                    width="100%"
-                    height="100%"
-                    controls
-                    style={{ position: 'absolute', top: 0, left: 0 }}
-                  />
+                  {video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/')) ? (
+                    <img
+                      src={getVideoUrl(video.filePath)}
+                      alt={video.title}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain'
+                      }}
+                      onError={(e) => {
+                        console.error('Image load error:', e);
+                        e.target.src = '/images/placeholder-image.jpg';
+                      }}
+                    />
+                  ) : (
+                    <ReactPlayer
+                      url={getVideoUrl(video.filePath)}
+                      width="100%"
+                      height="100%"
+                      controls
+                      style={{ position: 'absolute', top: 0, left: 0 }}
+                      config={{
+                        file: {
+                          attributes: {
+                            controlsList: 'nodownload',
+                            crossOrigin: 'anonymous',
+                            preload: 'auto'
+                          },
+                          forceVideo: true
+                        }
+                      }}
+                      onReady={() => console.log("Video ready to play")}
+                      onError={(e) => {
+                        console.error("Video oynatma hatası:", e);
+                        console.error("Video URL:", getVideoUrl(video.filePath));
+                      }}
+                    />
+                  )}
                 </Box>
                 
                 <Box sx={{ p: 2 }}>

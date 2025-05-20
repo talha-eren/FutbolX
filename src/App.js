@@ -19,6 +19,8 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import Stats from './pages/Stats';
 import Settings from './pages/Settings';
+import AdminDashboard from './pages/AdminDashboard';
+import AboutPage from './pages/About';
 
 // Video Bileşenleri
 import VideoList from './components/Video/VideoList';
@@ -109,6 +111,7 @@ function App() {
                   <Route path="/" element={<Feed />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/about" element={<AboutPage />} />
                   
                   {/* Sadece giriş yapmış kullanıcılara özel sayfalar */}
                   <Route path="/matches" element={
@@ -139,6 +142,11 @@ function App() {
                   <Route path="/settings" element={
                     <ProtectedRoute>
                       <Settings />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin" element={
+                    <ProtectedRoute>
+                      <AdminDashboard />
                     </ProtectedRoute>
                   } />
                   

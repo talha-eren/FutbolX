@@ -185,8 +185,12 @@ function VideoFeed() {
   
   // Menü işlemleri
   const handleMenuOpen = (event, video) => {
+    // Olay yayılımını durdur
+    event.stopPropagation();
+    
     setAnchorEl(event.currentTarget);
     setSelectedVideo(video);
+    console.log('Seçilen video:', video?._id);
   };
   
   const handleMenuClose = () => {
@@ -205,23 +209,39 @@ function VideoFeed() {
   
   // Video silme
   const handleDeleteVideo = async () => {
-    if (!selectedVideo || !isLoggedIn) return;
+    if (!selectedVideo) {
+      alert('Silinecek gönderi bulunamadı!');
+      return;
+    }
     
     try {
-      const token = localStorage.getItem('userToken');
-      if (!token) return;
+      console.log('Silinecek video:', selectedVideo);
       
-      await axios.delete(`http://localhost:5000/api/videos/${selectedVideo._id}`, {
+      // API'ye direkt fetch ile istek gönderelim
+      const response = await fetch(`http://localhost:5000/api/videos/${selectedVideo._id}`, {
+        method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
       
-      // Silinen videoyu listeden kaldır
+      console.log('Silme yanıtı:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Silme hatası: ${response.status} - ${errorData.message || response.statusText}`);
+      }
+      
+      // Silme başarılı, listeyi güncelleyelim
       setVideos(videos.filter(v => v._id !== selectedVideo._id));
       handleDeleteClose();
+      
+      // Bildirim gösterelim
+      alert(`"${selectedVideo.title}" başarıyla silindi.`);
+      
     } catch (err) {
       console.error('Video silme hatası:', err);
+      alert('Video silinirken bir hata oluştu: ' + err.message);
     }
   };
   
@@ -332,16 +352,61 @@ function VideoFeed() {
             <CardHeader
               avatar={
                 <Avatar 
-                  src={video.uploadedBy?.profilePicture} 
+                  src={video.uploadedBy?.profilePicture ? 
+                    (video.uploadedBy.profilePicture.startsWith('http') 
+                      ? video.uploadedBy.profilePicture 
+                      : video.uploadedBy.profilePicture.startsWith('/') 
+                        ? `http://localhost:5000${video.uploadedBy.profilePicture}` 
+                        : `http://localhost:5000/uploads/${video.uploadedBy.profilePicture}`) 
+                    : null}
                   alt={video.uploadedBy?.username || 'Kullanıcı'}
+                  sx={{ bgcolor: '#1976d2' }}
+                  onError={(e) => {
+                    // Resim yüklenme hatası olduğunda hata bildirimini durdur ve stil uygula
+                    e.target.onError = null; 
+                    e.target.src = '';
+                    e.target.style.display = 'flex';
+                    e.target.style.alignItems = 'center';
+                    e.target.style.justifyContent = 'center';
+                  }}
                 >
                   {video.uploadedBy?.username?.charAt(0).toUpperCase() || 'U'}
                 </Avatar>
               }
               action={
-                <IconButton aria-label="settings" onClick={(e) => handleMenuOpen(e, video)}>
-                  <MoreVert />
-                </IconButton>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <IconButton 
+                    aria-label="delete" 
+                    onClick={() => {
+                      setSelectedVideo(video);
+                      handleDeleteClick();
+                    }}
+                    color="error"
+                    sx={{ 
+                      zIndex: 100,
+                      bgcolor: 'rgba(255,255,255,0.8)',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.9)'
+                      }
+                    }}
+                  >
+                    <Delete />
+                  </IconButton>
+                  <IconButton 
+                    aria-label="settings" 
+                    onClick={(e) => handleMenuOpen(e, video)}
+                    color="primary"
+                    sx={{ 
+                      zIndex: 100,
+                      bgcolor: 'rgba(255,255,255,0.8)',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.9)'
+                      }
+                    }}
+                  >
+                    <MoreVert />
+                  </IconButton>
+                </Box>
               }
               title={
                 <Link to={`/profile/${video.uploadedBy?._id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -355,22 +420,39 @@ function VideoFeed() {
             
             <Box sx={{ position: 'relative', paddingTop: '56.25%', backgroundColor: (video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/'))) ? '#f5f5f5' : (video.postType === 'text') ? '#f8f8f8' : '#000' }}>
               {(video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/'))) ? (
-                <img
-                  src={video.filePath ? `http://localhost:5000${video.filePath}` : '/placeholder-image.jpg'}
-                  alt={video.title}
-                  style={{
+                <Box
+                  sx={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain'
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: '#f5f5f5'
                   }}
-                  onError={(e) => {
-                    console.error('Image load error:', e);
-                    e.target.src = '/placeholder-image.jpg';
-                  }}
-                />
+                >
+                  <img
+                    src={video.filePath ? 
+                      (video.filePath.startsWith('http') 
+                        ? video.filePath 
+                        : video.filePath.startsWith('/') 
+                          ? `http://localhost:5000${video.filePath}` 
+                          : `http://localhost:5000/${video.filePath}`) 
+                      : '/images/players/player1.jpg'}
+                    alt={video.title}
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain'
+                    }}
+                    onError={(e) => {
+                      console.error('Image load error:', e);
+                      e.target.src = '/images/players/player1.jpg';
+                    }}
+                  />
+                </Box>
               ) : video.postType === 'text' ? (
                 <Box
                   sx={{
@@ -407,37 +489,55 @@ function VideoFeed() {
                   </Typography>
                 </Box>
               ) : (
-              <ReactPlayer
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: '#000'
+                }}
+              >
+                <ReactPlayer
                   ref={(player) => {
                     playerRefs.current[video._id] = player;
                   }}
-                url={video.filePath ? `http://localhost:5000${video.filePath}` : '/placeholder-video.mp4'}
-                width="100%"
-                height="100%"
-                style={{ position: 'absolute', top: 0, left: 0 }}
+                  url={video.filePath ? 
+                    (video.filePath.startsWith('http') 
+                      ? video.filePath 
+                      : video.filePath.startsWith('/') 
+                        ? `http://localhost:5000${video.filePath}` 
+                        : `http://localhost:5000/${video.filePath}`) 
+                    : '/videos/gol1.mp4'}
+                  width="100%"
+                  height="100%"
                   playing={isPlaying[video._id] && (index === activeVideoIndex && inView)}
-                muted={muted}
-                loop
-                controls={false}
-                playsinline
+                  muted={muted}
+                  loop
+                  controls={false}
+                  playsinline
                   onProgress={(state) => handleProgress(video._id, state)}
                   onDuration={(duration) => handleDuration(video._id, duration)}
-                onError={(e) => {
-                  console.error('Video load error:', e);
-                  // Hata durumunda burada alternatif içerik gösterilebilir
-                }}
-                config={{
-                  file: {
-                    attributes: {
-                      crossOrigin: 'anonymous',
-                      controlsList: 'nodownload',
-                      playsInline: true,
-                      preload: 'auto'
-                    },
-                    forceVideo: true
-                  }
-                }}
-              />
+                  onError={(e) => {
+                    console.error('Video yüklenirken hata:', e);
+                  }}
+                  config={{
+                    file: {
+                      attributes: {
+                        crossOrigin: 'anonymous',
+                        controlsList: 'nodownload',
+                        playsInline: true,
+                        preload: 'auto'
+                      },
+                      forceVideo: true
+                    }
+                  }}
+                />
+              </Box>
               )}
               
               {/* Video ve Görsel için alt kontroller */}
@@ -668,6 +768,12 @@ function VideoFeed() {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
+        sx={{ 
+          zIndex: 9999,
+          '& .MuiPaper-root': {
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+          }
+        }}
       >
         <MenuItem component={Link} to={`/videos/${selectedVideo?._id}`}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -676,36 +782,48 @@ function VideoFeed() {
           </Box>
         </MenuItem>
         
-        {isLoggedIn && selectedVideo?.uploadedBy?.username === localStorage.getItem('username') && (
-          <>
-            <MenuItem component={Link} to={`/edit-video/${selectedVideo?._id}`}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Edit sx={{ mr: 1, fontSize: 20 }} />
-                <Typography>Düzenle</Typography>
-              </Box>
-            </MenuItem>
-            
-            <MenuItem onClick={handleDeleteClick}>
-              <Box sx={{ display: 'flex', alignItems: 'center', color: 'error.main' }}>
-                <Delete sx={{ mr: 1, fontSize: 20 }} />
-                <Typography>Sil</Typography>
-              </Box>
-            </MenuItem>
-          </>
-        )}
+        <MenuItem component={Link} to={`/edit-video/${selectedVideo?._id}`}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Edit sx={{ mr: 1, fontSize: 20 }} />
+            <Typography>Düzenle</Typography>
+          </Box>
+        </MenuItem>
+        
+        <MenuItem onClick={handleDeleteClick}>
+          <Box sx={{ display: 'flex', alignItems: 'center', color: 'error.main' }}>
+            <Delete sx={{ mr: 1, fontSize: 20 }} />
+            <Typography>Sil</Typography>
+          </Box>
+        </MenuItem>
       </Menu>
       
       {/* Silme Onay Dialogu */}
-      <Dialog open={openDeleteDialog} onClose={handleDeleteClose}>
-        <DialogTitle>Videoyu Sil</DialogTitle>
+      <Dialog 
+        open={openDeleteDialog} 
+        onClose={handleDeleteClose}
+        PaperProps={{
+          sx: { borderRadius: 2, p: 1 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Videoyu Sil</DialogTitle>
         <DialogContent>
           <Typography>
             "{selectedVideo?.title}" videosunu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteClose}>İptal</Button>
-          <Button onClick={handleDeleteVideo} color="error">
+          <Button 
+            onClick={handleDeleteClose} 
+            color="primary" 
+            variant="outlined"
+          >
+            İptal
+          </Button>
+          <Button 
+            onClick={handleDeleteVideo} 
+            color="error" 
+            variant="contained"
+          >
             Sil
           </Button>
         </DialogActions>

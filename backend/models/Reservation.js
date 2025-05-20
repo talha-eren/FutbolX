@@ -11,6 +11,16 @@ const reservationSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  customerName: {
+    type: String,
+    trim: true,
+    default: 'Misafir'
+  },
+  customerPhone: {
+    type: String,
+    trim: true,
+    default: 'Telefon Bilgisi Yok'
+  },
   date: {
     type: Date,
     required: true
@@ -25,6 +35,13 @@ const reservationSchema = new mongoose.Schema({
   },
   price: {
     type: Number,
+    required: true
+  },
+  field: {
+    type: Number,
+    min: 1,
+    max: 3,
+    default: 1,
     required: true
   },
   participants: [{

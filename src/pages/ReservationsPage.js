@@ -12,8 +12,8 @@ function ReservationsPage() {
     },
     {
       id: 2,
-      name: 'Yeşil Vadi Halı Saha',
-      address: 'Yeşil Vadi Mah. Park Sok. No:5',
+      name: 'Sporyum 23',
+      address: 'Saray Mah. Ahmet Tevfik İleri Cad. No:23, 34768 Ümraniye/İstanbul',
       phone: '0535 xxx xx xx'
     }
   ];

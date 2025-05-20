@@ -10,10 +10,20 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+console.log('Server başlatılıyor...');
+
+// Modelleri içe aktar
+const Post = require('./models/Post');
+const Player = require('./models/Player');
+const Venue = require('./models/Venue');
+
 // Rotaları içe aktar
 const authRoutes = require('./routes/authRoutes');
 const videoRoutes = require('./routes/videoRoutes');
+const reservationRoutes = require('./routes/reservationRoutes');
 const { protect } = require('./middleware/authMiddleware');
+
+console.log('Modüller yüklendi');
 
 // .env dosyası zaten en üstte yüklendi
 
@@ -30,8 +40,9 @@ if (!fs.existsSync(uploadsDir)) {
 // CORS ayarları - tüm kaynaklardan gelen isteklere izin ver
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
+  credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -50,7 +61,8 @@ const upload = multer({ storage: storage });
 
 // MongoDB bağlantısı
 // .env dosyasından MongoDB URI'yi çek
-const mongoURI = process.env.MONGODB_URI;
+const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://talhaeren:talhaeren@cluster0.86ovh.mongodb.net/futbolx?retryWrites=true&w=majority&appName=Cluster0';
+console.log('MongoDB URI:', mongoURI);
 
 // MongoDB URI'nin doğru şekilde yüklenip yüklenmediğini kontrol et
 if (!mongoURI) {
@@ -61,56 +73,63 @@ if (!mongoURI) {
 mongoose.connect(mongoURI)
   .then(() => {
     console.log('MongoDB bağlantısı başarılı');
-    initSampleData(); // Örnek verileri ekle
+    
+    // Index'leri kontrol et ve düzelt
+    fixReservationIndexes();
+    
+    // Örnek verileri ekle
+    initSampleData();
   })
   .catch((err) => {
     console.error('MongoDB bağlantı hatası:', err);
   });
 
-// Post modeli
-const postSchema = new mongoose.Schema({
-  username: String,
-  videoUrl: String,
-  description: String,
-  likes: { type: Number, default: 0 },
-  comments: [{ 
-    username: String, 
-    text: String, 
-    createdAt: { type: Date, default: Date.now }
-  }],
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Post = mongoose.model('Post', postSchema);
-
-// Futbolcu modeli
-const playerSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  position: { type: String, required: true },
-  rating: { type: Number, default: 0 },
-  matches: { type: Number, default: 0 },
-  goals: { type: Number, default: 0 },
-  assists: { type: Number, default: 0 },
-  image: { type: String, default: 'default-player.jpg' },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-});
-
-const Player = mongoose.model('Player', playerSchema);
-
-// Halı Saha modeli
-const venueSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  location: { type: String, required: true },
-  rating: { type: Number, default: 0 },
-  price: { type: String, required: true },
-  image: { type: String, default: 'default-venue.jpg' },
-  contact: { type: String },
-  description: { type: String },
-  amenities: [String],
-  workingHours: { type: String }
-});
-
-const Venue = mongoose.model('Venue', venueSchema);
+// Reservation koleksiyonundaki index'leri düzelt
+const fixReservationIndexes = async () => {
+  try {
+    const Reservation = require('./models/Reservation');
+    const collection = Reservation.collection;
+    
+    console.log('Reservation indexleri kontrol ediliyor...');
+    
+    // Mevcut indexleri listele
+    const indexes = await collection.indexes();
+    console.log('Mevcut indexler:', indexes);
+    
+    // Tüm indexleri kontrol et
+    const problematicIndexNames = [
+      'field_1_date_1_startTime_1_endTime_1',
+      'venue_1_date_1_startTime_1_endTime_1'
+    ];
+    
+    for (const index of indexes) {
+      if (problematicIndexNames.includes(index.name)) {
+        console.log(`Sorunlu index bulundu: ${index.name}, kaldırılıyor...`);
+        try {
+          await collection.dropIndex(index.name);
+          console.log(`Index '${index.name}' başarıyla kaldırıldı`);
+        } catch (dropError) {
+          console.error(`Index '${index.name}' kaldırılırken hata:`, dropError);
+        }
+      }
+    }
+    
+    // Yeni, doğru bir unique index oluştur
+    console.log('Yeni index oluşturuluyor...');
+    try {
+      await collection.createIndex(
+        { venue: 1, date: 1, startTime: 1, endTime: 1, field: 1 },
+        { unique: true, name: 'unique_reservation_time_slot_field' }
+      );
+      console.log('Yeni index başarıyla oluşturuldu');
+    } catch (createError) {
+      console.error('Yeni index oluşturulurken hata:', createError);
+    }
+    
+  } catch (error) {
+    console.error('Index düzeltme hatası:', error);
+  }
+};
 
 // API Routes
 app.get('/api/posts', async (req, res) => {
@@ -206,6 +225,9 @@ app.post('/api/venues', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/videos', videoRoutes);
 
+// Rezervasyon rotalarını kullan - ÖNEMLİ: Bu rotaları doğru şekilde tanımla
+app.use('/api/reservations', reservationRoutes);
+
 // Static dosyaları servis et
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
@@ -273,7 +295,32 @@ const initSampleData = async () => {
 };
 
 // Sunucuyu başlat
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000; // 5000 portunu kullan
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portunda çalışıyor`);
+  console.log('API endpoint\'leri:');
+  console.log('- GET /api/reservations/available-slots');
+  console.log('- GET /api/reservations/venue/sporyum23');
+  console.log('- POST /api/reservations');
+});
+
+// Hata yakalama middleware
+app.use((err, req, res, next) => {
+  console.error('Sunucu hatası:', err);
+  
+  // MongoDB ValidationError için özel mesaj
+  if (err.name === 'ValidationError') {
+    const validationErrors = Object.values(err.errors).map(error => error.message);
+    return res.status(400).json({ 
+      message: 'Doğrulama hatası', 
+      details: validationErrors 
+    });
+  }
+  
+  // Genel hata yanıtı
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    message: err.message || 'Sunucu hatası',
+    stack: process.env.NODE_ENV === 'production' ? '🥞' : err.stack
+  });
 });
