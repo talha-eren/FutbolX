@@ -4,17 +4,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Manuel IP yapılandırması - Backend sunucunuzun IP'sini buraya girin
 // NOT: Eğer backend bağlantısı kurulamıyorsa burayı düzenleyin
-const MANUAL_BACKEND_IP = '192.168.1.27';
+const MANUAL_BACKEND_IP = '10.192.90.94';  // Kullanıcının IP adresi
 
 // Backend yapılandırması
 const BACKEND_PORT = 5000; // Backend port
 const BACKEND_PATH = '/api'; // API yolu
 
+// JWT Secret anahtarı - Önemli: Bu backend/middleware/auth.js ile aynı olmalı
+const JWT_SECRET = 'futbolx_super_gizli_anahtar_2025';
+
 // IP adresi öncelik sıralaması (platform bazlı)
 const IP_PRIORITIES = {
-  ios: ["192.168.1.27", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
-  android: ["192.168.1.27", "192.168.1.59", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
-  default: ["192.168.1.27", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
+  ios: ["10.192.90.94", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
+  android: ["10.192.90.94", "192.168.1.59", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
+  default: ["10.192.90.94", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
 };
 
 // Manuel bağlantı kullanmak için anahtar - Aktif etmek için true yapın
@@ -36,6 +39,12 @@ const API_URLS = {
 
 // AsyncStorage için anahtar
 const NETWORK_CONFIG_KEY = '@network_config';
+
+// Token yardımcı fonksiyonları
+const formatToken = (token) => {
+  if (!token) return null;
+  return token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+};
 
 /**
  * Verilen URL'ye sağlık kontrolü yapar
@@ -300,15 +309,42 @@ export const getApiUrl = async (endpoint) => {
 };
 
 /**
- * Backend bağlantısını test eden fonksiyon
- * @returns {Promise<boolean>} Bağlantı başarılı mı?
+ * Backend bağlantısını test eder
+ * @returns {Promise<boolean>} Bağlantı durumu
  */
 export const testBackendConnection = async () => {
   try {
     const baseUrl = await getApiBaseUrl();
-    return await pingServer(baseUrl);
+    console.log(`Backend bağlantısı test ediliyor: ${baseUrl}`);
+    
+    // AsyncStorage'dan token'ı al (varsa)
+    let token = null;
+    try {
+      token = await AsyncStorage.getItem('token');
+    } catch (tokenError) {
+      console.log('Token okunamadı:', tokenError);
+    }
+    
+    // Eğer token varsa, doğruluğunu kontrol et
+    if (token) {
+      try {
+        // Token'ın 'Bearer ' öneki varsa kaldır
+        const tokenValue = token.startsWith('Bearer ') ? token.substring(7) : token;
+        
+        // Token kontrolü (varsa ve geçerliyse bir şey yapma)
+        // Bu kısım sadece loglaması için
+        console.log(`Token doğruluğu test ediliyor (${tokenValue.substring(0, 15)}...)`);
+      } catch (jwtError) {
+        console.log('Token doğrulama hatası:', jwtError);
+      }
+    }
+    
+    // Backend API'sine istek at
+    const healthCheck = await pingServer(baseUrl);
+    
+    return healthCheck;
   } catch (error) {
-    console.error('❌ Backend bağlantı testi başarısız:', error);
+    console.error('Backend bağlantı testi hatası:', error);
     return false;
   }
 };
@@ -401,12 +437,16 @@ const getVideoUrl = (item) => {
   }
 };
 
-export default {
+// networkConfig modülünü dışa aktar
+module.exports = {
+  MANUAL_BACKEND_IP,
+  BACKEND_PORT,
+  BACKEND_PATH,
+  JWT_SECRET,
   getApiBaseUrl,
   getApiUrl,
   testBackendConnection,
-  MANUAL_BACKEND_IP,
+  formatToken,
   getImageUrl,
-  getVideoUrl,
-  BACKEND_PORT,
+  getVideoUrl
 }; 

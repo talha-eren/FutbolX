@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/api';
+import { userService } from '../services/api';
 
 interface User {
   id?: string;
@@ -47,7 +48,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   error: string;
   token: string | null;
-  login: (username: string, password: string, social?: boolean, socialData?: SocialLoginData) => Promise<void>;
+  login: (username: string, password: string, social?: boolean, socialData?: SocialLoginData) => Promise<boolean>;
   register: (name: string, username: string, email: string, password: string, profileData?: UserProfileData) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
@@ -102,69 +103,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUserData();
   }, []);
 
-  // Kullanıcı verilerini yenileme fonksiyonu
+  // Kullanıcı verilerini yenile
   const refreshUserData = async (): Promise<void> => {
     try {
-      console.log('refreshUserData: Kullanıcı verileri yenileniyor...');
-      const userData = await AsyncStorage.getItem('user');
-      const savedToken = await AsyncStorage.getItem('token');
-      const tokenExpiry = await AsyncStorage.getItem('tokenExpiry');
-      
-      // Token geçerliliğini kontrol et
-      let isTokenValid = false;
-      if (savedToken && tokenExpiry) {
-        const expiryDate = new Date(tokenExpiry);
-        const now = new Date();
-        // Token'ın geçerlilik süresini kontrol et
-        isTokenValid = expiryDate > now;
-        console.log('refreshUserData: Token geçerlilik durumu:', isTokenValid, 'Şu anki zaman:', now.toISOString(), 'Son geçerlilik:', expiryDate.toISOString());
+      // Mevcut token'ı kontrol et
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.log('Token bulunamadı, veri yenilenemez');
+        throw new Error('Token bulunamadı');
       }
       
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        console.log('refreshUserData: Kullanıcı verileri başarıyla yüklendi.', { 
-          id: parsedUser?.id || parsedUser?._id,
-          username: parsedUser?.username || parsedUser?.email
-        });
-      } else {
-        setUser(null);
-        console.warn('refreshUserData: Kullanıcı verisi AsyncStorage\'da bulunamadı, state temizleniyor.');
+      // Kullanıcı profil verilerini al
+      const response = await userService.getProfile();
+      
+      // Kullanıcı verisini hazırla
+      const updatedUser = {
+        id: response._id || response.id,
+        name: response.name,
+        username: response.username,
+        email: response.email,
+        profilePicture: response.profilePicture,
+        bio: response.bio || '',
+        location: response.location || '',
+        favoriteTeams: response.favoriteTeams || [],
+        stats: response.stats || {},
+        level: response.level || '',
+        position: response.position || '',
+        footPreference: response.footPreference || '',
+        // Diğer kullanıcı bilgileri...
+      };
+      
+      // Context state'ini güncelle
+      setUser(updatedUser);
+    } catch (error: any) {
+      console.error('Kullanıcı verileri yenilenemedi:', error);
+      
+      // Token geçersizse ve 401 hatası alınırsa, otomatik logout yap
+      if (error.message && (
+        error.message.includes('token') || 
+        error.message.includes('Token') || 
+        error.message.includes('auth') || 
+        error.message.includes('401')
+      )) {
+        console.log('Token geçersiz, kullanıcı çıkış yapıyor...');
+        // Token'ı yenile ve tekrar dene (Burada gerekirse backend'in token 
+        // yenileme endpoint'ini çağırabilirsiniz)
+        
+        // Yenileme başarısız olursa logout
+        // await logout();
       }
       
-      if (savedToken && isTokenValid) {
-        setToken(savedToken);
-        console.log('refreshUserData: Token başarıyla yüklendi. İlk 10 karakter:', savedToken.substring(0, 10));
-      } else if (savedToken && !isTokenValid) {
-        console.warn('refreshUserData: Token süresi dolmuş, oturumu yenilemek gerekiyor.');
-        // Token süresi dolmuş ama kullanıcı bilgileri varsa, yeniden oturum açma işlemi başlat
-        if (userData) {
-          try {
-            const user = JSON.parse(userData);
-            // Eğer refresh token varsa kullanabilirsiniz
-            // Ya da sessiz bir şekilde yeni token almaya çalışabilirsiniz
-            console.log('refreshUserData: Token yenileme işlemi başlatılabilir.');
-          } catch (e) {
-            console.error('refreshUserData: Kullanıcı verisi parse edilemedi:', e);
-            // Hata durumunda token ve kullanıcı verilerini temizle
-            await AsyncStorage.multiRemove(['token', 'tokenExpiry', 'user']);
-            setToken(null);
-            setUser(null);
-          }
-        } else {
-          // Token geçersiz ve kullanıcı verisi yok, temizle
-          await AsyncStorage.multiRemove(['token', 'tokenExpiry']);
-          setToken(null);
-        }
-      } else {
-        // Token yok, state'i temizle
-        setToken(null);
-        console.warn('refreshUserData: Token AsyncStorage\'da bulunamadı, state temizleniyor.');
-      }
-    } catch (error) {
-      console.error('refreshUserData: Kullanıcı verileri yenilenirken hata:', error);
-      setUser(null);
-      setToken(null);
+      throw error;
     }
   };
 
@@ -174,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     social?: boolean,
     socialData?: SocialLoginData
-  ): Promise<void> => {
+  ): Promise<boolean> => {
       setIsLoading(true);
       setError('');
       
@@ -222,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(user);
       
       console.log('AuthContext: Giriş başarılı, state güncellendi.');
+      return true;
     } catch (error: any) {
       console.error('AuthContext: Giriş işlemi sırasında hata:', error.message || error);
       // Hata durumunda state ve storage temizle

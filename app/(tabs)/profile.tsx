@@ -10,6 +10,7 @@ import { userService } from '../../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { IS_OFFLINE_MODE, OFFLINE_DATA, checkOfflineMode } from '@/services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Varsayılan profil resmi URL'si
 const DEFAULT_PROFILE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -152,40 +153,56 @@ export default function ProfileScreen() {
       }
       
       // Çevrimiçi mod - gerçek API'den verileri çek
-      const profileData = await userService.getProfile();
-      console.log('Profil verileri:', profileData);
-      
-      // Gelen verileri UserProfile formatına dönüştür
-      const stats = profileData.stats || {};
-      const formattedData: UserProfile = {
-        id: profileData._id || profileData.id || '',
-        name: profileData.name || user?.name || '',
-        username: profileData.username || user?.username || '',
-        email: profileData.email || user?.email || '',
-        profilePicture: profileData.profilePicture || user?.profilePicture || DEFAULT_PROFILE_IMAGE,
-        bio: profileData.bio || user?.bio || '',
-        location: profileData.location || user?.location || '',
-        phone: profileData.phone || '',
-        favoriteTeams: profileData.favoriteTeams || [],
-        level: profileData.level || user?.level || '',
-        position: profileData.position || user?.position || '',
-        footPreference: profileData.footPreference || user?.footPreference || '',
-        stats: {
+      try {
+        // Token kontrolü yap
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          console.log('Profil yüklenirken token bulunamadı');
+          setError('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+          setLoading(false);
+          return;
+        }
+        
+        const profileData = await userService.getProfile();
+        console.log('Profil verileri:', profileData);
+        
+        // Gelen verileri UserProfile formatına dönüştür
+        const stats = profileData.stats || {};
+        const formattedData: UserProfile = {
+          id: profileData._id || profileData.id || '',
+          name: profileData.name || user?.name || '',
+          username: profileData.username || user?.username || '',
+          email: profileData.email || user?.email || '',
+          profilePicture: profileData.profilePicture || user?.profilePicture || DEFAULT_PROFILE_IMAGE,
+          bio: profileData.bio || user?.bio || '',
+          location: profileData.location || user?.location || '',
+          phone: profileData.phone || '',
+          favoriteTeams: profileData.favoriteTeams || [],
+          level: profileData.level || user?.level || '',
+          position: profileData.position || user?.position || '',
+          footPreference: profileData.footPreference || user?.footPreference || '',
+          stats: {
+            matches: stats.matches || 0,
+            goals: stats.goals || 0,
+            assists: stats.assists || 0,
+            playHours: stats.playHours || 0,
+            rating: stats.rating || 0
+          },
+          // Doğrudan erişim için ek alanlar
           matches: stats.matches || 0,
           goals: stats.goals || 0,
           assists: stats.assists || 0,
-          playHours: stats.playHours || 0,
-          rating: stats.rating || 0
-        },
-        // Doğrudan erişim için ek alanlar
-        matches: stats.matches || 0,
-        goals: stats.goals || 0,
-        assists: stats.assists || 0,
-        playHours: stats.playHours || 0
-      };
-            
-      setUserData(formattedData);
-      
+          playHours: stats.playHours || 0
+        };
+        
+        setUserData(formattedData);
+      } catch (apiError) {
+        console.error('API verilerini alırken hata:', apiError);
+        // API hatası durumunda mevcut userData kullanıyoruz (UserContext'ten)
+        if (!userData) {
+          setError('Profil verileri yüklenemedi. Lütfen tekrar deneyin.');
+        }
+      }
     } catch (error) {
       console.error('Profil yüklenirken hata:', error);
       
@@ -198,73 +215,17 @@ export default function ProfileScreen() {
       Alert.alert(
         'Bağlantı Hatası', 
         'Profil bilgileri yüklenemedi. Çevrimdışı mod etkinleştiriliyor.',
-        [{ text: 'Tamam' }]
       );
-      
-      // Hata durumunda çevrimdışı moda geç
-      setIsOffline(true);
-      
-      // Context'ten alınan kullanıcı bilgilerini kullan (yedek)
-      if (user) {
-        console.log('Hata durumunda context verileri kullanılıyor:', user.username || '');
-        const userStats = user.stats || {matches: 0, goals: 0, assists: 0, playHours: 0, rating: 0};
-        const backupUserData: UserProfile = {
-          id: user.id || '',
-          name: user.name || '',
-          username: user.username || '',
-          email: user.email || '',
-          profilePicture: user.profilePicture || DEFAULT_PROFILE_IMAGE,
-          bio: user.bio || '',
-          location: user.location || '',
-          level: user.level || '',
-          position: user.position || '',
-          footPreference: user.footPreference || '',
-          stats: {
-            matches: userStats.matches || 0,
-            goals: userStats.goals || 0,
-            assists: userStats.assists || 0,
-            playHours: userStats.playHours || 0,
-            rating: userStats.rating || 0
-          },
-          matches: userStats.matches || 0,
-          goals: userStats.goals || 0,
-          assists: userStats.assists || 0,
-          playHours: userStats.playHours || 0
-        };
-        setUserData(backupUserData);
-        return;
+    } finally {
+      setLoading(false);
+      // Token yenileme işlemi
+      try {
+        await refreshUserData();
+      } catch (refreshError) {
+        console.log('Token yenileme hatası:', refreshError);
       }
-      
-      // Örnek profil verilerini UserProfile formatına dönüştür
-      const offlineUser = OFFLINE_DATA.user;
-      const formattedOfflineUser: UserProfile = {
-        id: offlineUser._id,
-        name: offlineUser.name,
-        username: offlineUser.username,
-        email: offlineUser.email,
-        profilePicture: offlineUser.profilePicture || DEFAULT_PROFILE_IMAGE,
-        bio: 'Futbol tutkunu',
-        location: 'İstanbul',
-        level: offlineUser.level || 'Orta',
-        position: offlineUser.position || 'Forvet',
-            footPreference: 'Sağ',
-        stats: offlineUser.stats || {
-          matches: 15,
-          goals: 8,
-          assists: 5,
-          playHours: 30,
-          rating: 4.2
-        },
-        matches: 15,
-        goals: 8,
-        assists: 5,
-        playHours: 30
-      };
-      setUserData(formattedOfflineUser);
-      } finally {
-        setLoading(false);
-      }
-    };
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -540,13 +501,42 @@ export default function ProfileScreen() {
   );
 
   const renderProfileDetails = () => {
-    if (!userData) {
+    if (loading) {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
+          <ThemedText style={styles.loadingText}>Profil yükleniyor...</ThemedText>
         </View>
       );
     }
+    
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={50} color="#e53935" />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: tintColor }]}
+            onPress={() => {
+              setError(null);
+              fetchUserProfile();
+            }}
+          >
+            <ThemedText style={styles.retryButtonText}>Tekrar Dene</ThemedText>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    if (!userData) {
+      return (
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={50} color="#e53935" />
+          <ThemedText style={styles.errorText}>Kullanıcı bilgileri yüklenemedi</ThemedText>
+        </View>
+      );
+    }
+    
     return (
       <View style={styles.detailsContainer}>
         <View style={styles.infoCard}>
@@ -1456,5 +1446,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
     fontSize: 12,
+  },
+  retryButton: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });

@@ -56,17 +56,24 @@ if (!fs.existsSync(uploadsDir)) {
 // CORS ayarları - tüm kaynaklardan gelen isteklere izin ver
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'x-auth-token', 
+    'x-token', 
+    'Accept', 
+    'X-Requested-With'
+  ],
   credentials: true,
-  exposedHeaders: ['Content-Length', 'X-Requested-With']
+  exposedHeaders: ['Content-Length', 'Authorization', 'x-auth-token']
 }));
 
 // OPTIONS isteklerini ön işlemden geçir
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-auth-token, x-token');
   
   // OPTIONS istekleri için hemen yanıt dön
   if (req.method === 'OPTIONS') {
@@ -150,9 +157,30 @@ app.get('/api/test', (req, res) => {
 
 // Statik dosyaları servis et - tüm yollar için
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
-// Alternatif yol - /api/uploads için de aynı klasörü servis et
+// API yolunu /api olarak ayarla
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/public', express.static(path.join(__dirname, 'public')));
+
+// Resim dosyaları için özel route
+app.get('/api/images/:filename', (req, res) => {
+  const filename = req.params.filename;
+  
+  // Önce uploads klasöründe kontrol et
+  let filePath = path.join(__dirname, 'uploads', filename);
+  
+  if (!fs.existsSync(filePath)) {
+    // Eğer uploads klasöründe yoksa, public/uploads/images klasöründe ara
+    filePath = path.join(__dirname, 'public/uploads/images', filename);
+  }
+  
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({ message: 'Dosya bulunamadı' });
+  }
+});
 
 // Video dosyalarını servis et
 app.get('/api/uploads/videos/:filename', (req, res) => {
@@ -160,27 +188,6 @@ app.get('/api/uploads/videos/:filename', (req, res) => {
   const filePath = path.join(__dirname, 'uploads/videos', filename);
   
   console.log(`Video dosyası isteği: ${filename}`);
-  
-  if (fs.existsSync(filePath)) {
-    console.log(`Video dosyası bulundu: ${filePath}`);
-    // Video dosyasını gönderirken CORS başlıklarını ayarla
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    res.header('Content-Type', 'video/mp4');
-    res.sendFile(filePath);
-  } else {
-    console.log(`Video dosyası bulunamadı: ${filePath}`);
-    res.status(404).json({ message: 'Video bulunamadı' });
-  }
-});
-
-// Doğrudan video dosyalarına erişim için alternatif yol
-app.get('/uploads/videos/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(__dirname, 'uploads/videos', filename);
-  
-  console.log(`Alternatif yoldan video dosyası isteği: ${filename}`);
   
   if (fs.existsSync(filePath)) {
     console.log(`Video dosyası bulundu: ${filePath}`);

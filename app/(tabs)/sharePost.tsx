@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+// @ts-ignore
 import networkConfig from '@/services/networkConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -216,18 +217,18 @@ const SharePostScreen = () => {
     }, 300);
 
     try {
-      // Token'ı yenile - önce mevcut token ile deneyelim
+      // Token kontrolü ve yenileme
       await refreshUserData();
-      let currentAuthToken = token;
-
-      if (!currentAuthToken) {
+      const bearerToken = await getTokenWithBearer();
+      
+      if (!bearerToken) {
         clearInterval(progressInterval);
         setUploading(false);
         Alert.alert('Doğrulama Hatası', 'Kimlik doğrulama anahtarı bulunamadı. Lütfen tekrar giriş yapın.');
         return;
       }
       
-      console.log('Paylaşım için token alındı:', currentAuthToken ? currentAuthToken.substring(0, 15) + '...' : 'TOKEN YOK');
+      console.log('Token hazırlandı:', bearerToken.substring(0, 15) + '...');
       
       // Form data oluştur
       const formData = createFormData();
@@ -237,198 +238,122 @@ const SharePostScreen = () => {
       console.log(`POST isteği: ${postUrl}`);
       
       try {
-        // Token'ı direkt olarak alırken otomatik olarak 'Bearer ' öneki ekle
-        const tokenWithBearer = currentAuthToken.startsWith('Bearer ') 
-          ? currentAuthToken 
-          : `Bearer ${currentAuthToken}`;
+        console.log('XHR ile yükleme deneniyor...');
         
-        console.log('Kullanılan token formatı:', tokenWithBearer.substring(0, 20) + '...');
+        // XMLHttpRequest ile yükle (daha güvenilir)
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', postUrl);
         
-        // Önce normal fetch ile deneyelim
-        const response = await fetch(postUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': tokenWithBearer,
-            'Accept': 'application/json',
-          },
-          body: formData as any
-        });
+        // Headers ayarla - ÖNEMLİ: Tüm olası token formatlarını dene
+        xhr.setRequestHeader('Authorization', bearerToken);
         
-        clearInterval(progressInterval);
+        // Token'ı farklı formatlarda da gönder (uyumluluk için)
+        // x-auth-token header'ı (Bearer öneksiz)
+        const rawToken = bearerToken.replace('Bearer ', '');
+        xhr.setRequestHeader('x-auth-token', rawToken);
         
-        if (response.ok) {
-          // Başarılı
-          const responseData = await response.json();
-          console.log('Gönderi başarıyla paylaşıldı:', responseData);
-          
-          setUploadProgress(100);
-          setUploadSuccess(true);
-          Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
-          
-          setTitle('');
-          setDescription('');
-          setCategory('');
-          setTags('');
-          clearMedia();
-          fetchPosts();
-          
-          setTimeout(() => {
-            setUploadSuccess(false);
-            router.push('/(tabs)');
-          }, 1500);
-          
-          return;
-        } else {
-          // Hata durumu
-          const errorText = await response.text();
-          console.error(`API Hatası (${response.status}):`, errorText);
+        // x-token header'ı
+        xhr.setRequestHeader('x-token', rawToken);
         
-          // 401 hatası durumunda token yenileme deneyelim
-          if (response.status === 401) {
-            // AsyncStorage'dan yeni bir token almayı deneyelim
-            const freshToken = await AsyncStorage.getItem('token');
-            if (freshToken && freshToken !== currentAuthToken) {
-              console.log('Yeni token ile yeniden deneniyor...');
-              
-              // Yeni token ile tekrar deneyelim
-              const newTokenWithBearer = freshToken.startsWith('Bearer ') 
-                ? freshToken 
-                : `Bearer ${freshToken}`;
-              
-              const retryResponse = await fetch(postUrl, {
-                method: 'POST',
-                headers: {
-                  'Authorization': newTokenWithBearer,
-                  'Accept': 'application/json',
-                },
-                body: formData as any
-              });
-              
-              if (retryResponse.ok) {
-                const retryData = await retryResponse.json();
-                console.log('Yeni token ile başarılı:', retryData);
-                
-                setUploadProgress(100);
-                setUploadSuccess(true);
-                Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
-                
-                setTitle('');
-                setDescription('');
-                setCategory('');
-                setTags('');
-                clearMedia();
-                
-                setTimeout(() => {
-                  setUploadSuccess(false);
-                  router.push('/(tabs)');
-                }, 1500);
-                
-                return;
-              } else {
-                const retryErrorText = await retryResponse.text();
-                console.error(`Yeni token ile de hata (${retryResponse.status}):`, retryErrorText);
-                throw new Error(`Token yenileme başarısız oldu: ${retryErrorText}`);
-              }
-            } else {
-              // Oturum açma sayfasına yönlendir
-              Alert.alert(
-                'Oturum Süresi Doldu',
-                'Lütfen tekrar giriş yapınız.',
-                [
-                  { text: 'Tamam', onPress: () => router.push('/login') }
-                ]
-              );
-              throw new Error('Oturum süresi doldu');
-            }
-          }
-          
-          throw new Error(`API Hatası (${response.status}): ${errorText}`);
-        }
-      } catch (fetchError: any) {
-        console.error('Fetch hatası:', fetchError);
+        // Token logları
+        console.log('Token headerları ayarlandı:');
+        console.log('- Authorization:', bearerToken.substring(0, 20) + '...');
+        console.log('- x-auth-token:', rawToken.substring(0, 20) + '...');
         
-        // XHR ile tekrar deneyelim
-        try {
-          console.log('XHR ile yükleme deneniyor...');
+        xhr.onload = function() {
+          clearInterval(progressInterval);
           
-          // AsyncStorage'dan en güncel token'ı alalım
-          const latestToken = await AsyncStorage.getItem('token');
-          const xhrToken = latestToken || currentAuthToken;
-          
-          // Token'ı direkt olarak alırken otomatik olarak 'Bearer ' öneki ekle
-          const xhrTokenWithBearer = xhrToken.startsWith('Bearer ') 
-            ? xhrToken 
-            : `Bearer ${xhrToken}`;
-          
-          return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', postUrl);
-            xhr.setRequestHeader('Authorization', xhrTokenWithBearer);
-            xhr.setRequestHeader('Accept', 'application/json');
+          if (xhr.status >= 200 && xhr.status < 300) {
+            console.log('Gönderi başarıyla paylaşıldı:', xhr.responseText);
             
-            xhr.onload = function() {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                // Başarılı
-                try {
-                  const responseData = JSON.parse(xhr.responseText);
-                  console.log('XHR ile başarılı:', responseData);
-                  
-                  setUploadProgress(100);
-                  setUploadSuccess(true);
-                  Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
-                  
-                  setTitle('');
-                  setDescription('');
-                  setCategory('');
-                  setTags('');
-                  clearMedia();
-                  
-                  setTimeout(() => {
-                    setUploadSuccess(false);
-                    router.push('/(tabs)');
-                  }, 1500);
-                  
-                  resolve(responseData);
-                } catch (e) {
-                  reject('JSON parse hatası');
+            setUploadProgress(100);
+            setUploadSuccess(true);
+            Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
+            
+            setTitle('');
+            setDescription('');
+            setCategory('');
+            setTags('');
+            clearMedia();
+            fetchPosts();
+            
+            setTimeout(() => {
+              setUploadSuccess(false);
+              router.push('/(tabs)');
+            }, 1500);
+          } else {
+            console.error(`API Hatası (${xhr.status}):`, xhr.responseText);
+            
+            // Hata mesajını analiz et
+            let errorMessage = 'Gönderi paylaşılırken bir hata oluştu';
+            try {
+              const errorResponse = JSON.parse(xhr.responseText);
+              if (errorResponse.message) {
+                errorMessage = errorResponse.message;
+                
+                // Token hatası ise yeniden login olmasını öner
+                if (errorMessage.includes('token') || errorMessage.includes('Token') || xhr.status === 401) {
+                  Alert.alert(
+                    'Oturum Hatası', 
+                    'Oturumunuz sona ermiş olabilir. Tekrar giriş yapmak ister misiniz?',
+                    [
+                      {
+                        text: 'Hayır',
+                        style: 'cancel'
+                      },
+                      {
+                        text: 'Evet',
+                        onPress: () => {
+                          AsyncStorage.removeItem('token');
+                          router.replace('/(auth)/login');
+                        }
+                      }
+                    ]
+                  );
+                  setUploading(false);
+                  setUploadProgress(0);
+                  return;
                 }
-              } else {
-                // Hata
-                reject(`XHR hatası: ${xhr.status} - ${xhr.responseText}`);
               }
-            };
+            } catch (e) {
+              console.log('Hata yanıtı JSON olarak ayrıştırılamadı');
+            }
             
-            xhr.onerror = function() {
-              reject('Ağ hatası');
-            };
-            
-            xhr.ontimeout = function() {
-              reject('Zaman aşımı');
-            };
-            
-            xhr.onabort = function() {
-              reject('İstek iptal edildi');
-            };
-            
-            xhr.upload.onprogress = function(event) {
-              if (event.lengthComputable) {
-                const percentComplete = Math.round((event.loaded / event.total) * 100);
-                setUploadProgress(percentComplete);
-              }
-            };
-            
-            xhr.send(formData as any);
-          });
-        } catch (xhrError) {
-          console.error('XHR hatası:', xhrError);
-          throw xhrError;
-        }
+            Alert.alert('Hata', errorMessage);
+            setUploading(false);
+            setUploadProgress(0);
+          }
+        };
+        
+        xhr.onerror = function() {
+          clearInterval(progressInterval);
+          console.error('XHR Hatası');
+          Alert.alert('Bağlantı Hatası', 'Sunucuya bağlanırken bir hata oluştu.');
+          setUploading(false);
+          setUploadProgress(0);
+        };
+        
+        xhr.upload.onprogress = function(event) {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(percentComplete > 90 ? 90 : percentComplete);
+          }
+        };
+        
+        xhr.send(formData);
+      } catch (error) {
+        clearInterval(progressInterval);
+        console.error('Gönderi paylaşma hatası:', error);
+        Alert.alert('Hata', 'Gönderi paylaşılırken bir hata oluştu.');
+        setUploading(false);
+        setUploadProgress(0);
       }
-    } catch (error: any) {
+    } catch (error) {
       clearInterval(progressInterval);
+      console.error('Gönderi paylaşma hazırlık hatası:', error);
+      Alert.alert('Hata', 'Gönderi paylaşmaya hazırlanırken bir hata oluştu.');
       setUploading(false);
-      console.error('Gönderi paylaşma hatası:', error);
-      Alert.alert('Hata', error.message || 'Gönderi paylaşılırken bir hata oluştu. Lütfen tekrar deneyin.');
+      setUploadProgress(0);
     }
   };
   
@@ -450,10 +375,11 @@ const SharePostScreen = () => {
         return;
       }
       
+      // Token kontrolü ve yenileme
       await refreshUserData();
-      const currentAuthToken = token;
+      const bearerToken = await getTokenWithBearer();
 
-      if (!currentAuthToken) {
+      if (!bearerToken) {
         console.warn('fetchPosts: Token bulunamadı. Tekrar giriş gerekebilir.');
         setPosts([]);
         setLoading(false);
@@ -466,31 +392,61 @@ const SharePostScreen = () => {
 
       try {
         const response = await fetch(`${API_URL}/posts`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${currentAuthToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
+          method: 'GET',
+          headers: {
+            'Authorization': bearerToken,
+            'x-auth-token': bearerToken.replace('Bearer ', ''),
+            'x-token': bearerToken.replace('Bearer ', ''),
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Gönderiler alınamadı: ${response.status}`, errorText);
+          
+          // Token hatası ise yeniden login olmasını öner
+          if (response.status === 401) {
+            Alert.alert(
+              'Oturum Hatası', 
+              'Oturumunuz sona ermiş olabilir. Tekrar giriş yapmak ister misiniz?',
+              [
+                {
+                  text: 'Hayır',
+                  style: 'cancel'
+                },
+                {
+                  text: 'Evet',
+                  onPress: () => {
+                    AsyncStorage.removeItem('token');
+                    router.replace('/(auth)/login');
+                  }
+                }
+              ]
+            );
+            setPosts([]);
+            setLoading(false);
+            return;
+          }
+          
           throw new Error(`Gönderiler alınamadı: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      if (data && Array.isArray(data)) {
+        }
+        
+        const data = await response.json();
+        if (data && Array.isArray(data)) {
           const userPosts = data.filter(post => {
-            const postUserId = post.user?.id || post.user?._id;
+            const postUserId = post.user?.id || post.user?._id || post.author;
             return postUserId === userId;
           });
           
+          console.log(`Tüm içerikler: ${data.length} adet bulundu`);
           console.log(`${userPosts.length} adet kullanıcıya ait gönderi bulundu.`);
           setPosts(userPosts.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
-      } else {
+        } else {
           console.log('Gönderi bulunamadı veya geçersiz format.');
-        setPosts([]);
-      }
-    } catch (err: any) {
+          setPosts([]);
+        }
+      } catch (err: any) {
         console.error('Gönderi listeleme API hatası:', err);
         Alert.alert('Listeleme Hatası', 'Gönderiler yüklenirken bir hata oluştu.');
         setPosts([]);
@@ -512,6 +468,38 @@ const SharePostScreen = () => {
     { value: 'maç', label: 'Maç' },
     { value: 'diğer', label: 'Diğer' }
   ];
+
+  // Token düzeltme yardımcı fonksiyonu
+  const getTokenWithBearer = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return null;
+      
+      // Token logları - bu durumu debug edelim
+      console.log('Ham token alındı:', token.substring(0, 20) + '...');
+      
+      // Mobil-web uyumsuzluğunu gidermek için token içindeki çift tırnakları temizle
+      let cleanToken = token;
+      if (token.includes('"')) {
+        cleanToken = token.replace(/"/g, '');
+        console.log('Token içindeki çift tırnaklar temizlendi');
+      }
+      
+      // Eğer token zaten 'Bearer ' ile başlıyorsa aynen döndür
+      if (cleanToken.startsWith('Bearer ')) {
+        console.log('Token zaten Bearer öneki içeriyor');
+        return cleanToken;
+      }
+      
+      // Değilse 'Bearer ' ekleyip döndür
+      const bearerToken = `Bearer ${cleanToken}`;
+      console.log('Bearer öneki eklendi:', bearerToken.substring(0, 20) + '...');
+      return bearerToken;
+    } catch (error) {
+      console.error('Token işleme hatası:', error);
+      return null;
+    }
+  };
 
   return (
     <KeyboardAvoidingView 

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+// @ts-ignore
 import { getApiUrl, getApiBaseUrl } from './networkConfig';
 
 // API URL'sini platform bazlı tanımlıyoruz
@@ -14,22 +15,18 @@ const BACKEND_PORT = 5000;
 
 // Alternatif IP adresleri (bağlantı sorunları için)
 const ALTERNATIVE_IPS = [
-  '192.168.1.90',    // Güncel doğru IP (backend sunucusu)
-  '192.168.1.59',    // Eski IP adresi
+  'localhost',       // Localhost (Öncelikli)
+  '127.0.0.1',       // Localhost alternatifi
+  '10.192.90.94',    // Otomatik algılanan IP
   '10.0.2.2',        // Android emülatör için özel IP
   '192.168.1.27',    // Ana IP
-  '192.168.1.49',    // Eski Metro IP
-  'localhost',       // Localhost
-  '127.0.0.1',       // Localhost alternatifi
-  '192.168.1.1',     // Router IP'si
-  '192.168.0.1',     // Alternatif router IP'si
 ];
 
 // Platforma göre API URL'sini belirle
 try {
   // Önce Expo Metro sunucusunun IP'sini almaya çalış - bu genellikle en iyi çözümdür
   // Bu IP, telefonun ve bilgisayarın aynı ağda olduğunu varsayar
-  const METRO_IP = '192.168.1.27'; // Güncellenmiş IP adresi
+  const METRO_IP = '10.192.90.94'; // Değiştirildi
   
   if (Platform.OS === 'android') {
     // Android emülatör için özel IP kullan
@@ -45,12 +42,12 @@ try {
     console.log('Web platformu tespit edildi, localhost kullanılıyor');
   } else {
     // Diğer tüm platformlar için varsayılan IP
-    API_URL = `http://${COMPUTER_IP}:${BACKEND_PORT}/api`;
-    console.log(`Bilinmeyen platform, varsayılan olarak ${COMPUTER_IP} kullanılıyor`);
+    API_URL = `http://localhost:${BACKEND_PORT}/api`;
+    console.log(`Bilinmeyen platform, varsayılan olarak localhost kullanılıyor`);
   }
 } catch (error) {
-  // Hata durumunda bilgisayarın gerçek IP adresini kullan
-  API_URL = `http://${COMPUTER_IP}:${BACKEND_PORT}/api`;
+  // Hata durumunda localhost değerini kullan
+  API_URL = `http://localhost:${BACKEND_PORT}/api`;
   console.log('Platform tespiti yapılamadı, varsayılan IP kullanılıyor:', API_URL);
 }
 
@@ -181,7 +178,7 @@ const testApiConnection = async () => {
   }
   
   // Metro IP'sini önce dene
-  const METRO_IP = '192.168.1.27'; // Güncellenmiş backend IP'si
+  const METRO_IP = '10.192.90.94'; // Değiştirildi
   console.log(`Önce güncel backend IP adresi deneniyor: ${METRO_IP}`);
   try {
     const controller = new AbortController();
@@ -270,7 +267,7 @@ const testApiConnection = async () => {
     } else if (Platform.OS === 'ios') {
       API_URL = `http://${METRO_IP}:${BACKEND_PORT}/api`; // iOS için
     } else {
-      API_URL = `http://${COMPUTER_IP}:${BACKEND_PORT}/api`; // Diğer platformlar için
+      API_URL = `http://localhost:${BACKEND_PORT}/api`; // Diğer platformlar için
     }
     
     console.log(`${Platform.OS} için varsayılan olarak şu IP kullanılacak (çevrimdışı mod): ${API_URL}`);
@@ -376,6 +373,7 @@ const getAuthHeaders = async (): Promise<Record<string, string>> => {
     
     return {
       'Authorization': tokenWithBearer,
+      'x-auth-token': token.startsWith('Bearer ') ? token.replace('Bearer ', '') : token,
       'Content-Type': 'application/json'
     };
   } catch (error) {

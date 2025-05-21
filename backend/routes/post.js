@@ -23,13 +23,18 @@ const storage = multer.diskStorage({
     // Klasör yoksa oluştur
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
+      console.log(`Upload klasörü oluşturuldu: ${uploadDir}`);
+    } else {
+      console.log(`Upload klasörü mevcut: ${uploadDir}`);
     }
+    
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     // Dosya adını benzersiz yap
     const fileExtension = path.extname(file.originalname);
     const uniqueName = `file-${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExtension}`;
+    console.log(`Yeni dosya adı: ${uniqueName}`);
     cb(null, uniqueName);
   }
 });
@@ -104,24 +109,26 @@ router.get('/:id', async (req, res) => {
 // Yeni gönderi ekle
 router.post('/', auth, upload.single('file'), async (req, res) => {
   try {
-    console.log('Gönderi yükleme isteği alındı. Tür:', req.body.post_type);
-    console.log('Request files:', req.file ? [{
+    console.log('Gönderi yükleme isteği alındı.');
+    console.log('Doğrulanmış kullanıcı ID:', req.user.id);
+    console.log('Request fields:', req.body);
+    console.log('Request files:', req.file ? {
       fieldname: req.file.fieldname,
       originalname: req.file.originalname,
-      encoding: req.file.encoding,
       mimetype: req.file.mimetype,
-      destination: req.file.destination,
       filename: req.file.filename,
       path: req.file.path,
       size: req.file.size
-    }] : 'File yok');
-    console.log('Request body:', req.body);
+    } : 'Dosya yok');
     
     const user = await User.findById(req.user.id).select('-password');
     
     if (!user) {
+      console.log('Kullanıcı bulunamadı:', req.user.id);
       return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
     }
+
+    console.log('Kullanıcı bulundu:', user.username);
 
     // Yeni gönderi oluştur
     const newPost = new Post({
@@ -145,8 +152,8 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
       const isVideo = req.file.mimetype.includes('video') || 
                        /mp4|mov|avi/i.test(path.extname(req.file.filename));
       
-      // Dosya yolu oluştur
-      const fileDir = isVideo ? '/uploads/videos/' : '/uploads/images/';
+      // Dosya yolu oluştur - burada /public/ ile başlayan yolu kullanıyoruz
+      const fileDir = isVideo ? '/public/uploads/videos/' : '/public/uploads/images/';
       const filePath = fileDir + req.file.filename;
       
       if (isVideo) {
@@ -161,6 +168,7 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
       
       console.log('Medya türü:', isVideo ? 'Video' : 'Image');
       console.log('Medya dosya yolu:', filePath);
+      console.log('Tam dosya yolu:', path.join(__dirname, '..', filePath));
     }
 
     const savedPost = await newPost.save();
@@ -175,9 +183,10 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
       }
     };
     
-    console.log('Gönderi kaydedildi:', {
+    console.log('Gönderi başarıyla kaydedildi:', {
       id: savedPost._id,
       contentType: savedPost.contentType,
+      title: savedPost.title,
       hasImage: !!savedPost.image,
       hasVideo: !!savedPost.video
     });

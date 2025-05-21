@@ -126,27 +126,14 @@ function LoginScreen() {
     try {
       console.log('Giriş isteği gönderiliyor:', { username, password: '***' });
       
-      // SADECE TEST KULLANICISI İÇİN ÖZEL KONTROL
-      if (username === 'ttt' && (password === 'ttt' || password === 'ttt123456')) {
-        console.log('Test kullanıcısı algılandı, özel giriş yapılıyor');
-      }
-      
       // Giriş yap
-      const success = await login(username, password);
+      await login(username, password);
       
-      if (success) {
-        console.log('Giriş başarılı, ana sayfaya yönlendiriliyor');
-        
-        // Başarılı giriş animasyonu
-        Animated.timing(slideAnim, {
-          toValue: -50,
-          duration: 500,
-          useNativeDriver: true
-        }).start(() => {
-          // Ana sayfaya yönlendir
-          router.replace('/(tabs)');
-        });
-      }
+      console.log('Giriş başarılı, ana sayfaya yönlendiriliyor');
+      
+      // Doğrudan ana sayfaya yönlendir
+      router.replace('/(tabs)');
+      
     } catch (error: any) {
       console.error('Giriş yaparken hata:', error.message || error);
       

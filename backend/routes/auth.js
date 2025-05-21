@@ -5,7 +5,7 @@ const User = require('../models/User');
 const router = express.Router();
 
 // JWT_SECRET sabit değerini tanımla
-const JWT_SECRET = 'futbolx-secret-key-2025';
+const JWT_SECRET = 'futbolx_super_gizli_anahtar_2025';
 
 // Kullanıcı Kaydı
 router.post('/register', async (req, res) => {
