@@ -220,7 +220,7 @@ const SharePostScreen = () => {
       // Token kontrolü ve yenileme
       await refreshUserData();
       const bearerToken = await getTokenWithBearer();
-      
+
       if (!bearerToken) {
         clearInterval(progressInterval);
         setUploading(false);
@@ -261,29 +261,29 @@ const SharePostScreen = () => {
         console.log('- x-auth-token:', rawToken.substring(0, 20) + '...');
         
         xhr.onload = function() {
-          clearInterval(progressInterval);
-          
+        clearInterval(progressInterval);
+        
           if (xhr.status >= 200 && xhr.status < 300) {
             console.log('Gönderi başarıyla paylaşıldı:', xhr.responseText);
-            
-            setUploadProgress(100);
-            setUploadSuccess(true);
-            Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
-            
-            setTitle('');
-            setDescription('');
-            setCategory('');
-            setTags('');
-            clearMedia();
-            fetchPosts();
-            
-            setTimeout(() => {
-              setUploadSuccess(false);
-              router.push('/(tabs)');
-            }, 1500);
-          } else {
+          
+          setUploadProgress(100);
+          setUploadSuccess(true);
+          Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
+          
+          setTitle('');
+          setDescription('');
+          setCategory('');
+          setTags('');
+          clearMedia();
+          fetchPosts();
+          
+          setTimeout(() => {
+            setUploadSuccess(false);
+            router.push('/(tabs)');
+          }, 1500);
+        } else {
             console.error(`API Hatası (${xhr.status}):`, xhr.responseText);
-            
+        
             // Hata mesajını analiz et
             let errorMessage = 'Gönderi paylaşılırken bir hata oluştu';
             try {
@@ -293,7 +293,7 @@ const SharePostScreen = () => {
                 
                 // Token hatası ise yeniden login olmasını öner
                 if (errorMessage.includes('token') || errorMessage.includes('Token') || xhr.status === 401) {
-                  Alert.alert(
+              Alert.alert(
                     'Oturum Hatası', 
                     'Oturumunuz sona ermiş olabilir. Tekrar giriş yapmak ister misiniz?',
                     [
@@ -322,24 +322,24 @@ const SharePostScreen = () => {
             Alert.alert('Hata', errorMessage);
             setUploading(false);
             setUploadProgress(0);
-          }
-        };
-        
-        xhr.onerror = function() {
+              }
+            };
+            
+            xhr.onerror = function() {
           clearInterval(progressInterval);
           console.error('XHR Hatası');
           Alert.alert('Bağlantı Hatası', 'Sunucuya bağlanırken bir hata oluştu.');
           setUploading(false);
           setUploadProgress(0);
-        };
-        
-        xhr.upload.onprogress = function(event) {
-          if (event.lengthComputable) {
-            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            };
+            
+            xhr.upload.onprogress = function(event) {
+              if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded / event.total) * 100);
             setUploadProgress(percentComplete > 90 ? 90 : percentComplete);
-          }
-        };
-        
+              }
+            };
+            
         xhr.send(formData);
       } catch (error) {
         clearInterval(progressInterval);
@@ -392,16 +392,16 @@ const SharePostScreen = () => {
 
       try {
         const response = await fetch(`${API_URL}/posts`, {
-          method: 'GET',
-          headers: {
+        method: 'GET',
+        headers: {
             'Authorization': bearerToken,
             'x-auth-token': bearerToken.replace('Bearer ', ''),
             'x-token': bearerToken.replace('Bearer ', ''),
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
           const errorText = await response.text();
           console.error(`Gönderiler alınamadı: ${response.status}`, errorText);
           
@@ -430,10 +430,10 @@ const SharePostScreen = () => {
           }
           
           throw new Error(`Gönderiler alınamadı: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        if (data && Array.isArray(data)) {
+      }
+      
+      const data = await response.json();
+      if (data && Array.isArray(data)) {
           const userPosts = data.filter(post => {
             const postUserId = post.user?.id || post.user?._id || post.author;
             return postUserId === userId;
@@ -442,11 +442,11 @@ const SharePostScreen = () => {
           console.log(`Tüm içerikler: ${data.length} adet bulundu`);
           console.log(`${userPosts.length} adet kullanıcıya ait gönderi bulundu.`);
           setPosts(userPosts.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
-        } else {
+      } else {
           console.log('Gönderi bulunamadı veya geçersiz format.');
-          setPosts([]);
-        }
-      } catch (err: any) {
+        setPosts([]);
+      }
+    } catch (err: any) {
         console.error('Gönderi listeleme API hatası:', err);
         Alert.alert('Listeleme Hatası', 'Gönderiler yüklenirken bir hata oluştu.');
         setPosts([]);

@@ -163,39 +163,39 @@ export default function ProfileScreen() {
           return;
         }
         
-        const profileData = await userService.getProfile();
-        console.log('Profil verileri:', profileData);
-        
-        // Gelen verileri UserProfile formatına dönüştür
-        const stats = profileData.stats || {};
-        const formattedData: UserProfile = {
-          id: profileData._id || profileData.id || '',
-          name: profileData.name || user?.name || '',
-          username: profileData.username || user?.username || '',
-          email: profileData.email || user?.email || '',
-          profilePicture: profileData.profilePicture || user?.profilePicture || DEFAULT_PROFILE_IMAGE,
-          bio: profileData.bio || user?.bio || '',
-          location: profileData.location || user?.location || '',
-          phone: profileData.phone || '',
-          favoriteTeams: profileData.favoriteTeams || [],
-          level: profileData.level || user?.level || '',
-          position: profileData.position || user?.position || '',
-          footPreference: profileData.footPreference || user?.footPreference || '',
-          stats: {
-            matches: stats.matches || 0,
-            goals: stats.goals || 0,
-            assists: stats.assists || 0,
-            playHours: stats.playHours || 0,
-            rating: stats.rating || 0
-          },
-          // Doğrudan erişim için ek alanlar
+      const profileData = await userService.getProfile();
+      console.log('Profil verileri:', profileData);
+      
+      // Gelen verileri UserProfile formatına dönüştür
+      const stats = profileData.stats || {};
+      const formattedData: UserProfile = {
+        id: profileData._id || profileData.id || '',
+        name: profileData.name || user?.name || '',
+        username: profileData.username || user?.username || '',
+        email: profileData.email || user?.email || '',
+        profilePicture: profileData.profilePicture || user?.profilePicture || DEFAULT_PROFILE_IMAGE,
+        bio: profileData.bio || user?.bio || '',
+        location: profileData.location || user?.location || '',
+        phone: profileData.phone || '',
+        favoriteTeams: profileData.favoriteTeams || [],
+        level: profileData.level || user?.level || '',
+        position: profileData.position || user?.position || '',
+        footPreference: profileData.footPreference || user?.footPreference || '',
+        stats: {
           matches: stats.matches || 0,
           goals: stats.goals || 0,
           assists: stats.assists || 0,
-          playHours: stats.playHours || 0
-        };
-        
-        setUserData(formattedData);
+          playHours: stats.playHours || 0,
+          rating: stats.rating || 0
+        },
+        // Doğrudan erişim için ek alanlar
+        matches: stats.matches || 0,
+        goals: stats.goals || 0,
+        assists: stats.assists || 0,
+        playHours: stats.playHours || 0
+      };
+            
+      setUserData(formattedData);
       } catch (apiError) {
         console.error('API verilerini alırken hata:', apiError);
         // API hatası durumunda mevcut userData kullanıyoruz (UserContext'ten)
@@ -216,16 +216,16 @@ export default function ProfileScreen() {
         'Bağlantı Hatası', 
         'Profil bilgileri yüklenemedi. Çevrimdışı mod etkinleştiriliyor.',
       );
-    } finally {
-      setLoading(false);
+      } finally {
+        setLoading(false);
       // Token yenileme işlemi
       try {
         await refreshUserData();
       } catch (refreshError) {
         console.log('Token yenileme hatası:', refreshError);
       }
-    }
-  };
+      }
+    };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -293,7 +293,7 @@ export default function ProfileScreen() {
   const renderRating = (rating: number) => {
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating - fullStars >= 0.5;
-    const stars = [];
+    const stars: React.ReactNode[] = [];
 
     for (let i = 0; i < 5; i++) {
       if (i < fullStars) {

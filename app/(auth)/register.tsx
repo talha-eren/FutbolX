@@ -1,17 +1,32 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  StyleSheet, 
+  View, 
+  TextInput, 
+  TouchableOpacity, 
+  ScrollView, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ActivityIndicator,
+  Keyboard,
+  Animated,
+  Dimensions
+} from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { useAuth } from '@/context/AuthContext';
 import { FutbolXLogo } from '@/components/FutbolXLogo';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useAuth } from '@/context/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 export default function RegisterScreen() {
-  const colorScheme = useColorScheme();
   const router = useRouter();
-  const { register, isLoading: authLoading } = useAuth();
-  const [fullName, setFullName] = useState('');
+  const { register, isLoading: authLoading, error: authError } = useAuth();
+  
+  // Form state'leri
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,123 +34,164 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [location, setLocation] = useState('');
-  const [level, setLevel] = useState('');
-  const [position, setPosition] = useState('');
-  const [footPreference, setFootPreference] = useState('');
-
-  const primaryColor = '#4CAF50'; // Ana yeşil renk
-  const backgroundColor = colorScheme === 'dark' ? '#121212' : '#FFFFFF';
-  const textColor = colorScheme === 'dark' ? '#FFFFFF' : '#333333';
-  const inputBackgroundColor = colorScheme === 'dark' ? '#333' : '#F5F5F5';
-  const placeholderColor = colorScheme === 'dark' ? '#AAA' : '#999';
-
-  // Kayıt fonksiyonu
+  const [registerError, setRegisterError] = useState('');
+  
+  // Animasyon state'leri
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const formOpacity = useRef(new Animated.Value(0)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  
+  // Renk teması
+  const primaryColor = '#1976D2'; // Ana mavi renk
+  const secondaryColor = '#0D47A1'; // Koyu mavi
+  const accentColor = '#42A5F5'; // Açık mavi
+  const backgroundColor = '#F5F7FA';
+  const cardColor = '#FFFFFF';
+  const textColor = '#333333';
+  const inputBackgroundColor = '#F5F5F5';
+  const placeholderColor = '#999';
+  const errorColor = '#FF5252';
+  
+  // Hata durumunda sallama animasyonu
+  const shakeAnimation = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 100, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 100, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 100, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 100, useNativeDriver: true })
+    ]).start();
+  };
+  
+  useEffect(() => {
+    // Sayfa yüklenirken animasyonları başlat
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true
+      }),
+      Animated.timing(formOpacity, {
+        toValue: 1,
+        duration: 1200,
+        delay: 300,
+        useNativeDriver: true
+      })
+    ]).start();
+    
+    // Auth hatası varsa kayıt hatasına ayarla
+    if (authError) {
+      setRegisterError(authError);
+    }
+  }, [fadeAnim, slideAnim, formOpacity, authError]);
+  
+  const validateEmail = (email: string) => {
+    const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test(String(email).toLowerCase());
+  };
+  
   const handleRegister = async () => {
+    // Klavyeyi kapat
+    Keyboard.dismiss();
+    
     // Form doğrulama
-    if (!fullName || !username || !email || !password || !confirmPassword) {
-      Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
+    if (!username.trim()) {
+      setRegisterError('Kullanıcı adı gereklidir');
+      shakeAnimation();
       return;
     }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor.');
+    
+    if (!email.trim()) {
+      setRegisterError('E-posta adresi gereklidir');
+      shakeAnimation();
       return;
     }
-
+    
+    if (!validateEmail(email)) {
+      setRegisterError('Geçerli bir e-posta adresi girin');
+      shakeAnimation();
+      return;
+    }
+    
+    if (!password.trim()) {
+      setRegisterError('Şifre gereklidir');
+      shakeAnimation();
+      return;
+    }
+    
     if (password.length < 6) {
-      Alert.alert('Hata', 'Şifre en az 6 karakter olmalıdır.');
+      setRegisterError('Şifre en az 6 karakter olmalıdır');
+      shakeAnimation();
       return;
     }
-
-    if (username.length < 3) {
-      Alert.alert('Hata', 'Kullanıcı adı en az 3 karakter olmalıdır.');
+    
+    if (password !== confirmPassword) {
+      setRegisterError('Şifreler eşleşmiyor');
+      shakeAnimation();
       return;
     }
-
-    // Email formatını kontrol et
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Hata', 'Geçerli bir e-posta adresi girin.');
-      return;
-    }
-
+    
     setIsLoading(true);
-    console.log('Kayıt işlemi başlatılıyor:', { 
-      fullName, 
-      username, 
-      email,
-      location,
-      level,
-      position,
-      footPreference
-    });
+    setRegisterError(''); // Önceki hataları temizle
     
     try {
-      // AuthContext'in register fonksiyonunu kullan
-      const success = await register(fullName, username, email, password, {
-        location,
-        level,
-        position,
-        footPreference,
-        stats: {
-          matches: 0,
-          goals: 0,
-          assists: 0,
-          playHours: 0,
-          rating: 0
+      console.log('Kayıt isteği gönderiliyor:', { username, email, password: '***' });
+      
+      // Kayıt işlemi
+      await register(
+        username,
+        username,
+        email,
+        password,
+        {
+          location: '',
+          bio: ''
         }
-      });
+      );
       
-      if (success) {
-        console.log('Kayıt başarılı');
-        Alert.alert(
-          'Başarılı', 
-          'Kaydınız başarıyla oluşturuldu. Şimdi giriş yapabilirsiniz.',
-          [{ text: 'Tamam', onPress: () => router.push('/login') }]
-        );
-      } else {
-        console.log('Kayıt başarısız');
-        Alert.alert('Hata', 'Kayıt sırasında bir sorun oluştu. Lütfen tekrar deneyin.');
-      }
+      console.log('Kayıt başarılı, giriş sayfasına yönlendiriliyor');
+      
+      // Giriş sayfasına yönlendir
+      router.replace('/login');
+      
     } catch (error: any) {
-      console.error('Kayıt hatası:', error);
+      console.error('Kayıt yaparken hata:', error.message || error);
       
-      // Hata mesajını analiz et
-      let errorMessage = 'Kayıt yapılırken bir hata oluştu.';
+      let errorMessage = 'Kayıt başarısız';
       
-      // API yanıtından hata mesajını almaya çalış
       if (error.message) {
-        errorMessage = error.message;
+        if (error.message.includes('Kullanıcı adı zaten alınmış')) {
+          errorMessage = 'Bu kullanıcı adı zaten kullanılıyor';
+        } else if (error.message.includes('E-posta zaten alınmış')) {
+          errorMessage = 'Bu e-posta adresi zaten kullanılıyor';
+        } else if (error.message.includes('Sunucu')) {
+          errorMessage = 'Sunucuya bağlanırken bir sorun oluştu';
+        } else {
+          errorMessage = error.message;
+        }
       }
       
-      // Response içinde bir hata mesajı varsa onu kullan
-      if (error.response && error.response.data && error.response.data.message) {
-        errorMessage = error.response.data.message;
-      }
-      
-      console.log('Hata mesajı:', errorMessage);
-      
-      // Kullanıcı adı veya email zaten kullanılıyorsa özel mesaj göster
-      if (errorMessage.includes('zaten kullanılıyor') || 
-          errorMessage.includes('already') || 
-          errorMessage.includes('duplicate')) {
-        Alert.alert(
-          'Kullanıcı Mevcut', 
-          'Bu kullanıcı adı veya e-posta adresi zaten kullanılıyor. Lütfen farklı bilgilerle tekrar deneyin.',
-          [{ text: 'Tamam', style: 'default' }]
-        );
-      } else {
-        Alert.alert('Kayıt Hatası', errorMessage);
-      }
+      setRegisterError(errorMessage);
+      shakeAnimation();
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Giriş sayfasına geçiş
+  
   const goToLogin = () => {
-    router.push('/login');
+    // Giriş sayfasına geçerken animasyon
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true
+    }).start(() => {
+      router.replace('/login');
+    });
   };
 
   return (
@@ -143,230 +199,232 @@ export default function RegisterScreen() {
       style={{ flex: 1 }} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView 
-        contentContainerStyle={[styles.container, { backgroundColor }]} 
-        keyboardShouldPersistTaps="handled"
+      <LinearGradient
+        colors={['#E1F5FE', '#B3E5FC', '#E3F2FD']}
+        style={styles.gradientBackground}
       >
-        <View style={styles.logoContainer}>
-          <FutbolXLogo size={150} showText={false} />
-          <ThemedText style={styles.title}>FutbolX'e Katılın</ThemedText>
-          <ThemedText style={styles.subtitle}>Futbol dünyasında yeni bir macera sizi bekliyor</ThemedText>
-        </View>
-
-        <View style={styles.formContainer}>
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="person" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="Ad Soyad"
-              placeholderTextColor={placeholderColor}
-              value={fullName}
-              onChangeText={setFullName}
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="at" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="Kullanıcı Adı"
-              placeholderTextColor={placeholderColor}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="envelope" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="E-posta Adresi"
-              placeholderTextColor={placeholderColor}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="lock" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="Şifre"
-              placeholderTextColor={placeholderColor}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <IconSymbol 
-                name={showPassword ? "eye.slash" : "eye"} 
-                size={20} 
-                color={placeholderColor} 
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="lock" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="Şifre Tekrarı"
-              placeholderTextColor={placeholderColor}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-            />
-            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-              <IconSymbol 
-                name={showConfirmPassword ? "eye.slash" : "eye"} 
-                size={20} 
-                color={placeholderColor} 
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Futbol profil bilgileri ekleniyor */}
-          <ThemedText style={styles.sectionTitle}>Futbol Profil Bilgileri</ThemedText>
-          <ThemedText style={styles.sectionSubtitle}>Bu bilgileri daha sonra profilinizden düzenleyebilirsiniz</ThemedText>
-
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="location" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="Konum (İlçe, Şehir)"
-              placeholderTextColor={placeholderColor}
-              value={location}
-              onChangeText={setLocation}
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="chart.bar" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="Seviye (Amatör, Orta, İleri)"
-              placeholderTextColor={placeholderColor}
-              value={level}
-              onChangeText={setLevel}
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="person.fill" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="Pozisyon (Kaleci, Defans, Orta Saha, Forvet)"
-              placeholderTextColor={placeholderColor}
-              value={position}
-              onChangeText={setPosition}
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-            <IconSymbol name="figure.walk" size={20} color={placeholderColor} />
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              placeholder="Ayak Tercihi (Sağ, Sol, Her ikisi)"
-              placeholderTextColor={placeholderColor}
-              value={footPreference}
-              onChangeText={setFootPreference}
-            />
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: primaryColor, opacity: isLoading || authLoading ? 0.7 : 1 }]}
-            onPress={handleRegister}
-            disabled={isLoading || authLoading}
+        <Animated.View 
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }}
+        >
+          <ScrollView 
+            contentContainerStyle={styles.container} 
+            keyboardShouldPersistTaps="handled"
           >
-            <ThemedText style={styles.buttonText}>
-              {isLoading || authLoading ? 'Kaydolunuyor...' : 'Kaydol'}
-            </ThemedText>
-          </TouchableOpacity>
-
-          <View style={styles.loginContainer}>
-            <ThemedText style={styles.loginText}>Zaten hesabınız var mı? </ThemedText>
-            <TouchableOpacity onPress={goToLogin}>
-              <ThemedText style={[styles.loginLink, { color: primaryColor }]}>
-                Giriş Yapın
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.separator}>
-            <View style={[styles.separatorLine, { backgroundColor: placeholderColor }]} />
-            <ThemedText style={styles.separatorText}>veya</ThemedText>
-            <View style={[styles.separatorLine, { backgroundColor: placeholderColor }]} />
-          </View>
-
-          <View style={styles.socialLoginContainer}>
-            <TouchableOpacity 
-              style={[styles.socialButton, { backgroundColor: '#4267B2' }]}
-            >
-              <ThemedText style={styles.socialButtonText}>Facebook ile Kaydol</ThemedText>
-            </TouchableOpacity>
+            <View style={styles.logoContainer}>
+              <FutbolXLogo size={100} showText={false} />
+              <ThemedText style={styles.title}>FutbolX</ThemedText>
+              <ThemedText style={styles.subtitle}>Futbol tutkunlarını buluşturan platform</ThemedText>
+            </View>
             
-            <TouchableOpacity 
-              style={[styles.socialButton, { backgroundColor: '#DB4437' }]}
+            <Animated.View 
+              style={[styles.formCard, { 
+                backgroundColor: cardColor,
+                opacity: formOpacity,
+                transform: [{ translateY: slideAnim }]
+              }]}
             >
-              <ThemedText style={styles.socialButtonText}>Google ile Kaydol</ThemedText>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.termsContainer}>
-            <ThemedText style={styles.termsText}>
-              Kaydolarak, FutbolX'in {' '}
-              <ThemedText style={[styles.termsLink, { color: primaryColor }]}>
-                Kullanım Şartları
-              </ThemedText>
-              {' '} ve {' '}
-              <ThemedText style={[styles.termsLink, { color: primaryColor }]}>
-                Gizlilik Politikası
-              </ThemedText>
-              'nı kabul etmiş olursunuz.
-            </ThemedText>
-          </View>
-        </View>
-      </ScrollView>
+              <ThemedText style={styles.formTitle}>Yeni Hesap Oluşturun</ThemedText>
+              
+              {/* Hata mesajı */}
+              {registerError ? (
+                <Animated.View 
+                  style={[styles.errorContainer, {
+                    transform: [{ translateX: shakeAnim }]
+                  }]}
+                >
+                  <MaterialIcons name="error-outline" size={20} color={errorColor} />
+                  <ThemedText style={styles.errorText}>{registerError}</ThemedText>
+                </Animated.View>
+              ) : null}
+              
+              {/* Kullanıcı adı input */}
+              <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+                <IconSymbol name="person" size={20} color={primaryColor} />
+                <TextInput 
+                  style={[styles.input, { color: textColor }]}
+                  placeholder="Kullanıcı Adı"
+                  placeholderTextColor={placeholderColor}
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                />
+              </View>
+              
+              {/* E-posta input */}
+              <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+                <IconSymbol name="envelope" size={20} color={primaryColor} />
+                <TextInput 
+                  style={[styles.input, { color: textColor }]}
+                  placeholder="E-posta Adresi"
+                  placeholderTextColor={placeholderColor}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+              
+              {/* Şifre input */}
+              <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+                <IconSymbol name="lock" size={20} color={primaryColor} />
+                <TextInput 
+                  style={[styles.input, { color: textColor }]}
+                  placeholder="Şifre"
+                  placeholderTextColor={placeholderColor}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 5 }}>
+                  <IconSymbol 
+                    name={showPassword ? "eye.slash" : "eye"} 
+                    size={20} 
+                    color={primaryColor} 
+                  />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Şifre onay input */}
+              <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+                <IconSymbol name="lock" size={20} color={primaryColor} />
+                <TextInput 
+                  style={[styles.input, { color: textColor }]}
+                  placeholder="Şifrenizi Onaylayın"
+                  placeholderTextColor={placeholderColor}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={{ padding: 5 }}>
+                  <IconSymbol 
+                    name={showConfirmPassword ? "eye.slash" : "eye"} 
+                    size={20} 
+                    color={primaryColor} 
+                  />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Kayıt butonu */}
+              <TouchableOpacity 
+                style={[styles.button, { 
+                  backgroundColor: isLoading || authLoading ? secondaryColor : primaryColor,
+                  shadowColor: primaryColor,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8
+                }]}
+                onPress={handleRegister}
+                disabled={isLoading || authLoading}
+              >
+                {isLoading || authLoading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <ThemedText style={styles.buttonText}>Kaydol</ThemedText>
+                )}
+              </TouchableOpacity>
+              
+              {/* Giriş yap */}
+              <View style={styles.loginContainer}>
+                <ThemedText style={styles.loginText}>Zaten hesabınız var mı? </ThemedText>
+                <TouchableOpacity onPress={goToLogin}>
+                  <ThemedText style={[styles.loginLink, { color: primaryColor }]}>
+                    Giriş Yapın
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+            
+            <View style={styles.footerContainer}>
+              <ThemedText style={styles.footerText}>© 2025 FutbolX - Tüm Hakları Saklıdır</ThemedText>
+            </View>
+          </ScrollView>
+        </Animated.View>
+      </LinearGradient>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Ana container
+  gradientBackground: {
+    flex: 1,
+  },
   container: {
     flexGrow: 1,
     padding: 20,
     justifyContent: 'center',
   },
+  
+  // Logo bölümü
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     opacity: 0.8,
   },
-  formContainer: {
+  
+  // Form kartı
+  formCard: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 10,
   },
+  
+  formTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  
+  // Hata mesajı
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    marginLeft: 8,
+    fontSize: 14,
+    flex: 1,
+  },
+  
+  // Input alanları
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 16,
     paddingHorizontal: 16,
     height: 55,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
   },
   input: {
     flex: 1,
@@ -374,17 +432,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 16,
   },
+  
+  // Butonlar
   button: {
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  
+  // Giriş yap
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -397,60 +461,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  separator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 25,
-  },
-  separatorLine: {
-    flex: 1,
-    height: 1,
-  },
-  separatorText: {
-    paddingHorizontal: 10,
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  socialLoginContainer: {
-    gap: 15,
-  },
-  socialButton: {
-    borderRadius: 10,
-    paddingVertical: 15,
+  
+  // Footer
+  footerContainer: {
+    marginTop: 40,
     alignItems: 'center',
   },
-  socialButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  termsContainer: {
-    marginTop: 25,
-    marginBottom: 10,
-  },
-  termsText: {
+  footerText: {
     fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
-    opacity: 0.7,
-  },
-  termsLink: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
+    opacity: 0.6,
   },
 });

@@ -5,12 +5,29 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '@/context/AuthContext';
 import { BackendConnectionProvider } from '../context/BackendConnectionContext';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Notification ayarları
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (error) {
+  console.log('Bildirim ayarları yüklenemedi:', error);
+}
+
+// Splash screen'in otomatik kapanmasını engelle
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -20,6 +37,34 @@ export default function RootLayout() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [userLoggedIn, setUserLoggedIn] = useState(false);
+  
+  // FutbolX tema renkleri
+  const appTheme = {
+    light: {
+      ...DefaultTheme,
+      colors: {
+        ...DefaultTheme.colors,
+        primary: '#4CAF50',
+        background: '#F5F7FA',
+        card: '#FFFFFF',
+        text: '#333333',
+        border: '#E0E0E0',
+        notification: '#4CAF50',
+      },
+    },
+    dark: {
+      ...DarkTheme,
+      colors: {
+        ...DarkTheme.colors,
+        primary: '#81C784',
+        background: '#121212',
+        card: '#1E1E1E',
+        text: '#FFFFFF',
+        border: '#2C2C2C',
+        notification: '#81C784',
+      },
+    },
+  };
 
   useEffect(() => {
     // Uygulama başlangıç kontrollerini yap (oturum durumu, yerel depolama vb.)
@@ -27,9 +72,17 @@ export default function RootLayout() {
       try {
         // AsyncStorage'dan kullanıcı durumunu kontrol et
         const userData = await AsyncStorage.getItem('user');
+        const token = await AsyncStorage.getItem('token');
         
-        // Kullanıcı verisi varsa, giriş yapmış sayılır
-        setUserLoggedIn(userData !== null);
+        // Kullanıcı verisi ve token varsa, giriş yapmış sayılır
+        setUserLoggedIn(userData !== null && token !== null);
+        
+        // Bildirim izinlerini kontrol et ve talep et
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          console.log('Bildirim izni durumu:', status);
+        }
       } catch (error) {
         console.error('Başlangıç kontrolü sırasında hata:', error);
         setUserLoggedIn(false);
@@ -48,9 +101,16 @@ export default function RootLayout() {
 
   return (
     <BackendConnectionProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={colorScheme === 'dark' ? appTheme.dark : appTheme.light}>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <AuthProvider>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack screenOptions={{ 
+            headerShown: false,
+            contentStyle: { 
+              backgroundColor: colorScheme === 'dark' ? appTheme.dark.colors.background : appTheme.light.colors.background 
+            },
+            animation: 'slide_from_right'
+          }}>
             {userLoggedIn ? (
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             ) : (

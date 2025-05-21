@@ -50,7 +50,7 @@ const auth = (req, res, next) => {
     }
     
     console.log('\x1b[32m%s\x1b[0m', `Token bulundu (${tokenSource}):`, token.substring(0, 20) + '...');
-    
+
     // Bozuk token düzeltme girişimleri - web ve mobil token formatı farklı olabilir
     let cleanedToken = token;
     
@@ -68,11 +68,11 @@ const auth = (req, res, next) => {
     try {
       // İlk olarak orijinal token ile doğrulama dene
       console.log('\x1b[36m%s\x1b[0m', 'Orijinal token doğrulanıyor...');
-      const decoded = jwt.verify(token, JWT_SECRET);
-      
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
       console.log('\x1b[32m%s\x1b[0m', 'Token başarıyla doğrulandı. User ID:', decoded.id);
-      req.user = { id: decoded.id };
-      req.userId = decoded.id; // Geriye dönük uyumluluk için
+    req.user = { id: decoded.id };
+    req.userId = decoded.id; // Geriye dönük uyumluluk için
       return next();
     } catch (firstError) {
       console.log('\x1b[33m%s\x1b[0m', 'İlk doğrulama başarısız, başka yöntemler deneniyor:', firstError.message);

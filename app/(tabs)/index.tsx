@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity, Image, TextInput, FlatList, ActivityIndicator, Alert, Platform, Dimensions, RefreshControl, Pressable, Modal } from 'react-native';
 import networkConfig, { getApiUrl } from '@/services/networkConfig';
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -10,6 +11,7 @@ import { Link, useRouter } from 'expo-router';
 import { FutbolXLogo } from '@/components/FutbolXLogo';
 import * as Linking from 'expo-linking';
 import { useAuth } from '@/context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Ana renk
 const primaryColor = '#4CAF50';
@@ -94,6 +96,31 @@ interface Video {
   duration?: number; // Video süresi alanı
 }
 
+// Takım veri yapısı
+interface Team {
+  id: string;
+  name: string;
+  color: string;
+  logoText: string;
+  establishment: string;
+  status: string;
+  players: number;
+  matches: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  topRank: string;
+  followers: number;
+  rating: number;
+  ratingCount: number;
+  stats: {
+    scoring: number;
+    defense: number;
+    passing: number;
+    physical: number;
+  }
+}
+
 export default function IndexScreen() {
   const [activeTab, setActiveTab] = useState('kesfet');
   const [searchText, setSearchText] = useState('');
@@ -107,14 +134,35 @@ export default function IndexScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<{url: string, title: string} | null>(null);
   const [videoModalVisible, setVideoModalVisible] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [teams, setTeams] = useState<Team[]>([]);
   
   const router = useRouter();
   const { isLoggedIn, token } = useAuth();
   
-  const primaryColor = '#4CAF50';
+  const secondaryColor = '#2E7D32'; // Koyu yeşil
+  const accentColor = '#81C784'; // Açık yeşil
   const API_URL = `http://${networkConfig.MANUAL_BACKEND_IP}:5000/api`;
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
+  const isDark = useThemeColor({}, 'background') === '#121212';
+  
+  // Hakkımızda modal'ı gösterme durumunu kontrol et - uygulama ilk açıldığında bir kez göster
+  useEffect(() => {
+    const checkFirstOpen = async () => {
+      try {
+        const hasShownAbout = await AsyncStorage.getItem('hasShownAboutModal');
+        if (!hasShownAbout) {
+          setShowAboutModal(true);
+          await AsyncStorage.setItem('hasShownAboutModal', 'true');
+        }
+      } catch (error) {
+        console.error('Modal kontrol hatası:', error);
+      }
+    };
+    
+    checkFirstOpen();
+  }, []);
   
   // Veritabanından halı sahaları ve etkinlikleri çekme
   useEffect(() => {
@@ -127,9 +175,11 @@ export default function IndexScreen() {
         fetchVideos();
       } else if (activeTab === 'halisaha') {
         fetchFields();
-      } else if (activeTab === 'etkinlikler') {
-        fetchEvents();
-        }
+      } else if (activeTab === 'takimlar') {
+        fetchTeams();
+      } else if (activeTab === 'maclar') {
+        // Maçlar için veri çekme fonksiyonu eklenebilir
+      }
       } catch (error: any) {
         console.error(`Veri çekme hatası: ${error?.message || 'Bilinmeyen hata'}`);
         setError('Veriler yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
@@ -379,6 +429,519 @@ export default function IndexScreen() {
     }
   };
 
+  // Takımları çekme fonksiyonu
+  const fetchTeams = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Sabit IP kullan
+      const apiUrl = `http://${networkConfig.MANUAL_BACKEND_IP}:5000/api/teams`;
+      console.log(`Takımlar için ${networkConfig.MANUAL_BACKEND_IP} IP'sine bağlanmayı deniyorum...`);
+      
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+        
+        if (response.ok) {
+          const teamsData = await response.json();
+          if (teamsData && Array.isArray(teamsData) && teamsData.length > 0) {
+            console.log('Takımlar başarıyla yüklendi:', teamsData.length);
+            setTeams(teamsData);
+          } else {
+            console.log('Takım bulunamadı');
+            // Görselde gösterilen takımları manuel olarak ekle
+            setTeams([
+              {
+                id: '1',
+                name: 'Şimşekler',
+                color: '#8A2BE2', // Mor
+                logoText: 'Ş',
+                establishment: '2023',
+                status: 'Aktif',
+                players: 15,
+                matches: 14,
+                wins: 10,
+                draws: 2,
+                losses: 2,
+                topRank: 'En İyi 5',
+                followers: 21,
+                rating: 4.8,
+                ratingCount: 24,
+                stats: {
+                  scoring: 85,
+                  defense: 75,
+                  passing: 70,
+                  physical: 65
+                }
+              },
+              {
+                id: '2',
+                name: 'Aslanlar SK',
+                color: '#DC143C', // Kırmızı
+                logoText: 'A',
+                establishment: '2021',
+                status: 'Aktif',
+                players: 18,
+                matches: 20,
+                wins: 15,
+                draws: 3,
+                losses: 2,
+                topRank: 'En İyi 3',
+                followers: 28,
+                rating: 4.7,
+                ratingCount: 32,
+                stats: {
+                  scoring: 90,
+                  defense: 80,
+                  passing: 75,
+                  physical: 85
+                }
+              },
+              {
+                id: '3',
+                name: 'Boğaziçi United',
+                color: '#1E90FF', // Mavi
+                logoText: 'B',
+                establishment: '2022',
+                status: 'Aktif',
+                players: 16,
+                matches: 18,
+                wins: 12,
+                draws: 2,
+                losses: 4,
+                topRank: 'En İyi 7',
+                followers: 19,
+                rating: 4.5,
+                ratingCount: 27,
+                stats: {
+                  scoring: 80,
+                  defense: 85,
+                  passing: 90,
+                  physical: 70
+                }
+              },
+              {
+                id: '4',
+                name: 'Kartallar',
+                color: '#228B22', // Yeşil
+                logoText: 'K',
+                establishment: '2022',
+                status: 'Aktif',
+                players: 14,
+                matches: 16,
+                wins: 8,
+                draws: 5,
+                losses: 3,
+                topRank: 'En İyi 8',
+                followers: 15,
+                rating: 4.3,
+                ratingCount: 19,
+                stats: {
+                  scoring: 75,
+                  defense: 90,
+                  passing: 70,
+                  physical: 85
+                }
+              },
+              {
+                id: '5',
+                name: 'Yıldızlar FC',
+                color: '#FF8C00', // Turuncu
+                logoText: 'Y',
+                establishment: '2023',
+                status: 'Aktif',
+                players: 17,
+                matches: 12,
+                wins: 7,
+                draws: 2,
+                losses: 3,
+                topRank: 'En İyi 10',
+                followers: 16,
+                rating: 4.2,
+                ratingCount: 14,
+                stats: {
+                  scoring: 85,
+                  defense: 65,
+                  passing: 80,
+                  physical: 70
+                }
+              }
+            ]);
+          }
+        } else {
+          console.log(`Bağlantı hatası: HTTP ${response.status}`);
+          // Görselde gösterilen takımları manuel olarak ekle
+          setTeams([
+            {
+              id: '1',
+              name: 'Şimşekler',
+              color: '#8A2BE2', // Mor
+              logoText: 'Ş',
+              establishment: '2023',
+              status: 'Aktif',
+              players: 15,
+              matches: 14,
+              wins: 10,
+              draws: 2,
+              losses: 2,
+              topRank: 'En İyi 5',
+              followers: 21,
+              rating: 4.8,
+              ratingCount: 24,
+              stats: {
+                scoring: 85,
+                defense: 75,
+                passing: 70,
+                physical: 65
+              }
+            },
+            {
+              id: '2',
+              name: 'Aslanlar SK',
+              color: '#DC143C', // Kırmızı
+              logoText: 'A',
+              establishment: '2021',
+              status: 'Aktif',
+              players: 18,
+              matches: 20,
+              wins: 15,
+              draws: 3,
+              losses: 2,
+              topRank: 'En İyi 3',
+              followers: 28,
+              rating: 4.7,
+              ratingCount: 32,
+              stats: {
+                scoring: 90,
+                defense: 80,
+                passing: 75,
+                physical: 85
+              }
+            },
+            {
+              id: '3',
+              name: 'Boğaziçi United',
+              color: '#1E90FF', // Mavi
+              logoText: 'B',
+              establishment: '2022',
+              status: 'Aktif',
+              players: 16,
+              matches: 18,
+              wins: 12,
+              draws: 2,
+              losses: 4,
+              topRank: 'En İyi 7',
+              followers: 19,
+              rating: 4.5,
+              ratingCount: 27,
+              stats: {
+                scoring: 80,
+                defense: 85,
+                passing: 90,
+                physical: 70
+              }
+            },
+            {
+              id: '4',
+              name: 'Kartallar',
+              color: '#228B22', // Yeşil
+              logoText: 'K',
+              establishment: '2022',
+              status: 'Aktif',
+              players: 14,
+              matches: 16,
+              wins: 8,
+              draws: 5,
+              losses: 3,
+              topRank: 'En İyi 8',
+              followers: 15,
+              rating: 4.3,
+              ratingCount: 19,
+              stats: {
+                scoring: 75,
+                defense: 90,
+                passing: 70,
+                physical: 85
+              }
+            },
+            {
+              id: '5',
+              name: 'Yıldızlar FC',
+              color: '#FF8C00', // Turuncu
+              logoText: 'Y',
+              establishment: '2023',
+              status: 'Aktif',
+              players: 17,
+              matches: 12,
+              wins: 7,
+              draws: 2,
+              losses: 3,
+              topRank: 'En İyi 10',
+              followers: 16,
+              rating: 4.2,
+              ratingCount: 14,
+              stats: {
+                scoring: 85,
+                defense: 65,
+                passing: 80,
+                physical: 70
+              }
+            }
+          ]);
+        }
+      } catch (error: any) {
+        console.log(`Bağlantı hatası: ${error.message}`);
+        setTeams([
+          {
+            id: '1',
+            name: 'Şimşekler',
+            color: '#8A2BE2', // Mor
+            logoText: 'Ş',
+            establishment: '2023',
+            status: 'Aktif',
+            players: 15,
+            matches: 14,
+            wins: 10,
+            draws: 2,
+            losses: 2,
+            topRank: 'En İyi 5',
+            followers: 21,
+            rating: 4.8,
+            ratingCount: 24,
+            stats: {
+              scoring: 85,
+              defense: 75,
+              passing: 70,
+              physical: 65
+            }
+          },
+          {
+            id: '2',
+            name: 'Aslanlar SK',
+            color: '#DC143C', // Kırmızı
+            logoText: 'A',
+            establishment: '2021',
+            status: 'Aktif',
+            players: 18,
+            matches: 20,
+            wins: 15,
+            draws: 3,
+            losses: 2,
+            topRank: 'En İyi 3',
+            followers: 28,
+            rating: 4.7,
+            ratingCount: 32,
+            stats: {
+              scoring: 90,
+              defense: 80,
+              passing: 75,
+              physical: 85
+            }
+          },
+          {
+            id: '3',
+            name: 'Boğaziçi United',
+            color: '#1E90FF', // Mavi
+            logoText: 'B',
+            establishment: '2022',
+            status: 'Aktif',
+            players: 16,
+            matches: 18,
+            wins: 12,
+            draws: 2,
+            losses: 4,
+            topRank: 'En İyi 7',
+            followers: 19,
+            rating: 4.5,
+            ratingCount: 27,
+            stats: {
+              scoring: 80,
+              defense: 85,
+              passing: 90,
+              physical: 70
+            }
+          },
+          {
+            id: '4',
+            name: 'Kartallar',
+            color: '#228B22', // Yeşil
+            logoText: 'K',
+            establishment: '2022',
+            status: 'Aktif',
+            players: 14,
+            matches: 16,
+            wins: 8,
+            draws: 5,
+            losses: 3,
+            topRank: 'En İyi 8',
+            followers: 15,
+            rating: 4.3,
+            ratingCount: 19,
+            stats: {
+              scoring: 75,
+              defense: 90,
+              passing: 70,
+              physical: 85
+            }
+          },
+          {
+            id: '5',
+            name: 'Yıldızlar FC',
+            color: '#FF8C00', // Turuncu
+            logoText: 'Y',
+            establishment: '2023',
+            status: 'Aktif',
+            players: 17,
+            matches: 12,
+            wins: 7,
+            draws: 2,
+            losses: 3,
+            topRank: 'En İyi 10',
+            followers: 16,
+            rating: 4.2,
+            ratingCount: 14,
+            stats: {
+              scoring: 85,
+              defense: 65,
+              passing: 80,
+              physical: 70
+            }
+          }
+        ]);
+      }
+    } catch (err: any) {
+      console.error('Takımları getirme hatası:', err);
+      setError(err.message || 'Takımlar yüklenirken bir hata oluştu');
+      // Görselde gösterilen takımları manuel olarak ekle
+      setTeams([
+        {
+          id: '1',
+          name: 'Şimşekler',
+          color: '#8A2BE2', // Mor
+          logoText: 'Ş',
+          establishment: '2023',
+          status: 'Aktif',
+          players: 15,
+          matches: 14,
+          wins: 10,
+          draws: 2,
+          losses: 2,
+          topRank: 'En İyi 5',
+          followers: 21,
+          rating: 4.8,
+          ratingCount: 24,
+          stats: {
+            scoring: 85,
+            defense: 75,
+            passing: 70,
+            physical: 65
+          }
+        },
+        {
+          id: '2',
+          name: 'Aslanlar SK',
+          color: '#DC143C', // Kırmızı
+          logoText: 'A',
+          establishment: '2021',
+          status: 'Aktif',
+          players: 18,
+          matches: 20,
+          wins: 15,
+          draws: 3,
+          losses: 2,
+          topRank: 'En İyi 3',
+          followers: 28,
+          rating: 4.7,
+          ratingCount: 32,
+          stats: {
+            scoring: 90,
+            defense: 80,
+            passing: 75,
+            physical: 85
+          }
+        },
+        {
+          id: '3',
+          name: 'Boğaziçi United',
+          color: '#1E90FF', // Mavi
+          logoText: 'B',
+          establishment: '2022',
+          status: 'Aktif',
+          players: 16,
+          matches: 18,
+          wins: 12,
+          draws: 2,
+          losses: 4,
+          topRank: 'En İyi 7',
+          followers: 19,
+          rating: 4.5,
+          ratingCount: 27,
+          stats: {
+            scoring: 80,
+            defense: 85,
+            passing: 90,
+            physical: 70
+          }
+        },
+        {
+          id: '4',
+          name: 'Kartallar',
+          color: '#228B22', // Yeşil
+          logoText: 'K',
+          establishment: '2022',
+          status: 'Aktif',
+          players: 14,
+          matches: 16,
+          wins: 8,
+          draws: 5,
+          losses: 3,
+          topRank: 'En İyi 8',
+          followers: 15,
+          rating: 4.3,
+          ratingCount: 19,
+          stats: {
+            scoring: 75,
+            defense: 90,
+            passing: 70,
+            physical: 85
+          }
+        },
+        {
+          id: '5',
+          name: 'Yıldızlar FC',
+          color: '#FF8C00', // Turuncu
+          logoText: 'Y',
+          establishment: '2023',
+          status: 'Aktif',
+          players: 17,
+          matches: 12,
+          wins: 7,
+          draws: 2,
+          losses: 3,
+          topRank: 'En İyi 10',
+          followers: 16,
+          rating: 4.2,
+          ratingCount: 14,
+          stats: {
+            scoring: 85,
+            defense: 65,
+            passing: 80,
+            physical: 70
+          }
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Misafir kullanıcıları login'e yönlendirme
   const handleRestrictedAction = () => {
     Alert.alert(
@@ -394,26 +957,15 @@ export default function IndexScreen() {
   // Başlık bileşeni
   const renderHeader = () => (
     <View style={styles.header}>
-      <View style={styles.titleContainer}>
-        <ThemedText style={styles.logoText}>FutbolX</ThemedText>
+      <View style={styles.logoContainer}>
+        <TouchableOpacity 
+          style={styles.logoButton}
+          onPress={() => setShowAboutModal(true)}
+        >
+          <FutbolXLogo size={32} showText={false} />
+          <ThemedText style={styles.logoText}>FutbolX</ThemedText>
+        </TouchableOpacity>
       </View>
-      <View style={styles.searchContainer}>
-        <IconSymbol name="magnifyingglass" size={16} color="#999" />
-        <TextInput 
-          style={styles.searchInput}
-          placeholder="Ara..."
-          placeholderTextColor="#999"
-          value={searchText}
-          onChangeText={setSearchText}
-        />
-      </View>
-      <TouchableOpacity 
-        style={styles.reservationButton}
-        onPress={isLoggedIn ? () => router.push("/reservation" as any) : handleRestrictedAction}
-        activeOpacity={0.7}
-      >
-        <ThemedText style={styles.reservationButtonText}>Rezervasyon</ThemedText>
-      </TouchableOpacity>
     </View>
   );
 
@@ -452,25 +1004,43 @@ export default function IndexScreen() {
           styles.tabText, 
           activeTab === 'halisaha' && styles.activeTabText
         ]}>
-          Halı Sahalar
+          Halı Sahalarımız
+        </ThemedText>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.tab, activeTab === 'takimlar' && styles.activeTab]}
+        onPress={isLoggedIn ? () => setActiveTab('takimlar') : handleRestrictedAction}
+        activeOpacity={0.7}
+      >
+        <IconSymbol 
+          name="person.3" 
+          size={20} 
+          color={activeTab === 'takimlar' ? primaryColor : '#777'} 
+        />
+        <ThemedText style={[
+          styles.tabText, 
+          activeTab === 'takimlar' && styles.activeTabText
+        ]}>
+          Takımlarımız
         </ThemedText>
       </TouchableOpacity>
       
       <TouchableOpacity 
-        style={[styles.tab, activeTab === 'etkinlikler' && styles.activeTab]}
-        onPress={isLoggedIn ? () => setActiveTab('etkinlikler') : handleRestrictedAction}
+        style={[styles.tab, activeTab === 'maclar' && styles.activeTab]}
+        onPress={isLoggedIn ? () => setActiveTab('maclar') : handleRestrictedAction}
         activeOpacity={0.7}
       >
         <IconSymbol 
-          name="calendar" 
+          name="soccerball" 
           size={20} 
-          color={activeTab === 'etkinlikler' ? primaryColor : '#777'} 
+          color={activeTab === 'maclar' ? primaryColor : '#777'} 
         />
         <ThemedText style={[
           styles.tabText, 
-          activeTab === 'etkinlikler' && styles.activeTabText
+          activeTab === 'maclar' && styles.activeTabText
         ]}>
-          Etkinlikler
+          Maçlar
         </ThemedText>
       </TouchableOpacity>
     </View>
@@ -479,7 +1049,7 @@ export default function IndexScreen() {
   const renderPopularFields = () => (
     <View style={styles.sectionContainer}>
       <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>Popüler Halı Sahalar</ThemedText>
+        <ThemedText style={styles.sectionTitle}>Sporyum 23 Halı Sahaları</ThemedText>
         <TouchableOpacity 
           onPress={isLoggedIn ? () => router.push("/fields" as any) : handleRestrictedAction}
           activeOpacity={0.7}
@@ -499,62 +1069,169 @@ export default function IndexScreen() {
           <ThemedText style={styles.errorText}>{error}</ThemedText>
         </View>
       ) : (
-        <FlatList
-          data={fields}
-          horizontal={false}
+        <ScrollView 
           showsVerticalScrollIndicator={true}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 10 }}
-          keyExtractor={(item, index) => `field-${item.id}-${index}`}
-          style={{ maxHeight: 500 }} // Dikey kaydırma için yükseklik sınırı
-          renderItem={({ item: field, index }) => (
-          <Pressable 
-            key={`field-${field.id}-${index}`}
-            style={[
-              styles.fieldCard,
-                { marginBottom: 10 }, // Yatay margin yerine dikey margin
-              hoveredField === field.id && styles.fieldCardHovered
-            ]}
-            onHoverIn={() => setHoveredField(field.id)}
-            onHoverOut={() => setHoveredField(null)}
-            onPress={isLoggedIn ? () => router.push(`/field/${field.id}` as any) : handleRestrictedAction}
-          >
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          {/* Halı Saha 1 - Açık Alan */}
+          <View style={styles.customFieldCard}>
             <Image 
-              source={{ uri: field.image }} 
-              style={styles.fieldImage} 
+              source={require('@/assets/images/field1.jpg')} 
+              style={styles.customFieldImage} 
               resizeMode="cover"
             />
-            <View style={styles.fieldInfo}>
-              <View style={styles.fieldNameContainer}>
-                <IconSymbol name="list.bullet" size={18} color="#212121" />
-                <ThemedText style={styles.fieldName}>{field.name}</ThemedText>
+            <View style={styles.customFieldContent}>
+              <ThemedText style={styles.customFieldName}>Gece Işıklandırmalı Açık Halı Saha</ThemedText>
+              
+              <View style={styles.customFieldFeatures}>
+                <View style={styles.customFieldFeatureRow}>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="ruler" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Boyut: 30m x 50m</ThemedText>
+                  </View>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="lightbulb" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>7/24 Aydınlatma</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.customFieldFeatureRow}>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="shower" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Duş ve Soyunma Odaları</ThemedText>
+                  </View>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="car" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Ücretsiz Otopark</ThemedText>
+                  </View>
+                </View>
               </View>
-              <View style={styles.fieldLocationContainer}>
-                <IconSymbol name="mappin" size={16} color="#777" />
-                <ThemedText style={styles.fieldLocation}>{field.location}</ThemedText>
-              </View>
-              <View style={styles.fieldPriceContainer}>
-                <ThemedText style={styles.fieldPrice}>{field.price}₺</ThemedText>
+              
+              <View style={styles.customFieldPriceRow}>
+                <View>
+                  <ThemedText style={styles.customFieldPriceLabel}>Saatlik Ücret</ThemedText>
+                  <ThemedText style={styles.customFieldPrice}>350₺</ThemedText>
+                </View>
                 <TouchableOpacity 
-                  style={[
-                    styles.miniButton, 
-                    { backgroundColor: field.availability === 'Müsait' ? '#E8F5E9' : '#FFEBEE' }
-                  ]}
-                  activeOpacity={0.7}
+                  style={styles.reservationButton}
+                  onPress={isLoggedIn ? () => router.push("/field/1/reservation" as any) : handleRestrictedAction}
                 >
-                  <ThemedText 
-                    style={[
-                      styles.miniButtonText,
-                      { color: field.availability === 'Müsait' ? '#4CAF50' : '#F44336' }
-                    ]}
+                  <LinearGradient
+                    colors={['#4CAF50', '#2E7D32']}
+                    style={styles.reservationButtonGradient}
                   >
-                    {field.availability}
-                  </ThemedText>
+                    <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
             </View>
-          </Pressable>
-          )}
-        />
+          </View>
+          
+          {/* Halı Saha 2 - Kapalı Alan (Beyaz) */}
+          <View style={styles.customFieldCard}>
+            <Image 
+              source={require('@/assets/images/field2.jpg')} 
+              style={styles.customFieldImage} 
+              resizeMode="cover"
+            />
+            <View style={styles.customFieldContent}>
+              <ThemedText style={styles.customFieldName}>Premium Kapalı Halı Saha (Beyaz)</ThemedText>
+              
+              <View style={styles.customFieldFeatures}>
+                <View style={styles.customFieldFeatureRow}>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="ruler" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Boyut: 25m x 45m</ThemedText>
+                  </View>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="thermometer" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Klimalı Ortam</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.customFieldFeatureRow}>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="shower" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Lüks Duş ve Soyunma Alanları</ThemedText>
+                  </View>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="cup.and.saucer" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Cafe ve Dinlenme Alanı</ThemedText>
+                  </View>
+                </View>
+              </View>
+              
+              <View style={styles.customFieldPriceRow}>
+                <View>
+                  <ThemedText style={styles.customFieldPriceLabel}>Saatlik Ücret</ThemedText>
+                  <ThemedText style={styles.customFieldPrice}>450₺</ThemedText>
+                </View>
+                <TouchableOpacity 
+                  style={styles.reservationButton}
+                  onPress={isLoggedIn ? () => router.push("/field/2/reservation" as any) : handleRestrictedAction}
+                >
+                  <LinearGradient
+                    colors={['#4CAF50', '#2E7D32']}
+                    style={styles.reservationButtonGradient}
+                  >
+                    <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+          
+          {/* Halı Saha 3 - Kapalı Alan (Yeşil) */}
+          <View style={styles.customFieldCard}>
+            <Image 
+              source={require('@/assets/images/field3.jpg')} 
+              style={styles.customFieldImage} 
+              resizeMode="cover"
+            />
+            <View style={styles.customFieldContent}>
+              <ThemedText style={styles.customFieldName}>Standart Kapalı Halı Saha (Yeşil)</ThemedText>
+              
+              <View style={styles.customFieldFeatures}>
+                <View style={styles.customFieldFeatureRow}>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="ruler" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Boyut: 20m x 40m</ThemedText>
+                  </View>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="drop" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Yağmur Korumalı</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.customFieldFeatureRow}>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="person.2" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>12 Kişilik Soyunma Odaları</ThemedText>
+                  </View>
+                  <View style={styles.customFieldFeatureItem}>
+                    <IconSymbol name="wifi" size={16} color="#4CAF50" />
+                    <ThemedText style={styles.customFieldFeatureText}>Ücretsiz WiFi</ThemedText>
+                  </View>
+                </View>
+              </View>
+              
+              <View style={styles.customFieldPriceRow}>
+                <View>
+                  <ThemedText style={styles.customFieldPriceLabel}>Saatlik Ücret</ThemedText>
+                  <ThemedText style={styles.customFieldPrice}>380₺</ThemedText>
+                </View>
+                <TouchableOpacity 
+                  style={styles.reservationButton}
+                  onPress={isLoggedIn ? () => router.push("/field/3/reservation" as any) : handleRestrictedAction}
+                >
+                  <LinearGradient
+                    colors={['#4CAF50', '#2E7D32']}
+                    style={styles.reservationButtonGradient}
+                  >
+                    <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
       )}
     </View>
   );
@@ -1362,322 +2039,434 @@ export default function IndexScreen() {
     </Modal>
   );
   
+  // Hakkımızda modal bileşeni
+  const renderAboutModal = () => (
+    <Modal
+      visible={showAboutModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowAboutModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: isDark ? '#1E1E1E' : '#FFF' }]}>
+          <View style={styles.modalHeader}>
+            <FutbolXLogo size={40} showText={false} />
+            <ThemedText style={styles.modalTitle}>FutbolX</ThemedText>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowAboutModal(false)}
+            >
+              <IconSymbol name="xmark" size={24} color={isDark ? '#CCC' : '#333'} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalBody}>
+            <ThemedText style={styles.aboutTitle}>Hakkımızda</ThemedText>
+            <ThemedText style={styles.aboutText}>
+              FutbolX, Türkiye'nin en kapsamlı halı saha ve spor tesisleri platformudur. Amacımız, sporseverlerin en uygun tesisleri bulmasını, maç arkadaşları edinmesini ve spor deneyimlerini paylaşmasını kolaylaştırmaktır.
+            </ThemedText>
+            
+            <ThemedText style={styles.aboutTitle}>Vizyonumuz</ThemedText>
+            <ThemedText style={styles.aboutText}>
+              Spor aktivitelerini herkes için erişilebilir kılarak, daha sağlıklı ve aktif bir toplum oluşturmak için çalışıyoruz. Teknoloji ile sporu birleştirerek, kullanıcılarımıza en iyi deneyimi sunuyoruz.
+            </ThemedText>
+            
+            <ThemedText style={styles.aboutTitle}>Özelliklerimiz</ThemedText>
+            <View style={styles.featureList}>
+              <View style={styles.featureItem}>
+                <IconSymbol name="mappin.and.ellipse" size={20} color={primaryColor} />
+                <ThemedText style={styles.featureText}>Halı saha tesislerini keşfedin</ThemedText>
+              </View>
+              <View style={styles.featureItem}>
+                <IconSymbol name="soccerball" size={20} color={primaryColor} />
+                <ThemedText style={styles.featureText}>Maçlar oluşturun ve katılın</ThemedText>
+              </View>
+              <View style={styles.featureItem}>
+                <IconSymbol name="calendar" size={20} color={primaryColor} />
+                <ThemedText style={styles.featureText}>Etkinlikleri takip edin</ThemedText>
+              </View>
+              <View style={styles.featureItem}>
+                <IconSymbol name="video" size={20} color={primaryColor} />
+                <ThemedText style={styles.featureText}>Video ve fotoğraflarınızı paylaşın</ThemedText>
+              </View>
+              <View style={styles.featureItem}>
+                <IconSymbol name="person.3" size={20} color={primaryColor} />
+                <ThemedText style={styles.featureText}>Futbol topluluğuna katılın</ThemedText>
+              </View>
+            </View>
+            
+            <ThemedText style={styles.aboutTitle}>İletişim</ThemedText>
+            <ThemedText style={styles.aboutText}>
+              Sorularınız veya önerileriniz için: info@futbolx.com
+            </ThemedText>
+            
+            <TouchableOpacity 
+              style={[styles.closeModalButton, { backgroundColor: primaryColor }]}
+              onPress={() => setShowAboutModal(false)}
+            >
+              <ThemedText style={styles.closeModalButtonText}>Kapat</ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+  
+  // Takımları görüntüleme fonksiyonu
+  const renderTeams = () => (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.sectionTitle}>Sporyum 23 Takımları</ThemedText>
+        <TouchableOpacity 
+          onPress={isLoggedIn ? () => router.push("/teams" as any) : handleRestrictedAction}
+          activeOpacity={0.7}
+        >
+          <ThemedText style={styles.seeAllText}>Tümünü Gör</ThemedText>
+        </TouchableOpacity>
+      </View>
+      
+      {loading && activeTab === 'takimlar' ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <ThemedText style={styles.loadingText}>Takımlar yükleniyor...</ThemedText>
+        </View>
+      ) : error && activeTab === 'takimlar' ? (
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={24} color="#F44336" />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+        </View>
+      ) : (
+        <ScrollView 
+          showsVerticalScrollIndicator={true}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          {teams.map((team) => (
+            <View key={team.id} style={styles.teamCard}>
+              <View style={styles.teamHeader}>
+                <View style={styles.teamLogoContainer}>
+                  <View style={[styles.teamLogo, { backgroundColor: team.color }]}>
+                    <ThemedText style={styles.teamLogoText}>{team.logoText}</ThemedText>
+                  </View>
+                </View>
+                <View style={styles.teamInfo}>
+                  <ThemedText style={styles.teamName}>{team.name}</ThemedText>
+                  <ThemedText style={styles.teamDetails}>Kuruluş: {team.establishment} • {team.status} • {team.players} Oyuncu</ThemedText>
+                </View>
+                <View style={styles.teamBadge}>
+                  <ThemedText style={styles.teamBadgeText}>{team.topRank}</ThemedText>
+                </View>
+              </View>
+              
+              <View style={styles.teamStats}>
+                <View style={styles.statColumn}>
+                  <ThemedText style={styles.statLabel}>Oynadığı Maçlar</ThemedText>
+                  <ThemedText style={styles.statValue}>{team.matches}</ThemedText>
+                </View>
+                <View style={styles.statColumn}>
+                  <ThemedText style={styles.statLabel}>Galibiyet</ThemedText>
+                  <ThemedText style={styles.statValue}>{team.wins}</ThemedText>
+                </View>
+                <View style={styles.statColumn}>
+                  <ThemedText style={styles.statLabel}>Beraberlik</ThemedText>
+                  <ThemedText style={styles.statValue}>{team.draws}</ThemedText>
+                </View>
+                <View style={styles.statColumn}>
+                  <ThemedText style={styles.statLabel}>Mağlubiyet</ThemedText>
+                  <ThemedText style={styles.statValue}>{team.losses}</ThemedText>
+                </View>
+              </View>
+              
+              <View style={styles.teamPerformance}>
+                <ThemedText style={styles.performanceTitle}>Takım İstatistikleri</ThemedText>
+                
+                <View style={styles.performanceRow}>
+                  <ThemedText style={styles.performanceLabel}>Gol Atma</ThemedText>
+                  <View style={styles.performanceBar}>
+                    <View style={[styles.performanceFill, { width: `${team.stats.scoring}%`, backgroundColor: team.color }]} />
+                  </View>
+                  <ThemedText style={styles.performanceValue}>{team.stats.scoring}%</ThemedText>
+                </View>
+                
+                <View style={styles.performanceRow}>
+                  <ThemedText style={styles.performanceLabel}>Savunma</ThemedText>
+                  <View style={styles.performanceBar}>
+                    <View style={[styles.performanceFill, { width: `${team.stats.defense}%`, backgroundColor: '#4169E1' }]} />
+                  </View>
+                  <ThemedText style={styles.performanceValue}>{team.stats.defense}%</ThemedText>
+                </View>
+                
+                <View style={styles.performanceRow}>
+                  <ThemedText style={styles.performanceLabel}>Pas</ThemedText>
+                  <View style={styles.performanceBar}>
+                    <View style={[styles.performanceFill, { width: `${team.stats.passing}%`, backgroundColor: '#FF7F50' }]} />
+                  </View>
+                  <ThemedText style={styles.performanceValue}>{team.stats.passing}%</ThemedText>
+                </View>
+                
+                <View style={styles.performanceRow}>
+                  <ThemedText style={styles.performanceLabel}>Fizik</ThemedText>
+                  <View style={styles.performanceBar}>
+                    <View style={[styles.performanceFill, { width: `${team.stats.physical}%`, backgroundColor: '#FFD700' }]} />
+                  </View>
+                  <ThemedText style={styles.performanceValue}>{team.stats.physical}%</ThemedText>
+                </View>
+              </View>
+              
+              <View style={styles.teamActions}>
+                <View style={styles.teamFollowers}>
+                  <IconSymbol name="person.2" size={12} color="#777" />
+                  <ThemedText style={styles.teamFollowersText}>{team.followers} Takipçi</ThemedText>
+                </View>
+                <View style={styles.teamFollowers}>
+                  <IconSymbol name="star" size={12} color="#777" />
+                  <ThemedText style={styles.teamFollowersText}>{team.rating} ({team.ratingCount})</ThemedText>
+                </View>
+                <TouchableOpacity 
+                  style={styles.teamButton}
+                  onPress={isLoggedIn ? () => router.push(`/team/${team.id}` as any) : handleRestrictedAction}
+                >
+                  <ThemedText style={styles.teamButtonText}>Takıma Katıl</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+
+  // Maçlar görünümü için fonksiyon ekleyelim
+  const renderMatches = () => (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.sectionTitle}>Sporyum 23</ThemedText>
+        <ThemedText style={styles.sectionSubtitle}>Son Oynanan Maçlar</ThemedText>
+      </View>
+      
+      <ScrollView 
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={{ paddingBottom: 20 }}
+      >
+        {/* İlk Maç */}
+        <View style={styles.matchCard}>
+          <View style={styles.matchDate}>
+            <IconSymbol name="calendar" size={14} color="#777" />
+            <ThemedText style={styles.matchDateText}>01.12.2023</ThemedText>
+            <ThemedText style={styles.matchTimeText}>15:00</ThemedText>
+          </View>
+          
+          <View style={styles.matchTeamsContainer}>
+            <View style={styles.matchTeam}>
+              <View style={[styles.matchTeamLogo, { backgroundColor: '#777' }]}>
+                <ThemedText style={styles.matchTeamLogoText}>Y</ThemedText>
+              </View>
+              <ThemedText style={styles.matchTeamName}>Yıldızlar</ThemedText>
+            </View>
+            
+            <View style={styles.scoreContainer}>
+              <ThemedText style={styles.scoreText}>1 - 0</ThemedText>
+            </View>
+            
+            <View style={styles.matchTeam}>
+              <View style={[styles.matchTeamLogo, { backgroundColor: '#FF0000' }]}>
+                <ThemedText style={styles.matchTeamLogoText}>A</ThemedText>
+              </View>
+              <ThemedText style={styles.matchTeamName}>Arslancılar</ThemedText>
+            </View>
+          </View>
+          
+          <View style={styles.matchLocation}>
+            <IconSymbol name="mappin" size={14} color="#777" />
+            <ThemedText style={styles.matchLocationText}>Koşuyolu S1</ThemedText>
+          </View>
+          
+          <View style={styles.matchStats}>
+            <View style={styles.matchStatRow}>
+              <ThemedText style={styles.teamStat}>MVP: Ahmet</ThemedText>
+              <ThemedText style={styles.teamStat}>65%</ThemedText>
+              <ThemedText style={styles.teamStat}>15</ThemedText>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.matchStatRow}>
+              <ThemedText style={styles.teamStat}>12</ThemedText>
+              <ThemedText style={styles.teamStat}>35%</ThemedText>
+              <ThemedText style={styles.teamStat}>MVP: Selim</ThemedText>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.detailsButton}
+            onPress={() => router.push("/match/1" as any)}
+          >
+            <ThemedText style={styles.detailsButtonText}>Detaylar</ThemedText>
+            <IconSymbol name="chevron.right" size={14} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
+        
+        {/* İkinci Maç */}
+        <View style={styles.matchCard}>
+          <View style={styles.matchDate}>
+            <IconSymbol name="calendar" size={14} color="#777" />
+            <ThemedText style={styles.matchDateText}>01.12.2023</ThemedText>
+            <ThemedText style={styles.matchTimeText}>17:00</ThemedText>
+          </View>
+          
+          <View style={styles.matchTeamsContainer}>
+            <View style={styles.matchTeam}>
+              <View style={[styles.matchTeamLogo, { backgroundColor: '#999' }]}>
+                <ThemedText style={styles.matchTeamLogoText}>S</ThemedText>
+              </View>
+              <ThemedText style={styles.matchTeamName}>Şimşekler</ThemedText>
+            </View>
+            
+            <View style={styles.scoreContainer}>
+              <ThemedText style={styles.scoreText}>0 - 3</ThemedText>
+            </View>
+            
+            <View style={styles.matchTeam}>
+              <View style={[styles.matchTeamLogo, { backgroundColor: '#777' }]}>
+                <ThemedText style={styles.matchTeamLogoText}>Y</ThemedText>
+              </View>
+              <ThemedText style={styles.matchTeamName}>Yıldızlar</ThemedText>
+            </View>
+          </View>
+          
+          <View style={styles.matchLocation}>
+            <IconSymbol name="mappin" size={14} color="#777" />
+            <ThemedText style={styles.matchLocationText}>Koşuyolu S1</ThemedText>
+          </View>
+          
+          <View style={styles.matchStats}>
+            <View style={styles.matchStatRow}>
+              <ThemedText style={styles.teamStat}>MVP: Ahmet</ThemedText>
+              <ThemedText style={styles.teamStat}>30%</ThemedText>
+              <ThemedText style={styles.teamStat}>5</ThemedText>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.matchStatRow}>
+              <ThemedText style={styles.teamStat}>8</ThemedText>
+              <ThemedText style={styles.teamStat}>70%</ThemedText>
+              <ThemedText style={styles.teamStat}>MVP: Deniz</ThemedText>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.detailsButton}
+            onPress={() => router.push("/match/2" as any)}
+          >
+            <ThemedText style={styles.detailsButtonText}>Detaylar</ThemedText>
+            <IconSymbol name="chevron.right" size={14} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Üçüncü Maç */}
+        <View style={styles.matchCard}>
+          <View style={styles.matchDate}>
+            <IconSymbol name="calendar" size={14} color="#777" />
+            <ThemedText style={styles.matchDateText}>02.12.2023</ThemedText>
+            <ThemedText style={styles.matchTimeText}>14:00</ThemedText>
+          </View>
+          
+          <View style={styles.matchTeamsContainer}>
+            <View style={styles.matchTeam}>
+              <View style={[styles.matchTeamLogo, { backgroundColor: '#FFCC00' }]}>
+                <ThemedText style={styles.matchTeamLogoText}>K</ThemedText>
+              </View>
+              <ThemedText style={styles.matchTeamName}>Kartallar</ThemedText>
+            </View>
+            
+            <View style={styles.scoreContainer}>
+              <ThemedText style={styles.scoreText}>0 - 2</ThemedText>
+            </View>
+            
+            <View style={styles.matchTeam}>
+              <View style={[styles.matchTeamLogo, { backgroundColor: '#FF7F50' }]}>
+                <ThemedText style={styles.matchTeamLogoText}>T</ThemedText>
+              </View>
+              <ThemedText style={styles.matchTeamName}>Tertemizler</ThemedText>
+            </View>
+          </View>
+          
+          <View style={styles.matchLocation}>
+            <IconSymbol name="mappin" size={14} color="#777" />
+            <ThemedText style={styles.matchLocationText}>Koşuyolu S2</ThemedText>
+          </View>
+          
+          <View style={styles.matchStats}>
+            <View style={styles.matchStatRow}>
+              <ThemedText style={styles.teamStat}>MVP: Ali</ThemedText>
+              <ThemedText style={styles.teamStat}>45%</ThemedText>
+              <ThemedText style={styles.teamStat}>10</ThemedText>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.matchStatRow}>
+              <ThemedText style={styles.teamStat}>12</ThemedText>
+              <ThemedText style={styles.teamStat}>55%</ThemedText>
+              <ThemedText style={styles.teamStat}>MVP: Emre</ThemedText>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.detailsButton}
+            onPress={() => router.push("/match/3" as any)}
+          >
+            <ThemedText style={styles.detailsButtonText}>Detaylar</ThemedText>
+            <IconSymbol name="chevron.right" size={14} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  // Anasayfadaki içerik seçimine renderTeams fonksiyonunu ekleyelim
   return (
     <ThemedView style={styles.container}>
-      {renderHeader()}
-      {renderTabs()}
-      
-      {activeTab === 'kesfet' && renderDiscoverContent()}
-      {activeTab === 'halisaha' && renderPopularFields()}
-      {activeTab === 'etkinlikler' && renderEvents()}
+      {renderAboutModal()}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={loading} 
+            onRefresh={() => {
+              if (activeTab === 'kesfet') {
+                fetchPosts();
+                fetchVideos();
+              } else if (activeTab === 'halisaha') {
+                fetchFields();
+              } else if (activeTab === 'takimlar') {
+                // Takımlar refresh işlemi
+              } else if (activeTab === 'maclar') {
+                // Maçlar refresh işlemi 
+              }
+            }} 
+            colors={[primaryColor]}
+            tintColor={primaryColor}
+          />
+        }
+      >
+        {renderHeader()}
+        {renderTabs()}
+        
+        {/* İçerik alanı */}
+        {activeTab === 'kesfet' && renderDiscoverContent()}
+        {activeTab === 'halisaha' && renderPopularFields()}
+        {activeTab === 'takimlar' && renderTeams()}
+        {activeTab === 'maclar' && renderMatches()}
+      </ScrollView>
       
       {renderVideoModal()}
     </ThemedView>
   );
 }
 
+// Stil düzeltmesi için styles objesini baştan oluştur
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
     backgroundColor: '#f8f9fa',
   },
-  // Keşfet ekranı için yeni stiller
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f8f0',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-  },
-  actionButtonText: {
-    fontSize: 12,
-    marginLeft: 4,
-    color: primaryColor,
-    fontWeight: '500',
-  },
-  contentList: {
-    marginTop: 10,
-  },
-  contentCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  contentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e0e0e0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  userAvatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  username: {
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#777',
-    marginTop: 2,
-  },
-  contentBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: primaryColor,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  contentBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  contentTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 6,
-  },
-  contentDescription: {
-    fontSize: 14,
-    color: '#444',
-    marginBottom: 10,
-  },
-  contentText: {
-    fontSize: 14,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  contentImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  contentFooter: {
-    flexDirection: 'row',
-    marginTop: 10,
-  },
-  contentStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  statsText: {
-    fontSize: 12,
-    color: '#777',
-    marginLeft: 4,
-  },
-  // Video modal stilleri
-  videoModalContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  videoModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    flex: 1,
-  },
-  videoPlayerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  videoPlayer: {
-    width: '100%',
-    height: '100%',
-  },
-  videoList: {
-    paddingHorizontal: 15,
-    paddingBottom: 10,
-  },
-  videoCard: {
-    width: 250,
-    marginRight: 15,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden',
-  },
-  videoThumbnail: {
-    width: '100%',
-    height: 140,
-    backgroundColor: '#eee',
-    position: 'relative',
-  },
-  videoThumbnailImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-    borderRadius: 8,
-  },
-  videoThumbnailPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#555',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoDuration: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  videoDurationText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  videoInfo: {
-    padding: 12,
-  },
-  videoTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  videoUsername: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  videoStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  videoStatsText: {
-    fontSize: 12,
-    color: '#777',
-    marginLeft: 4,
-  },
-  emptyButton: {
-    backgroundColor: primaryColor,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
-  },
-  errorText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#F44336'
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
-  },
-  emptyText: {
-    marginTop: 10,
-    fontSize: 16,
-    textAlign: 'center'
-  },
-  eventInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8
-  },
-  eventInfoText: {
-    fontSize: 14,
-    marginLeft: 4
-  },
-  eventParticipants: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8
-  },
-  eventParticipantsText: {
-    fontSize: 14,
-    marginLeft: 4
-  },
-  eventParticipantsBar: {
-    height: 4,
-    backgroundColor: '#4CAF50',
-    borderRadius: 2,
-    marginTop: 4
-  },
-  eventParticipantsFill: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
-    borderRadius: 2
-  },
+  // Header ve arama bölümü
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1694,21 +2483,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
   },
-  titleContainer: {
+  logoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  logoButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logoText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#4CAF50',
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    marginLeft: 8,
   },
   searchContainer: {
-    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8F8F8',
@@ -1732,24 +2523,8 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 8,
   },
-  reservationButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    marginLeft: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  reservationButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 15,
-    letterSpacing: 0.3,
-  },
+  
+  // Tabs
   tabs: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -1782,11 +2557,8 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontWeight: 'bold',
   },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: 15,
-    paddingTop: 15,
-  },
+  
+  // Sectionlar
   sectionContainer: {
     marginBottom: 20,
   },
@@ -1812,12 +2584,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.2,
   },
-  fieldsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
+  
+  // Field Card
   fieldCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -1901,6 +2669,80 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#4CAF50',
   },
+  
+  // Listeler
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#F44336'
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+    textAlign: 'center'
+  },
+  
+  // Etkinlikler
+  eventCard: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    flexDirection: 'row',
+  },
+  eventImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  eventInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  eventDetails: {
+    marginTop: 4,
+  },
+  eventDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  eventDetailText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
+  
+  // Post
   postCard: {
     backgroundColor: '#F8F8F8',
     borderRadius: 12,
@@ -1961,17 +2803,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#EEE',
   },
-  videoThumbnailOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 8,
-  },
   postFooter: {
     flexDirection: 'row',
     marginTop: 10,
@@ -1986,44 +2817,72 @@ const styles = StyleSheet.create({
     color: '#777',
     marginLeft: 4,
   },
-  eventsContainer: {
-    marginTop: 10,
+  
+  // Video related
+  videoThumbnail: {
+    width: '100%',
+    height: 140,
+    backgroundColor: '#eee',
+    position: 'relative',
   },
-  eventCard: {
-    flexDirection: 'row',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-  },
-  eventImage: {
-    width: 80,
-    height: 80,
+  videoThumbnailImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
     borderRadius: 8,
   },
-  eventInfo: {
+  videoThumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#555',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoThumbnailOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+  },
+  videoModalContainer: {
     flex: 1,
-    marginLeft: 12,
+    backgroundColor: '#fff',
   },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 6,
-  },
-  eventDetails: {
-    marginTop: 4,
-  },
-  eventDetailItem: {
+  videoModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    justifyContent: 'space-between',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  eventDetailText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    flex: 1,
+  },
+  videoPlayerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  videoPlayer: {
+    width: '100%',
+    height: '100%',
   },
   webViewContainer: {
     flex: 1,
@@ -2071,5 +2930,637 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
     letterSpacing: 0.3,
+  },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginLeft: 12,
+    flex: 1,
+  },
+  modalBody: {
+    padding: 16,
+  },
+  aboutTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  aboutText: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 16,
+    opacity: 0.8,
+  },
+  featureList: {
+    marginVertical: 10,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  featureText: {
+    fontSize: 14,
+    marginLeft: 12,
+  },
+  closeModalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  closeModalButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  
+  // Keşfet içerikler
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(76,175,80,0.2)',
+  },
+  actionButtonText: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 5,
+  },
+  emptyButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 15,
+  },
+  emptyButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  contentList: {
+    paddingBottom: 20,
+  },
+  contentCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  contentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  userAvatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 8,
+  },
+  username: {
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  timestamp: {
+    fontSize: 12,
+    color: '#777',
+    marginTop: 2,
+  },
+  contentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  contentBadgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  contentTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    padding: 12,
+    paddingBottom: 4,
+  },
+  contentDescription: {
+    fontSize: 14,
+    color: '#666',
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+  },
+  contentText: {
+    fontSize: 14,
+    lineHeight: 20,
+    padding: 12,
+    paddingBottom: 8,
+  },
+  contentImage: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+  },
+  contentFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  contentStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  statsText: {
+    fontSize: 12,
+    color: '#777',
+    marginLeft: 4,
+  },
+  
+  // Video listesi
+  videoList: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  videoCard: {
+    width: 240,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginRight: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  videoDuration: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  videoDurationText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  videoInfo: {
+    padding: 10,
+  },
+  videoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  videoUsername: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  videoStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  videoStatsText: {
+    fontSize: 11,
+    color: '#777',
+    marginLeft: 4,
+  },
+  customFieldCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    margin: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transition: 'all 0.3s ease-in-out',
+      }
+    })
+  },
+  customFieldImage: {
+    width: '100%',
+    height: 140,
+    resizeMode: 'cover',
+  },
+  customFieldContent: {
+    padding: 14,
+  },
+  customFieldName: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#212121',
+    letterSpacing: 0.2,
+  },
+  customFieldFeatures: {
+    marginBottom: 12,
+  },
+  customFieldFeatureRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  customFieldFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginRight: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 6,
+  },
+  customFieldFeatureText: {
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 4,
+  },
+  customFieldPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  customFieldPriceLabel: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    letterSpacing: 0.3,
+  },
+  customFieldPrice: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    letterSpacing: 0.3,
+  },
+  reservationButton: {
+    overflow: 'hidden',
+    borderRadius: 8,
+  },
+  reservationButtonGradient: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  reservationButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  teamCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    margin: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transition: 'all 0.3s ease-in-out',
+      }
+    })
+  },
+  teamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  teamLogoContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginRight: 16,
+  },
+  teamLogo: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  teamLogoText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  teamInfo: {
+    flex: 1,
+  },
+  teamName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  teamDetails: {
+    fontSize: 14,
+    color: '#777',
+    marginBottom: 8,
+  },
+  teamBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  teamBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  statColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#777',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+  teamPerformance: {
+    marginTop: 16,
+  },
+  performanceTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  performanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  performanceLabel: {
+    fontSize: 14,
+    color: '#777',
+  },
+  performanceBar: {
+    width: '80%',
+    height: 10,
+    backgroundColor: '#eee',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  performanceFill: {
+    height: '100%',
+  },
+  teamActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  teamFollowers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  teamFollowersText: {
+    fontSize: 12,
+    color: '#777',
+    marginLeft: 4,
+  },
+  teamButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.2)',
+  },
+  teamButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  teamStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  performanceValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    width: 40,
+    textAlign: 'right',
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 8,
+  },
+  matchCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    margin: 6,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+  },
+  matchDate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  matchDateText: {
+    fontSize: 14,
+    color: '#777',
+    marginLeft: 6,
+  },
+  matchTimeText: {
+    fontSize: 14,
+    color: '#777',
+    marginLeft: 12,
+    fontWeight: 'bold',
+  },
+  matchTeamsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  matchTeam: {
+    alignItems: 'center',
+    width: '40%',
+  },
+  matchTeamLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  matchTeamLogoText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  matchTeamName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  scoreContainer: {
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  scoreText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  matchLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  matchLocationText: {
+    fontSize: 14,
+    color: '#777',
+    marginLeft: 6,
+  },
+  matchStats: {
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  matchStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  teamStat: {
+    fontSize: 12,
+    color: '#555',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 8,
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    borderRadius: 8,
+  },
+  detailsButtonText: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 4,
   },
 });

@@ -10,6 +10,7 @@ import { FutbolXLogo } from '@/components/FutbolXLogo';
 import { useAuth } from '@/context/AuthContext';
 import CreateMatchScreen from './create-match';
 import SharePostScreen from './sharePost';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Sekme tipini tanımla
 type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'admin';
@@ -55,7 +56,7 @@ const HoverableTouchable = ({ children, style, onPress, activeOpacity = 0.7, onH
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isWeb = Platform.OS === 'web';
-  const primaryColor = '#4CAF50';
+  const isDark = colorScheme === 'dark';
   const router = useRouter();
   const { isLoggedIn, user } = useAuth();
   
@@ -67,6 +68,15 @@ export default function TabLayout() {
   
   // Admin yetkisi kontrolü
   const isAdmin = user?.isAdmin || false;
+  
+  // Sporyum23 renk şeması
+  const primaryColor = '#4CAF50'; // Ana yeşil renk
+  const secondaryColor = '#2E7D32'; // Koyu yeşil
+  const accentColor = '#81C784'; // Açık yeşil
+  const textColor = isDark ? '#FFFFFF' : '#333333';
+  const cardColor = isDark ? '#1E1E1E' : '#FFFFFF';
+  const backgroundColor = isDark ? '#121212' : '#F5F7FA';
+  const borderColor = isDark ? '#2C2C2C' : '#E0E0E0';
   
   // Misafir kullanıcıları login'e yönlendirme
   const handleRestrictedAction = () => {
@@ -128,12 +138,12 @@ export default function TabLayout() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: backgroundColor }}>
       <Stack screenOptions={{
         headerShown: true,
         headerTitle: () => (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <FutbolXLogo size={40} showText={false} simplified={true} />
+            <FutbolXLogo size={40} showText={false} />
             <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 5 }}>
               FutbolX
             </ThemedText>
@@ -141,7 +151,11 @@ export default function TabLayout() {
         ),
         headerTitleAlign: 'left',
         headerShadowVisible: false,
-        contentStyle: { backgroundColor: colorScheme === 'dark' ? '#121212' : '#F5F5F5' }
+        contentStyle: { backgroundColor: backgroundColor },
+        headerStyle: { 
+          backgroundColor: cardColor,
+        },
+        headerTintColor: primaryColor,
       }}>
         <Stack.Screen name="index" options={{ title: 'Keşfet' }} />
         <Stack.Screen name="matches" />
@@ -150,10 +164,15 @@ export default function TabLayout() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="sharePost" options={{ title: 'Gönderi Paylaş' }} />
         <Stack.Screen name="admin" options={{ title: 'Admin Paneli' }} />
+        <Stack.Screen name="explore" options={{ title: 'Halı Sahalar' }} />
+        <Stack.Screen name="discover" options={{ title: 'Keşfet' }} />
       </Stack>
       
       {/* Custom Footer Navigation - Her sayfada görünecek */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { 
+        backgroundColor: cardColor,
+        borderTopColor: borderColor
+      }]}>
         <HoverableTouchable 
           style={styles.footerTab}
           onPress={() => changeTab('home')}
@@ -162,15 +181,16 @@ export default function TabLayout() {
         >
           <View style={[
             styles.iconWrapper, 
-            activeTab === 'home' && styles.activeIconWrapper,
-            hoveredTab === 'home' && styles.hoveredIconWrapper
+            { backgroundColor: hoveredTab === 'home' ? accentColor : (activeTab === 'home' ? primaryColor : '#777') }
           ]}>
             <IconSymbol name="square.grid.2x2" size={22} color="#FFFFFF" />
           </View>
           <ThemedText style={[
             styles.footerTabText, 
-            activeTab === 'home' && styles.activeFooterTabText,
-            hoveredTab === 'home' && styles.hoveredFooterTabText
+            { 
+              color: activeTab === 'home' ? primaryColor : textColor,
+              opacity: activeTab === 'home' ? 1 : 0.7
+            }
           ]}>Keşfet</ThemedText>
         </HoverableTouchable>
         
@@ -182,15 +202,16 @@ export default function TabLayout() {
         >
           <View style={[
             styles.iconWrapper, 
-            activeTab === 'upload' && styles.activeIconWrapper,
-            hoveredTab === 'upload' && styles.hoveredIconWrapper
+            { backgroundColor: hoveredTab === 'upload' ? accentColor : (activeTab === 'upload' ? primaryColor : '#777') }
           ]}>
             <IconSymbol name="square.and.arrow.up" size={22} color="#FFFFFF" />
           </View>
           <ThemedText style={[
             styles.footerTabText, 
-            activeTab === 'upload' && styles.activeFooterTabText,
-            hoveredTab === 'upload' && styles.hoveredFooterTabText
+            { 
+              color: activeTab === 'upload' ? primaryColor : textColor,
+              opacity: activeTab === 'upload' ? 1 : 0.7
+            }
           ]}>Paylaş</ThemedText>
         </HoverableTouchable>
         
@@ -202,15 +223,16 @@ export default function TabLayout() {
         >
           <View style={[
             styles.iconWrapper, 
-            activeTab === 'profile' && styles.activeIconWrapper,
-            hoveredTab === 'profile' && styles.hoveredIconWrapper
+            { backgroundColor: hoveredTab === 'profile' ? accentColor : (activeTab === 'profile' ? primaryColor : '#777') }
           ]}>
             <IconSymbol name="person" size={22} color="#FFFFFF" />
           </View>
           <ThemedText style={[
             styles.footerTabText, 
-            activeTab === 'profile' && styles.activeFooterTabText,
-            hoveredTab === 'profile' && styles.hoveredFooterTabText
+            { 
+              color: activeTab === 'profile' ? primaryColor : textColor,
+              opacity: activeTab === 'profile' ? 1 : 0.7
+            }
           ]}>Profil</ThemedText>
         </HoverableTouchable>
         
@@ -222,15 +244,16 @@ export default function TabLayout() {
         >
           <View style={[
             styles.iconWrapper, 
-            activeTab === 'matches' && styles.activeIconWrapper,
-            hoveredTab === 'matches' && styles.hoveredIconWrapper
+            { backgroundColor: hoveredTab === 'matches' ? accentColor : (activeTab === 'matches' ? primaryColor : '#777') }
           ]}>
             <IconSymbol name="soccerball" size={22} color="#FFFFFF" />
           </View>
           <ThemedText style={[
             styles.footerTabText, 
-            activeTab === 'matches' && styles.activeFooterTabText,
-            hoveredTab === 'matches' && styles.hoveredFooterTabText
+            { 
+              color: activeTab === 'matches' ? primaryColor : textColor,
+              opacity: activeTab === 'matches' ? 1 : 0.7
+            }
           ]}>Maçlar</ThemedText>
         </HoverableTouchable>
 
@@ -244,15 +267,16 @@ export default function TabLayout() {
           >
             <View style={[
               styles.iconWrapper, 
-              activeTab === 'admin' && styles.activeIconWrapper,
-              hoveredTab === 'admin' && styles.hoveredIconWrapper
+              { backgroundColor: hoveredTab === 'admin' ? accentColor : (activeTab === 'admin' ? primaryColor : '#777') }
             ]}>
               <IconSymbol name="gear" size={22} color="#FFFFFF" />
             </View>
             <ThemedText style={[
               styles.footerTabText, 
-              activeTab === 'admin' && styles.activeFooterTabText,
-              hoveredTab === 'admin' && styles.hoveredFooterTabText
+              { 
+                color: activeTab === 'admin' ? primaryColor : textColor,
+                opacity: activeTab === 'admin' ? 1 : 0.7
+              }
             ]}>Admin</ThemedText>
           </HoverableTouchable>
         )}
@@ -264,14 +288,17 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   footerTab: {
     flex: 1,
@@ -290,35 +317,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#777',
+    marginBottom: 4,
     ...Platform.select({
       web: {
         transition: 'all 0.2s ease-in-out',
       }
     })
-  },
-  activeIconWrapper: {
-    backgroundColor: '#4CAF50', // Aktif seçili buton için yeşil arka plan
-  },
-  hoveredIconWrapper: {
-    backgroundColor: '#66BB6A', // Hover durumunda daha açık yeşil
-    transform: [{ scale: 1.05 }],
   },
   footerTabText: {
     fontSize: 12,
-    marginTop: 2,
-    color: '#777',
     ...Platform.select({
       web: {
         transition: 'all 0.2s ease-in-out',
       }
     })
-  },
-  activeFooterTabText: {
-    color: '#4CAF50', // Aktif seçili buton için yeşil yazı rengi
-    fontWeight: 'bold',
-  },
-  hoveredFooterTabText: {
-    color: '#66BB6A', // Hover durumunda daha açık yeşil
   },
 });

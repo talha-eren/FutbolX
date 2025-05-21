@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Keyboard
+  Keyboard,
+  Image
 } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { useRouter } from 'expo-router';
@@ -55,10 +56,10 @@ function LoginScreen() {
   
   // Renk teması
   const isDark = colorScheme === 'dark';
-  const primaryColor = '#4CAF50'; // Ana yeşil renk
-  const secondaryColor = '#388E3C'; // Koyu yeşil
-  const accentColor = '#8BC34A'; // Açık yeşil
-  const backgroundColor = isDark ? '#121212' : '#FFFFFF';
+  const primaryColor = '#1976D2'; // Ana mavi renk
+  const secondaryColor = '#0D47A1'; // Koyu mavi
+  const accentColor = '#42A5F5'; // Açık mavi
+  const backgroundColor = isDark ? '#121212' : '#F5F7FA';
   const cardColor = isDark ? '#1E1E1E' : '#FFFFFF';
   const textColor = isDark ? '#FFFFFF' : '#333333';
   const inputBackgroundColor = isDark ? '#333' : '#F5F5F5';
@@ -93,14 +94,10 @@ function LoginScreen() {
     }
   }, [fadeAnim, slideAnim, formOpacity, authError]);
   
-  // Facebook ile giriş fonksiyonu kaldırıldı
-  
   // Sayfa yüklenirken yapılacak işlemler
   useEffect(() => {
     console.log('Login sayfası yüklendi');
   }, []);
-
-  // Google ile giriş özelliği kaldırıldı
 
   // Normal giriş fonksiyonu
   const handleLogin = async () => {
@@ -176,8 +173,8 @@ function LoginScreen() {
     >
       <LinearGradient
         colors={isDark ? 
-          ['#0F2027', '#203A43', '#2C5364'] : 
-          ['#F0F2F0', '#E5E8E8', '#FFFFFF']}
+          ['#0A1929', '#102A43', '#1E3A5F'] : 
+          ['#E1F5FE', '#B3E5FC', '#E3F2FD']}
         style={styles.gradientBackground}
       >
         <Animated.View 
@@ -191,7 +188,7 @@ function LoginScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.logoContainer}>
-              <FutbolXLogo size={150} showText={false} />
+              <FutbolXLogo size={120} showText={false} />
               <ThemedText style={styles.title}>FutbolX</ThemedText>
               <ThemedText style={styles.subtitle}>Futbol tutkunlarını buluşturan platform</ThemedText>
             </View>
@@ -203,9 +200,15 @@ function LoginScreen() {
                 transform: [{ translateY: slideAnim }]
               }]}
             >
+              <ThemedText style={styles.formTitle}>Hesabınıza Giriş Yapın</ThemedText>
+              
               {/* Hata mesajı */}
               {loginError ? (
-                <Animated.View style={styles.errorContainer}>
+                <Animated.View 
+                  style={[styles.errorContainer, {
+                    transform: [{ translateX: shakeAnim }]
+                  }]}
+                >
                   <MaterialIcons name="error-outline" size={20} color={errorColor} />
                   <ThemedText style={styles.errorText}>{loginError}</ThemedText>
                 </Animated.View>
@@ -283,9 +286,11 @@ function LoginScreen() {
                   </ThemedText>
                 </TouchableOpacity>
               </View>
-
-              {/* Google ile giriş butonu kaldırıldı */}
             </Animated.View>
+            
+            <View style={styles.footerContainer}>
+              <ThemedText style={styles.footerText}>© 2025 FutbolX - Tüm Hakları Saklıdır</ThemedText>
+            </View>
           </ScrollView>
         </Animated.View>
       </LinearGradient>
@@ -338,6 +343,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 15,
     elevation: 10,
+  },
+  
+  formTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   
   // Hata mesajı
@@ -412,40 +424,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   
-  // Ayırıcı
-  separator: {
-    flexDirection: 'row',
+  // Footer
+  footerContainer: {
+    marginTop: 40,
     alignItems: 'center',
-    marginVertical: 25,
   },
-  separatorLine: {
-    flex: 1,
-    height: 1,
-  },
-  separatorText: {
-    paddingHorizontal: 10,
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  
-  // Sosyal giriş butonları
-  socialLoginContainer: {
-    gap: 15,
-    marginTop: 10,
-  },
-  socialButton: {
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  socialIcon: {
-    marginRight: 10,
-  },
-  socialButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+  footerText: {
+    fontSize: 12,
+    opacity: 0.6,
   },
 });
