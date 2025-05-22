@@ -11,9 +11,11 @@ import { useAuth } from '@/context/AuthContext';
 import CreateMatchScreen from './create-match';
 import SharePostScreen from './sharePost';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Link } from 'expo-router';
+import { FontAwesome } from '@expo/vector-icons';
 
 // Sekme tipini tanımla
-type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'admin';
+type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'admin' | 'reservation';
 
 // Hover props tipini tanımla
 type HoverableProps = {
@@ -157,7 +159,21 @@ export default function TabLayout() {
         },
         headerTintColor: primaryColor,
       }}>
-        <Stack.Screen name="index" options={{ title: 'Keşfet' }} />
+        <Stack.Screen
+          name="index"
+          options={{
+            title: 'Keşfet',
+            headerRight: () => (
+              <View style={{ flexDirection: 'row' }}>
+                <Link href="/field/reservation" asChild>
+                  <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, marginRight: 15 })}>
+                    <FontAwesome name="calendar" size={25} color={isDark ? '#FFFFFF' : '#333333'} />
+                  </Pressable>
+                </Link>
+              </View>
+            ),
+          }}
+        />
         <Stack.Screen name="matches" />
         <Stack.Screen name="find-match" options={{ title: 'Maç Bul' }} />
         <Stack.Screen name="create-match" options={{ presentation: 'modal', title: 'Yeni Maç Oluştur' }} />
@@ -166,6 +182,8 @@ export default function TabLayout() {
         <Stack.Screen name="admin" options={{ title: 'Admin Paneli' }} />
         <Stack.Screen name="explore" options={{ title: 'Halı Sahalar' }} />
         <Stack.Screen name="discover" options={{ title: 'Keşfet' }} />
+        <Stack.Screen name="videoUpload" options={{ title: 'Video Yükle' }} />
+        <Stack.Screen name="edit-profile" options={{ title: 'Profil Düzenle' }} />
       </Stack>
       
       {/* Custom Footer Navigation - Her sayfada görünecek */}
@@ -192,6 +210,27 @@ export default function TabLayout() {
               opacity: activeTab === 'home' ? 1 : 0.7
             }
           ]}>Keşfet</ThemedText>
+        </HoverableTouchable>
+        
+        <HoverableTouchable 
+          style={styles.footerTab}
+          onPress={() => router.push('/field/reservation')}
+          onHoverIn={() => setHoveredTab('reservation')}
+          onHoverOut={() => setHoveredTab(null)}
+        >
+          <View style={[
+            styles.iconWrapper, 
+            { backgroundColor: hoveredTab === 'reservation' ? accentColor : '#4CAF50' }
+          ]}>
+            <IconSymbol name="calendar" size={22} color="#FFFFFF" />
+          </View>
+          <ThemedText style={[
+            styles.footerTabText, 
+            { 
+              color: '#4CAF50',
+              fontWeight: '600'
+            }
+          ]}>Rezervasyon</ThemedText>
         </HoverableTouchable>
         
         <HoverableTouchable 
@@ -255,6 +294,27 @@ export default function TabLayout() {
               opacity: activeTab === 'matches' ? 1 : 0.7
             }
           ]}>Maçlar</ThemedText>
+        </HoverableTouchable>
+
+        <HoverableTouchable 
+          style={styles.footerTab}
+          onPress={() => router.push('/about' as any)}
+          onHoverIn={() => setHoveredTab(null)}
+          onHoverOut={() => setHoveredTab(null)}
+        >
+          <View style={[
+            styles.iconWrapper, 
+            { backgroundColor: '#777' }
+          ]}>
+            <IconSymbol name="info.circle" size={22} color="#FFFFFF" />
+          </View>
+          <ThemedText style={[
+            styles.footerTabText, 
+            { 
+              color: textColor,
+              opacity: 0.7
+            }
+          ]}>Hakkımızda</ThemedText>
         </HoverableTouchable>
 
         {/* Admin sekmesi sadece admin kullanıcılara gösterilir */}

@@ -208,6 +208,17 @@ export default function FieldDetailScreen() {
           </View>
         </View>
       </ScrollView>
+      
+      {/* Rezervasyon butonu */}
+      <View style={styles.reservationButtonContainer}>
+        <TouchableOpacity 
+          style={styles.reservationButton}
+          onPress={() => router.push(`/field/reservation?id=${field._id}` as any)}
+        >
+          <Ionicons name="calendar" size={20} color="white" />
+          <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
+        </TouchableOpacity>
+      </View>
     </ThemedView>
   );
 }
@@ -396,5 +407,30 @@ const styles = StyleSheet.create({
   contactButtonText: {
     marginLeft: 10,
     fontSize: 14,
+  },
+  reservationButtonContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+  },
+  reservationButton: {
+    backgroundColor: primaryColor,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  reservationButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
   },
 });

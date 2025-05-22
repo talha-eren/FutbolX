@@ -15,6 +15,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -95,6 +96,8 @@ export default function ExploreScreen() {
   const secondaryColor = '#0D47A1'; // Koyu mavi
   const accentColor = '#42A5F5'; // Açık mavi
   const borderColor = '#E0E0E0';
+
+  const router = useRouter();
 
   // Verileri API'den çek
   useEffect(() => {
@@ -209,7 +212,7 @@ export default function ExploreScreen() {
         
         <TouchableOpacity 
           style={[styles.bookButton, { backgroundColor: primaryColor }]}
-          activeOpacity={0.8}
+          onPress={() => handleBooking(item.id)}
         >
           <ThemedText style={styles.bookButtonText}>Rezervasyon Yap</ThemedText>
         </TouchableOpacity>
@@ -217,130 +220,134 @@ export default function ExploreScreen() {
     </TouchableOpacity>
   );
 
+  const handleBooking = (fieldId) => {
+    router.push(`/reservations?fieldId=${fieldId}`);
+  };
+
   return (
     <ThemedView style={styles.container}>
       <LinearGradient
         colors={['#E1F5FE', '#B3E5FC', '#E3F2FD']}
         style={styles.headerGradient}
       >
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>Halı Saha Keşfet</ThemedText>
+      <View style={styles.header}>
+        <ThemedText style={styles.title}>Halı Saha Keşfet</ThemedText>
           <View style={[styles.searchContainer, { borderColor }]}>
             <IconSymbol name="magnifyingglass" size={20} color={primaryColor} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Saha adı veya konum ara..."
-              placeholderTextColor="#999"
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-            {searchText !== '' && (
-              <TouchableOpacity onPress={() => setSearchText('')}>
-                <IconSymbol name="xmark.circle.fill" size={20} color="#999" />
-              </TouchableOpacity>
-            )}
-          </View>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Saha adı veya konum ara..."
+            placeholderTextColor="#999"
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+          {searchText !== '' && (
+            <TouchableOpacity onPress={() => setSearchText('')}>
+              <IconSymbol name="xmark.circle.fill" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
+      </View>
 
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tab,
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
               activeTab === 'districts' && { borderBottomColor: primaryColor, borderBottomWidth: 3 }
-            ]}
-            onPress={() => setActiveTab('districts')}
-          >
-            <ThemedText 
-              style={[
-                styles.tabText, 
-                activeTab === 'districts' && { color: primaryColor, fontWeight: 'bold' }
-              ]}
-            >
-              Bölgeler
-            </ThemedText>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
+          ]}
+          onPress={() => setActiveTab('districts')}
+        >
+          <ThemedText 
             style={[
-              styles.tab,
-              activeTab === 'features' && { borderBottomColor: primaryColor, borderBottomWidth: 3 }
+              styles.tabText, 
+                activeTab === 'districts' && { color: primaryColor, fontWeight: 'bold' }
             ]}
-            onPress={() => setActiveTab('features')}
           >
-            <ThemedText 
-              style={[
-                styles.tabText, 
+            Bölgeler
+          </ThemedText>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.tab,
+              activeTab === 'features' && { borderBottomColor: primaryColor, borderBottomWidth: 3 }
+          ]}
+          onPress={() => setActiveTab('features')}
+        >
+          <ThemedText 
+            style={[
+              styles.tabText, 
                 activeTab === 'features' && { color: primaryColor, fontWeight: 'bold' }
-              ]}
-            >
-              Özellikler
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
+            ]}
+          >
+            Özellikler
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
 
-        {activeTab === 'districts' ? (
-          <View style={styles.categoriesSection}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesContainer}
-            >
-              {districts.map((district, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.categoryButton,
-                    { 
+      {activeTab === 'districts' ? (
+        <View style={styles.categoriesSection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContainer}
+          >
+            {districts.map((district, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.categoryButton,
+                  { 
                       backgroundColor: selectedDistrict === district ? primaryColor : 'white',
                       borderColor
-                    }
-                  ]}
-                  onPress={() => setSelectedDistrict(district)}
-                >
-                  <ThemedText
-                    style={[
-                      styles.categoryText,
-                      { color: selectedDistrict === district ? '#fff' : textColor }
-                    ]}
-                  >
-                    {district}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        ) : (
-          <View style={styles.categoriesSection}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesContainer}
-            >
-              {features.map((feature, index) => (
-                <TouchableOpacity
-                  key={index}
+                  }
+                ]}
+                onPress={() => setSelectedDistrict(district)}
+              >
+                <ThemedText
                   style={[
-                    styles.categoryButton,
-                    { 
+                    styles.categoryText,
+                    { color: selectedDistrict === district ? '#fff' : textColor }
+                  ]}
+                >
+                  {district}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : (
+        <View style={styles.categoriesSection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContainer}
+          >
+            {features.map((feature, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.categoryButton,
+                  { 
                       backgroundColor: selectedFeature === feature ? primaryColor : 'white',
                       borderColor
-                    }
+                  }
+                ]}
+                onPress={() => setSelectedFeature(feature)}
+              >
+                <ThemedText
+                  style={[
+                    styles.categoryText,
+                    { color: selectedFeature === feature ? '#fff' : textColor }
                   ]}
-                  onPress={() => setSelectedFeature(feature)}
                 >
-                  <ThemedText
-                    style={[
-                      styles.categoryText,
-                      { color: selectedFeature === feature ? '#fff' : textColor }
-                    ]}
-                  >
-                    {feature}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+                  {feature}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
       </LinearGradient>
 
       <View style={styles.resultsContainer}>
@@ -366,12 +373,12 @@ export default function ExploreScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={filteredFields}
-          renderItem={renderFieldCard}
-          keyExtractor={item => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.fieldsContainer}
+      <FlatList
+        data={filteredFields}
+        renderItem={renderFieldCard}
+        keyExtractor={item => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.fieldsContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <IconSymbol name="magnifyingglass" size={50} color="#BDBDBD" />
@@ -380,7 +387,7 @@ export default function ExploreScreen() {
               </ThemedText>
             </View>
           }
-        />
+      />
       )}
     </ThemedView>
   );

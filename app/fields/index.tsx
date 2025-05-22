@@ -37,18 +37,17 @@ export default function FieldsScreen() {
       const response = await fetch(`${API_URL}/fields`);
       
       if (!response.ok) {
-        throw new Error('Halı sahalar alınamadı');
+        throw new Error('Halı sahalar yüklenirken bir hata oluştu');
       }
       
       const data = await response.json();
-      setFields(data);
-      setFilteredFields(data);
+      setFields(data as Field[]);
+      setFilteredFields(data as Field[]);
+      setLoading(false);
+      setRefreshing(false);
     } catch (err: any) {
       setError(err.message || 'Bir hata oluştu');
       console.error('Halı saha listeleme hatası:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
   };
   
@@ -74,6 +73,11 @@ export default function FieldsScreen() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchFields();
+  };
+  
+  // Rezervasyon fonksiyonu
+  const handleReservation = (fieldId) => {
+    router.push(`/reservations?fieldId=${fieldId}`);
   };
   
   if (loading && !refreshing) {
@@ -184,8 +188,8 @@ export default function FieldsScreen() {
                 </View>
                 
                 <TouchableOpacity 
-                  style={styles.bookButton}
-                  onPress={() => router.push(`/field/${item._id}` as any)}
+                  style={[styles.bookButton, { backgroundColor: primaryColor }]}
+                  onPress={() => handleReservation(item._id)}
                 >
                   <ThemedText style={styles.bookButtonText}>Rezervasyon Yap</ThemedText>
                 </TouchableOpacity>

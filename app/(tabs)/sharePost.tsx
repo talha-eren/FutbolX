@@ -14,6 +14,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 // @ts-ignore
 import networkConfig from '@/services/networkConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Card } from '@/components/ui/Card';
 
 // Post tipi tanımı
 interface Post {
@@ -502,278 +503,350 @@ const SharePostScreen = () => {
   };
 
   return (
+    <ThemedView style={styles.container}>
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
+        style={styles.keyboardAvoidView}
     >
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <ThemedView style={styles.container}>
-          <View style={styles.header}>
-            <ThemedText style={styles.headerText}>Gönderi Paylaş</ThemedText>
-          </View>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Yeşil arka plan bölümü */}
+          <LinearGradient
+            colors={['#4CAF50', '#2E7D32']}
+            style={styles.headerGradient}
+          >
+            <ThemedText style={styles.headerTitle}>Gönderi Paylaş</ThemedText>
+            <ThemedText style={styles.headerSubtitle}>
+              Fotoğraf, video veya düşüncelerinizi paylaşın
+            </ThemedText>
+          </LinearGradient>
           
-          {/* Form Alanları */}
-          <View style={styles.formContainer}>
-            {/* Başlık */}
-            <View style={styles.inputGroup}>
+          <Card style={styles.formCard}>
+            <View style={styles.formGroup}>
               <ThemedText style={styles.label}>Başlık</ThemedText>
               <TextInput
                 style={styles.input}
-                placeholder="Başlık giriniz"
-                placeholderTextColor="#888"
+                placeholder="Gönderiniz için bir başlık yazın"
+                placeholderTextColor="#999"
                 value={title}
                 onChangeText={setTitle}
               />
             </View>
             
-            {/* Açıklama */}
-            <View style={styles.inputGroup}>
+            <View style={styles.formGroup}>
               <ThemedText style={styles.label}>Açıklama</ThemedText>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="Açıklama giriniz"
-                placeholderTextColor="#888"
-                value={description}
-                onChangeText={setDescription}
+                placeholder="Gönderiniz hakkında açıklama yazın"
+                placeholderTextColor="#999"
                 multiline
                 numberOfLines={4}
+                value={description}
+                onChangeText={setDescription}
               />
             </View>
             
-            {/* Kategori */}
-            <View style={styles.inputGroup}>
+            <View style={styles.formGroup}>
               <ThemedText style={styles.label}>Kategori</ThemedText>
-              <View style={styles.categoryContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {categories.map((cat) => (
-                    <TouchableOpacity
-                      key={cat.value}
-                      style={[
-                        styles.categoryItem,
-                        category === cat.value && styles.categoryItemSelected
-                      ]}
-                      onPress={() => setCategory(cat.value)}
-                    >
-                      <ThemedText 
-                        style={[
-                          styles.categoryText,
-                          category === cat.value && styles.categoryTextSelected
-                        ]}
-                      >
-                        {cat.label}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Kategori belirtin (ör. Halı Saha, Antrenman)"
+                placeholderTextColor="#999"
+                value={category}
+                onChangeText={setCategory}
+              />
             </View>
             
-            {/* Etiketler */}
-            <View style={styles.inputGroup}>
+            <View style={styles.formGroup}>
               <ThemedText style={styles.label}>Etiketler</ThemedText>
               <TextInput
                 style={styles.input}
-                placeholder="Etiketleri virgülle ayırarak giriniz"
-                placeholderTextColor="#888"
+                placeholder="Virgülle ayırarak etiketler ekleyin"
+                placeholderTextColor="#999"
                 value={tags}
                 onChangeText={setTags}
               />
             </View>
             
-            {/* Yayın Durumu */}
-            <View style={styles.inputGroup}>
-              <View style={styles.toggleContainer}>
-                <ThemedText style={styles.label}>Herkese Açık</ThemedText>
-                <TouchableOpacity 
-                  style={[styles.toggle, isPublic ? styles.toggleActive : styles.toggleInactive]} 
-                  onPress={() => setIsPublic(!isPublic)}
-                >
-                  <View style={[styles.toggleCircle, isPublic ? styles.toggleCircleRight : styles.toggleCircleLeft]} />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            {/* Medya Seçme Butonları */}
             <View style={styles.mediaButtons}>
-              <TouchableOpacity 
-                style={[styles.mediaButton, mediaType === 'image' ? styles.mediaButtonActive : null]} 
+                <TouchableOpacity 
+                style={[styles.mediaButton, mediaType === 'image' && styles.activeMediaButton]}
                 onPress={pickImage}
               >
-                <Ionicons name="image-outline" size={24} color={mediaType === 'image' ? "#3498db" : "#555"} />
-                <ThemedText style={styles.mediaButtonText}>Resim</ThemedText>
+                <IconSymbol name="photo" size={24} color={mediaType === 'image' ? 'white' : '#4CAF50'} />
+                <ThemedText style={mediaType === 'image' ? styles.activeMediaButtonText : styles.mediaButtonText}>
+                  Fotoğraf
+                </ThemedText>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.mediaButton, mediaType === 'video' ? styles.mediaButtonActive : null]} 
+
+              <TouchableOpacity
+                style={[styles.mediaButton, mediaType === 'video' && styles.activeMediaButton]}
                 onPress={pickVideo}
               >
-                <Ionicons name="videocam-outline" size={24} color={mediaType === 'video' ? "#3498db" : "#555"} />
-                <ThemedText style={styles.mediaButtonText}>Video</ThemedText>
-              </TouchableOpacity>
-            </View>
-            
-            {/* Medya Önizleme */}
-            {media && (
-              <View style={styles.previewContainer}>
-                <TouchableOpacity style={styles.clearButton} onPress={clearMedia}>
-                  <Ionicons name="close-circle" size={28} color="#ff3b30" />
+                <IconSymbol name="video" size={24} color={mediaType === 'video' ? 'white' : '#4CAF50'} />
+                <ThemedText style={mediaType === 'video' ? styles.activeMediaButtonText : styles.mediaButtonText}>
+                  Video
+                </ThemedText>
                 </TouchableOpacity>
-                
-                {mediaType === 'image' ? (
-                  <Image source={{ uri: media.uri }} style={styles.mediaPreview} resizeMode="cover" />
-                ) : (
-                  <Video
-                    ref={videoPlayerRef}
-                    source={{ uri: media.uri }}
-                    style={styles.mediaPreview}
-                    useNativeControls
-                    resizeMode={ResizeMode.CONTAIN}
-                  />
+              </View>
+
+            {media && (
+              <View style={styles.mediaPreview}>
+                <TouchableOpacity style={styles.removeMediaButton} onPress={clearMedia}>
+                  <IconSymbol name="xmark.circle.fill" size={24} color="#FF3B30" />
+                </TouchableOpacity>
+
+                {mediaType === 'image' && (
+                  <Image source={{ uri: media.uri }} style={styles.previewImage} />
+                )}
+
+                {mediaType === 'video' && (
+                  <TouchableOpacity
+                    style={styles.videoPreviewButton}
+                    onPress={() => setSelectedVideoUrl(media.uri)}
+                  >
+                    <Image 
+                      source={require('../../assets/images/default-avatar.png')}
+                      style={styles.videoThumbnail}
+                    />
+                    <View style={styles.playButton}>
+                      <IconSymbol name="play.fill" size={24} color="white" />
+            </View>
+                  </TouchableOpacity>
                 )}
               </View>
             )}
             
-            {/* Paylaş Butonu */}
+            <View style={styles.visibilityContainer}>
+              <ThemedText style={styles.visibilityLabel}>Görünürlük:</ThemedText>
+              <TouchableOpacity 
+                style={[styles.visibilityOption, isPublic && styles.visibilityOptionActive]}
+                onPress={() => setIsPublic(true)}
+              >
+                <IconSymbol 
+                  name="globe" 
+                  size={18} 
+                  color={isPublic ? 'white' : '#4CAF50'} 
+                />
+                <ThemedText style={isPublic ? styles.visibilityTextActive : styles.visibilityText}>
+                  Herkese Açık
+                </ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.visibilityOption, !isPublic && styles.visibilityOptionActive]}
+                onPress={() => setIsPublic(false)}
+              >
+                <IconSymbol 
+                  name="lock" 
+                  size={18} 
+                  color={!isPublic ? 'white' : '#4CAF50'} 
+                />
+                <ThemedText style={!isPublic ? styles.visibilityTextActive : styles.visibilityText}>
+                  Sadece Ben
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Paylaş butonu yukarı taşındı */}
             <TouchableOpacity
-              style={[
-                styles.shareButton,
-                (!title.trim() || !description.trim() || !media) ? styles.shareButtonDisabled : null
-              ]}
+              style={[styles.shareButton, { opacity: loading ? 0.7 : 1 }]}
               onPress={sharePost}
-              disabled={!title.trim() || !description.trim() || !media || uploading}
+              disabled={loading}
             >
-              {uploading ? (
-                <View style={styles.uploadingContainer}>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <ThemedText style={styles.uploadingText}>Yükleniyor... ({uploadProgress}%)</ThemedText>
+              {loading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <>
+                  <IconSymbol name="square.and.arrow.up" size={20} color="white" />
+                  <ThemedText style={styles.shareButtonText}>Paylaş</ThemedText>
+                </>
+              )}
+                </TouchableOpacity>
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Video önizleme için modal */}
+      <Modal
+        visible={!!selectedVideoUrl}
+        transparent={true}
+        onRequestClose={() => setSelectedVideoUrl(null)}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setSelectedVideoUrl(null)}
+          >
+            <IconSymbol name="xmark.circle.fill" size={30} color="white" />
+          </TouchableOpacity>
+          {selectedVideoUrl && (
+                  <Video
+                    ref={videoPlayerRef}
+              source={{ uri: selectedVideoUrl }}
+              style={styles.videoPlayer}
+                    useNativeControls
+                    resizeMode={ResizeMode.CONTAIN}
+              isLooping
+              shouldPlay
+                  />
+                )}
+              </View>
+      </Modal>
+            
+      {/* Yükleme durumu modali */}
+      <Modal visible={uploading} transparent={true} animationType="fade">
+        <View style={styles.uploadingModalContainer}>
+          <View style={styles.uploadingModalContent}>
+            {uploadSuccess ? (
+              <View style={styles.successContainer}>
+                <IconSymbol name="checkmark.circle" size={60} color="#4CAF50" />
+                <ThemedText style={styles.successText}>Paylaşım Başarılı!</ThemedText>
+            <TouchableOpacity
+                  style={styles.successButton}
+                  onPress={() => {
+                    setUploading(false);
+                    setUploadSuccess(false);
+                    // Formu temizle
+                    setTitle('');
+                    setDescription('');
+                    setCategory('');
+                    setTags('');
+                    setMedia(null);
+                    setMediaType(null);
+                    // Gönderileri yenile
+                    fetchPosts();
+                    // Ana sayfaya yönlendir
+                    router.push('/(tabs)');
+                  }}
+                >
+                  <ThemedText style={styles.successButtonText}>Tamam</ThemedText>
+                </TouchableOpacity>
                 </View>
               ) : (
-                <ThemedText style={styles.shareButtonText}>Paylaş</ThemedText>
-              )}
-            </TouchableOpacity>
+              <>
+                <ActivityIndicator size="large" color="#4CAF50" />
+                <ThemedText style={styles.uploadingText}>Gönderiniz yükleniyor...</ThemedText>
+                <View style={styles.progressBarContainer}>
+                  <View
+                    style={[
+                      styles.progressBar,
+                      { width: `${uploadProgress}%` }
+                    ]}
+                  />
+                </View>
+                <ThemedText style={styles.progressText}>{uploadProgress}%</ThemedText>
+              </>
+            )}
           </View>
+        </View>
+      </Modal>
         </ThemedView>
-      </ScrollView>
-    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
   },
-  header: {
-    marginBottom: 20,
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  formContainer: {
+  keyboardAvoidView: {
     flex: 1,
   },
-  inputGroup: {
+  scrollContent: {
+    flexGrow: 1,
+  },
+  headerGradient: {
+    padding: 20,
+    paddingTop: 30,
+    paddingBottom: 30,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'white',
+    opacity: 0.9,
+  },
+  formCard: {
+    marginTop: -20,
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    // Gölgelendirme
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  formGroup: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
+    fontSize: 14,
   },
   textArea: {
-    height: 100,
+    minHeight: 100,
     textAlignVertical: 'top',
-  },
-  categoryContainer: {
-    flexDirection: 'row',
-    marginVertical: 8,
-  },
-  categoryItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    backgroundColor: '#f0f0f0',
-  },
-  categoryItemSelected: {
-    backgroundColor: '#3498db',
-  },
-  categoryText: {
-    color: '#333',
-  },
-  categoryTextSelected: {
-    color: '#fff',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toggle: {
-    width: 51,
-    height: 31,
-    borderRadius: 15,
-    padding: 2,
-  },
-  toggleActive: {
-    backgroundColor: '#4cd964',
-  },
-  toggleInactive: {
-    backgroundColor: '#e9e9e9',
-  },
-  toggleCircle: {
-    width: 27,
-    height: 27,
-    borderRadius: 14,
-    backgroundColor: 'white',
-  },
-  toggleCircleLeft: {
-    alignSelf: 'flex-start',
-  },
-  toggleCircleRight: {
-    alignSelf: 'flex-end',
   },
   mediaButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 16,
+    marginBottom: 16,
   },
   mediaButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
-    width: '45%',
+    borderColor: '#4CAF50',
+    marginRight: 10,
   },
-  mediaButtonActive: {
-    borderColor: '#3498db',
-    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+  activeMediaButton: {
+    backgroundColor: '#4CAF50',
   },
   mediaButtonText: {
-    marginTop: 4,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#4CAF50',
   },
-  previewContainer: {
-    marginVertical: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
+  activeMediaButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: 'white',
   },
   mediaPreview: {
+    position: 'relative',
+    marginBottom: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  previewImage: {
     width: '100%',
     height: 200,
-    backgroundColor: '#f0f0f0',
+    resizeMode: 'cover',
   },
-  clearButton: {
+  removeMediaButton: {
     position: 'absolute',
     top: 8,
     right: 8,
@@ -781,30 +854,143 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 15,
   },
-  shareButton: {
-    backgroundColor: '#3498db',
-    paddingVertical: 14,
-    borderRadius: 8,
+  videoPreviewButton: {
+    position: 'relative',
+  },
+  videoThumbnail: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#f0f0f0',
+  },
+  playButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -25,
+    marginTop: -25,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
   },
-  shareButtonDisabled: {
-    backgroundColor: '#b0c4de',
+  visibilityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  shareButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  visibilityLabel: {
+    marginRight: 10,
+    fontSize: 14,
+    fontWeight: '600',
   },
-  uploadingContainer: {
+  visibilityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  visibilityOptionActive: {
+    backgroundColor: '#4CAF50',
+  },
+  visibilityText: {
+    marginLeft: 6,
+    fontSize: 12,
+    color: '#4CAF50',
+  },
+  visibilityTextActive: {
+    marginLeft: 6,
+    fontSize: 12,
+    color: 'white',
+  },
+  shareButton: {
+    backgroundColor: '#4CAF50',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 10,
   },
-  uploadingText: {
-    color: '#fff',
+  shareButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
     marginLeft: 8,
     fontSize: 16,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 999,
+  },
+  videoPlayer: {
+    width: '100%',
+    height: 300,
+  },
+  uploadingModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingModalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    width: '80%',
+  },
+  uploadingText: {
+    marginTop: 15,
+    fontSize: 16,
+  },
+  progressBarContainer: {
+    height: 8,
+    width: '100%',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    marginTop: 15,
+    marginBottom: 5,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#555',
+  },
+  successContainer: {
+    alignItems: 'center',
+    padding: 10,
+  },
+  successText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 20,
+  },
+  successButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  successButtonText: {
+    color: 'white',
     fontWeight: 'bold',
   },
 });

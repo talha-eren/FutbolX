@@ -7,13 +7,45 @@ import 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { View, StyleSheet } from 'react-native';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '@/context/AuthContext';
-import { BackendConnectionProvider } from '../context/BackendConnectionContext';
+import { BackendConnectionProvider } from '@/context/BackendConnectionContext';
 
-// Notification ayarları
-try {
+// Splash screen'in otomatik kapanmasını engelle
+SplashScreen.preventAutoHideAsync();
+
+export default function RootLayout() {
+  // Özel fontları kullanma hatası olduğu için basitleştirilmiş useFonts kullanımı
+  const [fontsLoaded] = useFonts({
+    // Varsayılan fontları kullan
+    'SpaceMono': require('../assets/fonts/SpaceMono-Regular.ttf'),
+  });
+
+  // Fonts yüklendikten sonra splash screen'i kapat
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <RootLayoutNav />
+    </GestureHandlerRootView>
+  );
+}
+
+function RootLayoutNav() {
+  const colorScheme = useColorScheme();
+
+  // Bildirimleri ayarla
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
@@ -23,103 +55,34 @@ try {
       shouldShowList: true,
     }),
   });
-} catch (error) {
-  console.log('Bildirim ayarları yüklenemedi:', error);
-}
-
-// Splash screen'in otomatik kapanmasını engelle
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [userLoggedIn, setUserLoggedIn] = useState(false);
-  
-  // FutbolX tema renkleri
-  const appTheme = {
-    light: {
-      ...DefaultTheme,
-      colors: {
-        ...DefaultTheme.colors,
-        primary: '#4CAF50',
-        background: '#F5F7FA',
-        card: '#FFFFFF',
-        text: '#333333',
-        border: '#E0E0E0',
-        notification: '#4CAF50',
-      },
-    },
-    dark: {
-      ...DarkTheme,
-      colors: {
-        ...DarkTheme.colors,
-        primary: '#81C784',
-        background: '#121212',
-        card: '#1E1E1E',
-        text: '#FFFFFF',
-        border: '#2C2C2C',
-        notification: '#81C784',
-      },
-    },
-  };
 
   useEffect(() => {
-    // Uygulama başlangıç kontrollerini yap (oturum durumu, yerel depolama vb.)
-    async function checkInitialState() {
-      try {
-        // AsyncStorage'dan kullanıcı durumunu kontrol et
-        const userData = await AsyncStorage.getItem('user');
-        const token = await AsyncStorage.getItem('token');
-        
-        // Kullanıcı verisi ve token varsa, giriş yapmış sayılır
-        setUserLoggedIn(userData !== null && token !== null);
-        
-        // Bildirim izinlerini kontrol et ve talep et
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          console.log('Bildirim izni durumu:', status);
-        }
-      } catch (error) {
-        console.error('Başlangıç kontrolü sırasında hata:', error);
-        setUserLoggedIn(false);
-      } finally {
-        setIsLoading(false);
-        SplashScreen.hideAsync();
+    async function checkNotificationPermissions() {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      if (existingStatus !== 'granted') {
+        await Notifications.requestPermissionsAsync();
       }
     }
 
-    checkInitialState();
+    checkNotificationPermissions();
   }, []);
 
-  if (isLoading || !loaded) {
-    return null; // Yükleme sırasında splash screen gösteriliyor
-  }
-
   return (
-    <BackendConnectionProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? appTheme.dark : appTheme.light}>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <AuthProvider>
-          <Stack screenOptions={{ 
-            headerShown: false,
-            contentStyle: { 
-              backgroundColor: colorScheme === 'dark' ? appTheme.dark.colors.background : appTheme.light.colors.background 
-            },
-            animation: 'slide_from_right'
-          }}>
-            {userLoggedIn ? (
+        <BackendConnectionProvider>
+          <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            ) : (
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            )}
-            <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+            <Stack.Screen name="field/[id]" options={{ title: 'Halı Saha Detay' }} />
+            <Stack.Screen name="fields/[id]" options={{ title: 'Halı Saha Detay' }} />
+            <Stack.Screen name="video/[id]" options={{ title: 'Video' }} />
+            <Stack.Screen name="reservations/[id]" options={{ title: 'Rezervasyon' }} />
+            <Stack.Screen name="about" options={{ title: 'Hakkımızda' }} />
+            <Stack.Screen name="(auth)/login" options={{ headerTitle: 'Giriş Yap', presentation: 'modal' }} />
+            <Stack.Screen name="(auth)/register" options={{ headerTitle: 'Kayıt Ol', presentation: 'modal' }} />
           </Stack>
+        </BackendConnectionProvider>
         </AuthProvider>
       </ThemeProvider>
-    </BackendConnectionProvider>
   );
 }

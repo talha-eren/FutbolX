@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator, Text } from 'react-native';
+import { StyleSheet, View, Image, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator, Text, Platform, Linking, Modal } from 'react-native';
 import { ThemedView } from '../../components/ThemedView';
 import { ThemedText } from '../../components/ThemedText';
 import { useThemeColor } from '../../hooks/useThemeColor';
@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { IS_OFFLINE_MODE, OFFLINE_DATA, checkOfflineMode } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Card } from '../../components/ui/Card';
 
 // Varsayılan profil resmi URL'si
 const DEFAULT_PROFILE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -24,13 +25,13 @@ const pastMatches = [];
 // Kullanıcı profil tipi
 type UserProfile = {
   id: string;
-  name: string;
+  _id?: string;
+  name?: string;
   username: string;
   email: string;
   profilePicture: string;
   bio?: string;
   location?: string;
-  phone?: string;
   favoriteTeams?: string[];
   stats?: {
     matches: number;
@@ -42,11 +43,19 @@ type UserProfile = {
   level?: string;
   position?: string;
   footPreference?: string;
+  phone?: string;
   // Stats değerlerine doğrudan erişim için
   matches?: number;
   goals?: number;
   assists?: number;
   playHours?: number;
+  // Veritabanından gelen ek alanlar
+  firstName?: string;
+  lastName?: string;
+  footballExperience?: string;
+  preferredFoot?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 import { VideoMeta, videoService, API_URL } from '../../services/videoApi';
@@ -63,7 +72,12 @@ export default function ProfileScreen() {
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
   const [pastMatches, setPastMatches] = useState<any[]>([]);
   
-  // Yeni renk şemasından renkleri al
+  // Gizlilik politikası modalı
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  // Kullanım koşulları modalı
+  const [showTermsOfService, setShowTermsOfService] = useState(false);
+  
+  // Yeni renk şemasından renkleri al - tüm hook'ları bileşenin en üst seviyesinde tanımla
   const tintColor = useThemeColor({}, 'tint');
   const secondaryTint = useThemeColor({}, 'secondaryTint');
   const accentColor = useThemeColor({}, 'accent');
@@ -73,6 +87,8 @@ export default function ProfileScreen() {
   const secondaryBackgroundColor = useThemeColor({}, 'secondaryBackground');
   const borderColor = useThemeColor({}, 'border');
   const cardColor = useThemeColor({}, 'card');
+  const primaryColor = '#4CAF50'; // Sabit renk
+  
   const { user, logout, refreshUserData } = useAuth();
   const router = useRouter();
 
@@ -95,7 +111,7 @@ export default function ProfileScreen() {
         const offlineUser = OFFLINE_DATA.user;
         const formattedOfflineUser: UserProfile = {
           id: offlineUser._id,
-          name: offlineUser.name,
+          name: offlineUser.name || '',
           username: offlineUser.username,
           email: offlineUser.email,
           profilePicture: offlineUser.profilePicture || DEFAULT_PROFILE_IMAGE,
@@ -104,6 +120,7 @@ export default function ProfileScreen() {
           level: offlineUser.level || 'Orta',
           position: offlineUser.position || 'Forvet',
           footPreference: 'Sağ',
+          phone: offlineUser.phone || '+90 555 123 4567',
           stats: offlineUser.stats || {
             matches: 15,
             goals: 8,
@@ -114,7 +131,14 @@ export default function ProfileScreen() {
           matches: 15,
           goals: 8,
           assists: 5,
-          playHours: 30
+          playHours: 30,
+          // Veritabanından gelen ek alanlar
+          firstName: 'Test',
+          lastName: 'Kullanıcı',
+          footballExperience: 'Başlangıç',
+          preferredFoot: 'Sağ',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         };
         setUserData(formattedOfflineUser);
         setLoading(false);
@@ -137,6 +161,7 @@ export default function ProfileScreen() {
           level: user.level || '',
           position: user.position || '',
           footPreference: user.footPreference || '',
+          phone: user.phone || '',
           stats: {
             matches: userStats.matches || 0,
             goals: userStats.goals || 0,
@@ -147,7 +172,13 @@ export default function ProfileScreen() {
           matches: userStats.matches || 0,
           goals: userStats.goals || 0,
           assists: userStats.assists || 0,
-          playHours: userStats.playHours || 0
+          playHours: userStats.playHours || 0,
+          firstName: user.firstName || user.name || '',
+          lastName: user.lastName || '',
+          footballExperience: user.footballExperience || user.level || '',
+          preferredFoot: user.preferredFoot || '',
+          createdAt: user.createdAt || new Date().toISOString(),
+          updatedAt: user.updatedAt || new Date().toISOString()
         };
         setUserData(formattedUserData);
       }
@@ -176,11 +207,11 @@ export default function ProfileScreen() {
         profilePicture: profileData.profilePicture || user?.profilePicture || DEFAULT_PROFILE_IMAGE,
         bio: profileData.bio || user?.bio || '',
         location: profileData.location || user?.location || '',
-        phone: profileData.phone || '',
         favoriteTeams: profileData.favoriteTeams || [],
         level: profileData.level || user?.level || '',
         position: profileData.position || user?.position || '',
         footPreference: profileData.footPreference || user?.footPreference || '',
+        phone: profileData.phone || user?.phone || '',
         stats: {
           matches: stats.matches || 0,
           goals: stats.goals || 0,
@@ -192,7 +223,13 @@ export default function ProfileScreen() {
         matches: stats.matches || 0,
         goals: stats.goals || 0,
         assists: stats.assists || 0,
-        playHours: stats.playHours || 0
+        playHours: stats.playHours || 0,
+        firstName: profileData.firstName || profileData.name || '',
+        lastName: profileData.lastName || '',
+        footballExperience: profileData.footballExperience || profileData.level || '',
+        preferredFoot: profileData.preferredFoot || '',
+        createdAt: profileData.createdAt || new Date().toISOString(),
+        updatedAt: profileData.updatedAt || new Date().toISOString()
       };
             
       setUserData(formattedData);
@@ -232,7 +269,12 @@ export default function ProfileScreen() {
       fetchUserProfile();
       fetchVideos();
       fetchMatches();
-    }, [])
+      
+      // Cleanup function if needed
+      return () => {
+        // Cleanup code here if needed
+      };
+    }, []) // Empty dependency array ensures this only runs when screen is focused
   );
 
   // Videoları getir
@@ -320,134 +362,90 @@ export default function ProfileScreen() {
   };
 
   const renderHeader = () => {
-    if (!userData) return null;
-    
     return (
-      <View style={styles.headerContainer}>
-        {/* Profil başlığı */}
+      <View style={styles.profileHeader}>
         <LinearGradient
-          colors={[tintColor, secondaryTint]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.profileHeaderContent}>
-            {/* Profil resmi */}
+          colors={['#4CAF50', '#2E7D32']}
+          style={styles.headerBackground}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 0}}
+        />
+        
             <View style={styles.profileImageContainer}>
               <Image 
-                source={{ uri: userData.profilePicture || DEFAULT_PROFILE_IMAGE }} 
+            source={{ 
+              uri: userData?.profilePicture ? 
+                `https://api.futbolx.app/uploads/${userData?.profilePicture}` : 
+                DEFAULT_PROFILE_IMAGE
+            }}
                 style={styles.profileImage} 
-                defaultSource={{ uri: DEFAULT_PROFILE_IMAGE }}
-                resizeMode="cover"
-              />
-              <TouchableOpacity 
-                style={styles.editProfileButton}
-                onPress={() => router.push('/(tabs)/edit-profile' as any)}
-              >
-                <IconSymbol name="pencil" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
+          />
+          {isOffline && (
+            <View style={styles.offlineBadge}>
+              <IconSymbol name="wifi.slash" size={16} color="#FFFFFF" />
+            </View>
+          )}
             </View>
             
-            {/* Kullanıcı bilgileri */}
             <View style={styles.profileInfo}>
-              <ThemedText style={styles.userName}>{userData.name}</ThemedText>
-              <ThemedText style={styles.userUsername}>@{userData.username}</ThemedText>
-              
-              <View style={styles.userBadges}>
-                {userData.level && (
-                <View style={styles.userLevel}>
-                  <IconSymbol name="medal" size={16} color="#FFFFFF" />
-                  <ThemedText style={styles.userLevelText}>
-                      {userData.level}
+          <ThemedText style={[styles.profileName, {color: '#FFFFFF'}]}>
+            {userData?.firstName} {userData?.lastName}
+                  </ThemedText>
+          <ThemedText style={[styles.profileUsername, {color: 'rgba(255,255,255,0.9)'}]}>
+            @{userData?.username || "kullanici"}
+                  </ThemedText>
+          
+          <View style={styles.profileStatsContainer}>
+            <View style={styles.badgeContainer}>
+              <IconSymbol name="person.badge.key" size={16} color="#FFC107" />
+              <ThemedText style={styles.badgeText}>
+                {userData?.footballExperience || "Sporcu"}
                   </ThemedText>
                 </View>
-                )}
-                
-                {userData.position && (
-                <View style={styles.userPosition}>
-                  <IconSymbol name="person.fill" size={16} color="#FFFFFF" />
-                  <ThemedText style={styles.userPositionText}>
-                      {userData.position}
-                  </ThemedText>
-                </View>
-                )}
-                
-                {userData.footPreference && (
-                <View style={styles.userFootPreference}>
-                  <IconSymbol name="figure.walk" size={16} color="#FFFFFF" />
-                  <ThemedText style={styles.userFootPreferenceText}>
-                      {userData.footPreference}
-                  </ThemedText>
-                </View>
-                )}
               </View>
             </View>
-          </View>
-        </LinearGradient>
         
-        {/* İstatistikler */}
-        <View style={[styles.statsContainer, { backgroundColor: cardColor }]}>
-          <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.matches ?? 0}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Maçlar</ThemedText>
-          </View>
-          
-          <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.goals ?? 0}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Goller</ThemedText>
-          </View>
-          
-          <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.assists ?? 0}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Asistler</ThemedText>
-          </View>
-          
-          <View style={styles.statItem}>
-            <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.playHours ?? 0}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Saat</ThemedText>
-          </View>
-        </View>
-        
-        {/* Eylem butonları */}
-        <View style={styles.actionButtons}>
           <TouchableOpacity 
-            style={[styles.button, styles.primaryButton, { backgroundColor: tintColor }]}
-            onPress={() => router.push('/(tabs)/find-match' as any)}
+          style={styles.editProfileButton}
+          onPress={() => router.push('/edit-profile')}
           >
-            <IconSymbol name="magnifyingglass" size={18} color="#FFFFFF" />
-            <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>Maç Bul</ThemedText>
+          <IconSymbol name="pencil" size={16} color="#FFFFFF" />
+          <ThemedText style={styles.editProfileText}>Düzenle</ThemedText>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.button, styles.secondaryButton, { borderColor: tintColor }]}
-            onPress={handleLogout}
-          >
-            <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color={tintColor} />
-            <ThemedText style={[styles.buttonText, { color: tintColor }]}>Çıkış Yap</ThemedText>
-          </TouchableOpacity>
-        </View>
       </View>
     );
   };
 
-  const renderTabs = () => (
-    <View style={[styles.tabs, { borderBottomColor: '#E0E0E0' }]}>
+  const renderTabs = () => {
+    const profileTabStyle = activeTab === 'profile' 
+      ? [styles.activeTabButton, { borderBottomColor: tintColor }] 
+      : {};
+    
+    const profileTextStyle = activeTab === 'profile' 
+      ? [styles.activeTabText, { color: tintColor }] 
+      : {};
+    
+    const settingsTabStyle = activeTab === 'settings' 
+      ? [styles.activeTabButton, { borderBottomColor: tintColor }] 
+      : {};
+    
+    const settingsTextStyle = activeTab === 'settings' 
+      ? [styles.activeTabText, { color: tintColor }] 
+      : {};
+    
+    return (
+    <View style={styles.tabContainer}>
       <TouchableOpacity 
         style={[
-          styles.tab, 
-          activeTab === 'profile' && { borderBottomColor: tintColor, borderBottomWidth: 2 }
+          styles.tabButton,
+          profileTabStyle
         ]}
         onPress={() => setActiveTab('profile')}
       >
-        <IconSymbol 
-          name="person.fill" 
-          size={20} 
-          color={activeTab === 'profile' ? tintColor : textColor} 
-        />
         <ThemedText 
           style={[
             styles.tabText, 
-            activeTab === 'profile' && { color: tintColor, fontWeight: 'bold' }
+            profileTextStyle
           ]}
         >
           Profil
@@ -456,49 +454,22 @@ export default function ProfileScreen() {
       
       <TouchableOpacity 
         style={[
-          styles.tab, 
-          activeTab === 'upcoming' && { borderBottomColor: tintColor, borderBottomWidth: 2 }
+          styles.tabButton,
+          settingsTabStyle
         ]}
-        onPress={() => setActiveTab('upcoming')}
+        onPress={() => setActiveTab('settings')}
       >
-        <IconSymbol 
-          name="calendar" 
-          size={20} 
-          color={activeTab === 'upcoming' ? tintColor : textColor} 
-        />
         <ThemedText 
           style={[
             styles.tabText, 
-            activeTab === 'upcoming' && { color: tintColor, fontWeight: 'bold' }
+            settingsTextStyle
           ]}
         >
-          Yaklaşan
-        </ThemedText>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={[
-          styles.tab, 
-          activeTab === 'history' && { borderBottomColor: tintColor, borderBottomWidth: 2 }
-        ]}
-        onPress={() => setActiveTab('history')}
-      >
-        <IconSymbol 
-          name="clock.arrow.circlepath" 
-          size={20} 
-          color={activeTab === 'history' ? tintColor : textColor} 
-        />
-        <ThemedText 
-          style={[
-            styles.tabText, 
-            activeTab === 'history' && { color: tintColor, fontWeight: 'bold' }
-          ]}
-        >
-          Geçmiş
+          Ayarlar
         </ThemedText>
       </TouchableOpacity>
     </View>
-  );
+  )};
 
   const renderProfileDetails = () => {
     if (loading) {
@@ -515,7 +486,7 @@ export default function ProfileScreen() {
         <View style={styles.errorContainer}>
           <IconSymbol name="exclamationmark.triangle" size={50} color="#e53935" />
           <ThemedText style={styles.errorText}>{error}</ThemedText>
-          <TouchableOpacity 
+      <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: tintColor }]}
             onPress={() => {
               setError(null);
@@ -523,11 +494,11 @@ export default function ProfileScreen() {
             }}
           >
             <ThemedText style={styles.retryButtonText}>Tekrar Dene</ThemedText>
-          </TouchableOpacity>
-        </View>
-      );
+      </TouchableOpacity>
+    </View>
+  );
     }
-    
+
     if (!userData) {
       return (
         <View style={styles.errorContainer}>
@@ -537,15 +508,19 @@ export default function ProfileScreen() {
       );
     }
     
+    // Stil değişkenlerini önceden hesapla
+    const editButtonStyle = { backgroundColor: tintColor };
+    const statValueStyle = { color: tintColor };
+    const characteristicValueStyle = { color: tintColor };
+    
     return (
       <View style={styles.detailsContainer}>
         <View style={styles.infoCard}>
           <View style={styles.infoHeader}>
             <ThemedText style={styles.infoTitle}>Kullanıcı Bilgileri</ThemedText>
             <TouchableOpacity 
-              style={[styles.editButtonSmall, { backgroundColor: tintColor }]} 
+              style={[styles.editButtonSmall, editButtonStyle]} 
               onPress={() => {
-                // Profil düzenleme sayfasına yönlendir
                 router.push('/(tabs)/edit-profile' as any);
               }}
             >
@@ -554,11 +529,12 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Ad Soyad:</ThemedText><ThemedText style={styles.infoValue}>{userData.name || '-'}</ThemedText></View>
+          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Ad:</ThemedText><ThemedText style={styles.infoValue}>{userData.firstName || '-'}</ThemedText></View>
+          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Soyad:</ThemedText><ThemedText style={styles.infoValue}>{userData.lastName || '-'}</ThemedText></View>
           <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Kullanıcı Adı:</ThemedText><ThemedText style={styles.infoValue}>{userData.username || '-'}</ThemedText></View>
           <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>E-posta:</ThemedText><ThemedText style={styles.infoValue}>{userData.email || '-'}</ThemedText></View>
-          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Konum:</ThemedText><ThemedText style={styles.infoValue}>{userData.location || '-'}</ThemedText></View>
           <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Telefon:</ThemedText><ThemedText style={styles.infoValue}>{userData.phone || '-'}</ThemedText></View>
+          <View style={styles.infoRow}><ThemedText style={styles.infoLabel}>Konum:</ThemedText><ThemedText style={styles.infoValue}>{userData.location || '-'}</ThemedText></View>
           <View style={[styles.infoRow, {borderBottomWidth: 0}]}><ThemedText style={styles.infoLabel}>Hakkında:</ThemedText><ThemedText style={styles.infoValue}>{userData.bio || '-'}</ThemedText></View>
         </View>
         
@@ -566,7 +542,7 @@ export default function ProfileScreen() {
           <View style={styles.infoHeader}>
             <ThemedText style={styles.infoTitle}>Futbol Özellikleri</ThemedText>
             <TouchableOpacity 
-              style={[styles.editButtonSmall, { backgroundColor: tintColor }]} 
+              style={[styles.editButtonSmall, editButtonStyle]} 
               onPress={() => {
                 router.push('/(tabs)/edit-profile' as any);
               }}
@@ -580,30 +556,31 @@ export default function ProfileScreen() {
             <View style={[styles.characteristicItem, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
               <IconSymbol name="medal" size={24} color={tintColor} />
               <ThemedText style={styles.characteristicLabel}>Seviye</ThemedText>
-              <ThemedText style={[styles.characteristicValue, { color: tintColor }]}>{userData.level || '-'}</ThemedText>
+              <ThemedText style={[styles.characteristicValue, characteristicValueStyle]}>{userData.footballExperience || '-'}</ThemedText>
         </View>
             
             <View style={[styles.characteristicItem, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
               <IconSymbol name="person.fill" size={24} color={tintColor} />
               <ThemedText style={styles.characteristicLabel}>Pozisyon</ThemedText>
-              <ThemedText style={[styles.characteristicValue, { color: tintColor }]}>{userData.position || '-'}</ThemedText>
+              <ThemedText style={[styles.characteristicValue, characteristicValueStyle]}>{userData.position || '-'}</ThemedText>
             </View>
             
             <View style={[styles.characteristicItem, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
               <IconSymbol name="figure.walk" size={24} color={tintColor} />
               <ThemedText style={styles.characteristicLabel}>Ayak Tercihi</ThemedText>
-              <ThemedText style={[styles.characteristicValue, { color: tintColor }]}>{userData.footPreference || '-'}</ThemedText>
+              <ThemedText style={[styles.characteristicValue, characteristicValueStyle]}>{userData.footPreference || '-'}</ThemedText>
           </View>
           </View>
+          
+          <View style={[styles.infoRow, {borderBottomWidth: 0}]}><ThemedText style={styles.infoLabel}>İlerleme:</ThemedText><ThemedText style={styles.infoValue}>{userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-'}</ThemedText></View>
         </View>
         
         <View style={[styles.statsContainer, { backgroundColor: cardColor }]}> 
           <View style={styles.statsHeader}>
             <ThemedText style={styles.statsTitle}>İstatistikler</ThemedText>
             <TouchableOpacity 
-              style={[styles.editButtonSmall, { backgroundColor: tintColor }]} 
+              style={[styles.editButtonSmall, editButtonStyle]} 
               onPress={() => {
-                // Profil düzenleme sayfasına istatistikler bölümüne yönlendir
                 router.push('/(tabs)/edit-profile' as any);
               }}
             >
@@ -613,20 +590,20 @@ export default function ProfileScreen() {
         </View>
         
           <View style={styles.statRow}>
-            <View style={styles.statItem}>
-              <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.matches || '0'}</ThemedText>
+            <View style={styles.statisticContent}>
+              <ThemedText style={[styles.statValue, statValueStyle]}>{userData.stats?.matches || '0'}</ThemedText>
               <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Maçlar</ThemedText>
             </View>
-            <View style={styles.statItem}>
-              <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.goals || '0'}</ThemedText>
+            <View style={styles.statisticContent}>
+              <ThemedText style={[styles.statValue, statValueStyle]}>{userData.stats?.goals || '0'}</ThemedText>
               <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Goller</ThemedText>
             </View>
-            <View style={styles.statItem}>
-              <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.assists || '0'}</ThemedText>
+            <View style={styles.statisticContent}>
+              <ThemedText style={[styles.statValue, statValueStyle]}>{userData.stats?.assists || '0'}</ThemedText>
               <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Asistler</ThemedText>
             </View>
-            <View style={styles.statItem}>
-              <ThemedText style={[styles.statValue, { color: tintColor }]}>{userData.stats?.playHours || '0'}</ThemedText>
+            <View style={styles.statisticContent}>
+              <ThemedText style={[styles.statValue, statValueStyle]}>{userData.stats?.playHours || '0'}</ThemedText>
               <ThemedText style={[styles.statLabel, { color: secondaryTextColor }]}>Saat</ThemedText>
             </View>
           </View>
@@ -635,151 +612,159 @@ export default function ProfileScreen() {
     );
   };
 
-  const renderUpcomingMatches = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={tintColor} />
-          <ThemedText style={styles.loadingText}>Maçlar yükleniyor...</ThemedText>
-        </View>
-      );
+  const renderSettings = () => {
+    // Bildirim ayarları sayfasına yönlendirme
+    const handleNotificationSettings = () => {
+      if (Platform.OS === 'ios') {
+        Linking.openURL('app-settings:');
+      } else if (Platform.OS === 'android') {
+        Linking.openSettings();
+      } else {
+        // Web veya diğer platformlar
+        Alert.alert("Bildirim Ayarları", "Bildirim ayarlarını cihaz ayarlarınızdan değiştirebilirsiniz.");
     }
-    
-    if (upcomingMatches.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <IconSymbol name="calendar.badge.exclamationmark" size={40} color="#9E9E9E" />
-          <ThemedText style={styles.emptyText}>Yaklaşan maç bulunmuyor</ThemedText>
-          <TouchableOpacity style={[styles.findMatchButton, { backgroundColor: tintColor }]}>
-            <IconSymbol name="plus" size={18} color="#FFFFFF" />
-            <ThemedText style={styles.findMatchText}>Yeni Maç Bul</ThemedText>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    
-    const renderMatchItem = (match: typeof upcomingMatches[0]) => {
-      return (
-        <View key={match.id} style={[styles.matchCard, { borderColor: '#E0E0E0' }]}>
-          <View style={styles.matchImageContainer}>
-            <Image source={{ uri: match.image }} style={styles.matchImage} />
-            <View style={[
-              styles.statusTag, 
-              { backgroundColor: match.status === 'confirmed' ? '#4CAF50' : '#FFC107' }
-            ]}>
-              <ThemedText style={styles.statusText}>
-                {match.status === 'confirmed' ? 'Onaylandı' : 'Beklemede'}
-              </ThemedText>
-            </View>
-          </View>
-          
-          <View style={styles.matchContent}>
-            <ThemedText style={styles.matchTitle}>{match.fieldName}</ThemedText>
-            
-            <View style={styles.matchInfoRow}>
-              <IconSymbol name="mappin.and.ellipse" size={14} color={textColor} />
-              <ThemedText style={styles.matchInfoText}>{match.location}</ThemedText>
-            </View>
-            
-            <View style={styles.matchInfoRow}>
-              <IconSymbol name="calendar" size={14} color={textColor} />
-              <ThemedText style={styles.matchInfoText}>{match.date}</ThemedText>
-            </View>
-            
-            <View style={styles.matchInfoRow}>
-              <IconSymbol name="clock" size={14} color={textColor} />
-              <ThemedText style={styles.matchInfoText}>{match.time}</ThemedText>
-            </View>
-            
-            <View style={styles.matchActions}>
-              <TouchableOpacity style={[styles.matchButton, { backgroundColor: '#F44336' }]}>
-                <ThemedText style={styles.matchButtonText}>İptal Et</ThemedText>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={[styles.matchButton, { backgroundColor: tintColor }]}>
-                <ThemedText style={styles.matchButtonText}>Detaylar</ThemedText>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      );
     };
-    
-    return (
-      <View style={styles.matchesContainer}>
-        {upcomingMatches.map(match => renderMatchItem(match))}
-        
-        <TouchableOpacity style={[styles.findMatchButton, { backgroundColor: tintColor }]}>
-          <IconSymbol name="plus" size={18} color="#FFFFFF" />
-          <ThemedText style={styles.findMatchText}>Yeni Maç Bul</ThemedText>
-        </TouchableOpacity>
-      </View>
-    );
-  };
 
-  const renderMatchHistory = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={tintColor} />
-          <ThemedText style={styles.loadingText}>Maç geçmişi yükleniyor...</ThemedText>
-        </View>
-      );
-    }
-    
-    if (pastMatches.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <IconSymbol name="clock.arrow.circlepath" size={40} color="#9E9E9E" />
-          <ThemedText style={styles.emptyText}>Geçmiş maç bulunmuyor</ThemedText>
-        </View>
-      );
-    }
-    
-    const renderHistoryItem = (match: typeof pastMatches[0]) => {
-      return (
-        <View key={match.id} style={[styles.matchCard, { borderColor: '#E0E0E0' }]}>
-          <View style={styles.matchImageContainer}>
-            <Image source={{ uri: match.image }} style={styles.matchImage} />
-            <View style={[styles.dateTag]}>
-              <ThemedText style={styles.dateText}>{match.date}</ThemedText>
-            </View>
-          </View>
-          
-          <View style={styles.matchContent}>
-            <ThemedText style={styles.matchTitle}>{match.fieldName}</ThemedText>
-            
-            <View style={styles.matchInfoRow}>
-              <IconSymbol name="mappin.and.ellipse" size={14} color={textColor} />
-              <ThemedText style={styles.matchInfoText}>{match.location}</ThemedText>
-            </View>
-            
-            <View style={styles.performanceContainer}>
-              <View style={styles.performanceItem}>
-                <IconSymbol name="soccerball" size={16} color={textColor} />
-                <ThemedText style={styles.performanceValue}>{match.performance.goals}</ThemedText>
-                <ThemedText style={styles.performanceLabel}>Gol</ThemedText>
-              </View>
-              
-              <View style={styles.performanceItem}>
-                <IconSymbol name="figure.walk" size={16} color={textColor} />
-                <ThemedText style={styles.performanceValue}>{match.performance.assists}</ThemedText>
-                <ThemedText style={styles.performanceLabel}>Asist</ThemedText>
-              </View>
-              
-              <View style={styles.performanceItem}>
-                {renderRating(match.performance.rating)}
-                <ThemedText style={styles.performanceLabel}>Puan</ThemedText>
-              </View>
-            </View>
-          </View>
-        </View>
+    // Gizlilik ve güvenlik
+    const handlePrivacySettings = () => {
+      Alert.alert(
+        "Gizlilik ve Güvenlik",
+        "Hesap gizliliği ve güvenlik ayarlarınızı güncellemek ister misiniz?",
+        [
+          { text: "İptal", style: "cancel" },
+          { 
+            text: "Şifre Değiştir", 
+            onPress: () => router.push('/change-password' as any)
+          },
+          { 
+            text: "Gizlilik Ayarları", 
+            onPress: () => setShowPrivacyPolicy(true)
+          }
+        ]
       );
     };
-    
-    return (
-      <View style={styles.matchesContainer}>
-        {pastMatches.map(match => renderHistoryItem(match))}
+
+    // Konum ayarları
+    const handleLocationSettings = () => {
+      Alert.alert(
+        "Konum Ayarları",
+        "Konum hizmetlerini yönetin",
+        [
+          { text: "İptal", style: "cancel" },
+          { 
+            text: "Konum İzinleri", 
+            onPress: () => {
+              if (Platform.OS === 'ios' || Platform.OS === 'android') {
+                Linking.openSettings();
+              } else {
+                Alert.alert("Bilgi", "Konum izinlerini tarayıcı ayarlarınızdan değiştirebilirsiniz.");
+    }
+            }
+          },
+          { 
+            text: "Yakındaki Sahalar", 
+            onPress: () => router.push('/field/reservation' as any)
+          }
+        ]
+      );
+    };
+
+      return (
+      <View style={styles.settingsContainer}>
+        <Card style={styles.settingsCard}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => router.push('/(tabs)/edit-profile')}>
+            <IconSymbol name="person.circle" size={24} color={accentColor} />
+            <ThemedText style={styles.settingsItemText}>Profil Bilgilerini Düzenle</ThemedText>
+            <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
+          </TouchableOpacity>
+          
+          <View style={styles.settingsDivider} />
+          
+          <TouchableOpacity style={styles.settingsItem} onPress={handleNotificationSettings}>
+            <IconSymbol name="bell" size={24} color={accentColor} />
+            <ThemedText style={styles.settingsItemText}>Bildirim Ayarları</ThemedText>
+            <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
+          </TouchableOpacity>
+          
+          <View style={styles.settingsDivider} />
+            
+          <TouchableOpacity 
+            style={styles.settingsItem}
+            onPress={handlePrivacySettings}
+          >
+            <IconSymbol name="lock.shield" size={24} color={accentColor} />
+            <ThemedText style={styles.settingsItemText}>Gizlilik ve Güvenlik</ThemedText>
+            <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
+              </TouchableOpacity>
+              
+          <View style={styles.settingsDivider} />
+          
+          <TouchableOpacity 
+            style={styles.settingsItem}
+            onPress={handleLocationSettings}
+          >
+            <IconSymbol name="map" size={24} color={accentColor} />
+            <ThemedText style={styles.settingsItemText}>Konum Ayarları</ThemedText>
+            <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
+        </TouchableOpacity>
+        </Card>
+        
+        <Card style={styles.settingsCard}>
+          <TouchableOpacity 
+            style={styles.settingsItem}
+            onPress={() => {
+              Alert.alert(
+                "Yardım ve Destek",
+                "Size nasıl yardımcı olabiliriz?",
+                [
+                  { text: "İptal", style: "cancel" },
+                  { 
+                    text: "E-posta Gönder", 
+                    onPress: () => Linking.openURL('mailto:bilikcitalha@gmail.com?subject=FutbolX%20Destek%20Talebi')
+                  },
+                  {
+                    text: "SSS Görüntüle",
+                    onPress: () => router.push('/about' as any)
+                  }
+                ]
+              );
+            }}
+          >
+            <IconSymbol name="questionmark.circle" size={24} color={accentColor} />
+            <ThemedText style={styles.settingsItemText}>Yardım ve Destek</ThemedText>
+            <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
+          </TouchableOpacity>
+          
+          <View style={styles.settingsDivider} />
+          
+          <TouchableOpacity 
+            style={styles.settingsItem}
+            onPress={() => setShowTermsOfService(true)}
+          >
+            <IconSymbol name="doc.text" size={24} color={accentColor} />
+            <ThemedText style={styles.settingsItemText}>Kullanım Koşulları</ThemedText>
+            <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
+          </TouchableOpacity>
+          
+          <View style={styles.settingsDivider} />
+            
+          <TouchableOpacity 
+            style={styles.settingsItem}
+            onPress={() => setShowPrivacyPolicy(true)}
+          >
+            <IconSymbol name="hand.raised" size={24} color={accentColor} />
+            <ThemedText style={styles.settingsItemText}>Gizlilik Politikası</ThemedText>
+            <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
+          </TouchableOpacity>
+        </Card>
+        
+        <TouchableOpacity 
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <IconSymbol name="arrow.right.square" size={20} color="#FFFFFF" />
+          <ThemedText style={styles.logoutButtonText}>Çıkış Yap</ThemedText>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -829,15 +814,236 @@ export default function ProfileScreen() {
   
   // Aktif sekmeye göre içerik render etme
   const renderActiveTabContent = () => {
-    switch(activeTab) {
-      case 'profile':
+    if (activeTab === 'profile') {
         return renderProfileDetails();
-      case 'upcoming':
-        return renderUpcomingMatches();
-      case 'history':
-        return renderMatchHistory();
-      default:
-        return null;
+    } else if (activeTab === 'settings') {
+      return renderSettings();
+    }
+    return renderProfileDetails();
+  };
+
+  // Profil sayfasındaki istatistik kartları için düzenleme
+  const renderProfileStatistics = () => {
+    // Stil değişkenlerini önceden hesapla
+    const iconContainerStyle = { backgroundColor: accentColor };
+    
+    return (
+      <View style={[styles.statsContainer, { marginTop: 20, marginBottom: 30 }]}>
+        <ThemedText style={[styles.statsTitle, { marginBottom: 16 }]}>İstatistiklerim</ThemedText>
+        <ScrollView horizontal={false} showsHorizontalScrollIndicator={false}>
+          <View style={styles.statsRowContainer}>
+            <Card style={styles.statisticCard}>
+              <View style={styles.statisticContent}>
+                <View style={[styles.statisticIconContainer, iconContainerStyle]}>
+                  <IconSymbol name="figure.soccer" size={24} color="white" />
+                </View>
+                <View style={styles.statisticTextContent}>
+                  <ThemedText style={styles.statValue}>{userData?.matches || 0}</ThemedText>
+                  <ThemedText style={styles.statLabel}>Maçlar</ThemedText>
+                </View>
+              </View>
+            </Card>
+
+            <Card style={styles.statisticCard}>
+              <View style={styles.statisticContent}>
+                <View style={[styles.statisticIconContainer, iconContainerStyle]}>
+                  <IconSymbol name="soccerball" size={24} color="white" />
+                </View>
+                <View style={styles.statisticTextContent}>
+                  <ThemedText style={styles.statValue}>{userData?.goals || 0}</ThemedText>
+                  <ThemedText style={styles.statLabel}>Goller</ThemedText>
+                </View>
+              </View>
+            </Card>
+          </View>
+
+          <View style={styles.statsRowContainer}>
+            <Card style={styles.statisticCard}>
+              <View style={styles.statisticContent}>
+                <View style={[styles.statisticIconContainer, iconContainerStyle]}>
+                  <IconSymbol name="hand.point.up" size={24} color="white" />
+                </View>
+                <View style={styles.statisticTextContent}>
+                  <ThemedText style={styles.statValue}>{userData?.assists || 0}</ThemedText>
+                  <ThemedText style={styles.statLabel}>Asistler</ThemedText>
+                </View>
+              </View>
+            </Card>
+
+            <Card style={styles.statisticCard}>
+              <View style={styles.statisticContent}>
+                <View style={[styles.statisticIconContainer, iconContainerStyle]}>
+                  <IconSymbol name="clock" size={24} color="white" />
+                </View>
+                <View style={styles.statisticTextContent}>
+                  <ThemedText style={styles.statValue}>{userData?.playHours || 0}</ThemedText>
+                  <ThemedText style={styles.statLabel}>Oyun Saati</ThemedText>
+                </View>
+              </View>
+            </Card>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Gizlilik politikası ve kullanım koşulları
+  const privacyPolicy = `
+FutbolX Gizlilik Politikası
+
+1. Toplanan Bilgiler
+FutbolX uygulaması, kullanıcılarından ad, soyad, e-posta adresi, telefon numarası, konum bilgileri, futbol deneyimi ve tercih edilen pozisyon gibi kişisel bilgileri toplar.
+
+2. Bilgilerin Kullanımı
+Toplanan bilgiler şu amaçlarla kullanılır:
+- Kullanıcı hesabının oluşturulması ve yönetilmesi
+- Halı saha rezervasyonlarının yapılması
+- Maç organizasyonu ve eşleştirme
+- Kullanıcı deneyiminin kişiselleştirilmesi
+- Uygulama performansının ve kullanıcı memnuniyetinin artırılması
+
+3. Bilgi Paylaşımı
+Kullanıcı bilgileri, kullanıcının açık izni olmadan üçüncü taraflarla paylaşılmaz. Ancak, yasal zorunluluk durumlarında veya kullanıcının güvenliğini sağlamak amacıyla gerekli görüldüğünde bilgiler paylaşılabilir.
+
+4. Veri Güvenliği
+FutbolX, kullanıcı bilgilerinin güvenliğini sağlamak için endüstri standardı güvenlik önlemleri alır. Veriler şifrelenir ve güvenli sunucularda saklanır.
+
+5. Çerezler
+FutbolX, kullanıcı deneyimini iyileştirmek için çerezler kullanabilir. Kullanıcılar tarayıcı ayarlarından çerezleri yönetebilir.
+
+6. Kullanıcı Hakları
+Kullanıcılar, kişisel verilerine erişme, düzeltme, silme ve veri işleme faaliyetlerini kısıtlama haklarına sahiptir.
+
+7. Politika Değişiklikleri
+FutbolX, gizlilik politikasını güncelleyebilir. Değişiklikler uygulama üzerinden bildirilir.
+
+8. İletişim
+Gizlilik politikası ile ilgili sorular için: bilikcitalha@gmail.com
+`;
+
+  const termsOfService = `
+FutbolX Kullanım Koşulları
+
+1. Hizmet Kullanımı
+FutbolX uygulaması, futbol severlere halı saha rezervasyonu, maç organizasyonu ve sosyal etkileşim imkanı sunan bir platformdur. Kullanıcılar, uygulamayı yasal ve etik kurallara uygun şekilde kullanmayı kabul eder.
+
+2. Hesap Oluşturma
+Kullanıcılar, doğru ve güncel bilgilerle hesap oluşturmalıdır. Hesap bilgilerinin güvenliğinden kullanıcı sorumludur.
+
+3. İçerik Politikası
+Kullanıcılar, paylaştıkları içeriklerin yasal ve uygun olmasını sağlamalıdır. Yasadışı, zararlı, tehdit edici, taciz edici veya nefret içeren içerikler yasaktır.
+
+4. Fikri Mülkiyet
+FutbolX uygulamasının tüm içeriği ve tasarımı, fikri mülkiyet hakları kapsamında korunmaktadır. Kullanıcılar, bu içeriği izinsiz kullanamaz veya dağıtamaz.
+
+5. Sorumluluk Sınırlaması
+FutbolX, uygulama kullanımından kaynaklanan doğrudan veya dolaylı zararlardan sorumlu değildir. Rezervasyon ve maç organizasyonlarında yaşanabilecek aksaklıklardan kullanıcılar sorumludur.
+
+6. Hesap Sonlandırma
+FutbolX, kullanım koşullarını ihlal eden kullanıcıların hesaplarını askıya alma veya sonlandırma hakkına sahiptir.
+
+7. Değişiklikler
+FutbolX, kullanım koşullarını dilediği zaman değiştirebilir. Değişiklikler uygulama üzerinden bildirilir.
+
+8. İletişim
+Kullanım koşulları ile ilgili sorular için: bilikcitalha@gmail.com
+`;
+
+  const renderPrivacyPolicyModal = () => {
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showPrivacyPolicy}
+        onRequestClose={() => setShowPrivacyPolicy(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <ScrollView style={styles.modalScrollView}>
+              <ThemedText style={styles.modalTitle}>Gizlilik Politikası</ThemedText>
+              <ThemedText style={styles.modalText}>{privacyPolicy}</ThemedText>
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalButton, {backgroundColor: accentColor}]}
+              onPress={() => setShowPrivacyPolicy(false)}
+            >
+              <ThemedText style={styles.modalButtonText}>Kapat</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderTermsOfServiceModal = () => {
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showTermsOfService}
+        onRequestClose={() => setShowTermsOfService(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <ScrollView style={styles.modalScrollView}>
+              <ThemedText style={styles.modalTitle}>Kullanım Koşulları</ThemedText>
+              <ThemedText style={styles.modalText}>{termsOfService}</ThemedText>
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalButton, {backgroundColor: accentColor}]}
+              onPress={() => setShowTermsOfService(false)}
+            >
+              <ThemedText style={styles.modalButtonText}>Kapat</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  // Profil bilgilerini güncelleme fonksiyonu
+  const updateUserProfile = async (updatedData: Partial<UserProfile>) => {
+    try {
+      setLoading(true);
+      
+      // Mevcut kullanıcı verilerini al
+      const currentUserData = userData || {};
+      
+      // Güncellenecek verileri hazırla
+      const profileUpdateData = {
+        ...currentUserData,
+        ...updatedData
+      };
+      
+      // API'ye gönderilecek verileri hazırla
+      const apiData = {
+        firstName: profileUpdateData.firstName,
+        lastName: profileUpdateData.lastName,
+        bio: profileUpdateData.bio,
+        location: profileUpdateData.location,
+        level: profileUpdateData.level,
+        position: profileUpdateData.position,
+        footPreference: profileUpdateData.footPreference,
+        footballExperience: profileUpdateData.footballExperience,
+        preferredFoot: profileUpdateData.preferredFoot,
+        phone: profileUpdateData.phone
+      };
+      
+      // API çağrısı yap
+      await userService.updateProfile(apiData);
+      
+      // Kullanıcı verilerini yenile
+      await refreshUserData();
+      
+      // Profil verilerini tekrar çek
+      await fetchUserProfile();
+      
+      Alert.alert("Başarılı", "Profil bilgileriniz güncellendi.");
+    } catch (error: any) {
+      console.error('Profil güncelleme hatası:', error);
+      Alert.alert("Hata", error.message || "Profil güncellenirken bir hata oluştu.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -848,7 +1054,10 @@ export default function ProfileScreen() {
         {renderHeader()}
         {renderTabs()}
         {renderActiveTabContent()}
+        {renderProfileStatistics()}
       </ScrollView>
+      {renderPrivacyPolicyModal()}
+      {renderTermsOfServiceModal()}
     </ThemedView>
   );
 }
@@ -889,7 +1098,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     overflow: 'hidden',
   },
-  profileHeaderContent: {
+  profileHeader: {
     flexDirection: 'row',
     paddingHorizontal: 20,
   },
@@ -931,139 +1140,50 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  userName: {
+  profileName: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 4,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
-  userUsername: {
+  profileUsername: {
     fontSize: 15,
     color: 'rgba(255,255,255,0.9)',
     marginBottom: 14,
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
   },
-  userBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  userLevel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(76, 175, 80, 0.25)',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  userLevelText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    marginLeft: 5,
-  },
-  userPosition: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(76, 175, 80, 0.25)',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  userPositionText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    marginLeft: 5,
-  },
-  userFootPreference: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(76, 175, 80, 0.25)',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  userFootPreferenceText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    marginLeft: 5,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  profileStatsContainer: {
     marginTop: 16,
-    padding: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  statItem: {
-    alignItems: 'center',
+  editProfileText: {
+    color: 'white',
+    marginLeft: 6,
+    fontWeight: '600',
   },
-  statValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginBottom: 28,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  offlineBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 18,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    flex: 1,
+    alignItems: 'center',
+  },
+  headerBackground: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingTop: 40,
+    paddingBottom: 30,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 8,
+    overflow: 'hidden',
   },
-  primaryButton: {
-    marginRight: 12,
-  },
-  secondaryButton: {
-    borderWidth: 1.5,
-    marginLeft: 12,
-    backgroundColor: 'white',
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 10,
-    letterSpacing: 0.3,
-  },
-  tabs: {
+  tabContainer: {
     flexDirection: 'row',
     marginHorizontal: 16,
     marginBottom: 24,
@@ -1071,7 +1191,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingBottom: 2,
   },
-  tab: {
+  tabButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
@@ -1079,11 +1199,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     borderBottomColor: 'transparent',
   },
+  activeTabButton: {
+    borderBottomWidth: 2,
+  },
   tabText: {
     marginLeft: 10,
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.2,
+  },
+  activeTabText: {
+    fontWeight: 'bold',
   },
   detailsContainer: {
     marginBottom: 28,
@@ -1395,66 +1521,233 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#4CAF50',
   },
-  statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+  statsContainer: {
+    marginTop: 16,
+    marginBottom: 20,
+    padding: 10,
   },
   statsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#212121',
+    marginBottom: 12,
+    paddingHorizontal: 5,
   },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  footballCharacteristics: {
+  statsRowContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginBottom: 10,
   },
-  characteristicItem: {
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+  statisticCard: {
     flex: 1,
-    marginHorizontal: 4,
+    marginHorizontal: 5,
+    padding: 12,
+    borderRadius: 10,
   },
-  characteristicLabel: {
-    fontSize: 14,
-    color: '#555',
-    marginTop: 8,
-    marginBottom: 4,
-    fontWeight: '500',
+  statisticContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  characteristicValue: {
-    fontSize: 16,
+  statisticIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  statisticTextContent: {
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 20,
     fontWeight: 'bold',
   },
-  offlineBanner: {
-    backgroundColor: '#FF9800',
-    padding: 8,
+  statLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 28,
+  },
+  button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    flex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  offlineBannerText: {
+  primaryButton: {
+    marginRight: 12,
+  },
+  secondaryButton: {
+    borderWidth: 1.5,
+    marginLeft: 12,
+    backgroundColor: 'white',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.3,
+  },
+  settingsContainer: {
+    padding: 16,
+  },
+  settingsCard: {
+    marginBottom: 16,
+    padding: 8,
+  },
+  settingsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  settingsItemText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+  },
+  settingsDivider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 8,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F44336',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  logoutButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     marginLeft: 8,
-    fontSize: 12,
   },
+  // Eksik stil tanımları
   retryButton: {
-    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#4CAF50',
+    marginTop: 16,
   },
   retryButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  offlineBanner: {
+    backgroundColor: '#F44336',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offlineBannerText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: 'bold',
+  },
+  footballCharacteristics: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  characteristicItem: {
+    width: '30%',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  characteristicLabel: {
+    fontSize: 12,
+    marginTop: 6,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  characteristicValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 10,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 10,
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#FFC107',
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 20,
+    width: '80%',
+    maxHeight: '80%',
+  },
+  modalScrollView: {
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  modalText: {
+    fontSize: 16,
+  },
+  modalButton: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

@@ -16,11 +16,11 @@ export default function EditProfileScreen() {
     email: '',
     bio: '',
     location: '',
-    phone: '',
     favoriteTeams: [] as string[],
     level: '',
     position: '',
     footPreference: '',
+    phone: '',
     stats: {
       matches: 0,
       goals: 0,
@@ -55,11 +55,11 @@ export default function EditProfileScreen() {
         email: data.email || '',
         bio: data.bio || '',
         location: data.location || '',
-        phone: data.phone || '',
         favoriteTeams: data.favoriteTeams || [],
         level: data.level || '',
         position: data.position || '',
         footPreference: data.footPreference || '',
+        phone: data.phone || '',
         stats: data.stats || {
           matches: 0,
           goals: 0,
@@ -167,18 +167,6 @@ export default function EditProfileScreen() {
             </View>
             
             <View style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Telefon</ThemedText>
-              <TextInput
-                style={styles.input}
-                value={userData.phone}
-                onChangeText={(text) => updateField('phone', text)}
-                placeholder="Telefon numaranız"
-                placeholderTextColor="#999"
-                keyboardType="phone-pad"
-              />
-            </View>
-            
-            <View style={styles.inputContainer}>
               <ThemedText style={styles.label}>Konum</ThemedText>
               <TextInput
                 style={styles.input}
@@ -186,6 +174,18 @@ export default function EditProfileScreen() {
                 onChangeText={(text) => updateField('location', text)}
                 placeholder="İlçe, Şehir"
                 placeholderTextColor="#999"
+              />
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>Telefon</ThemedText>
+              <TextInput
+                style={styles.input}
+                value={userData.phone}
+                onChangeText={(text) => updateField('phone', text)}
+                placeholder="+90 5XX XXX XX XX"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
               />
             </View>
             
@@ -461,5 +461,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  halfWidth: {
+    width: '48%',
   },
 }); 

@@ -179,7 +179,7 @@ export default function IndexScreen() {
         fetchTeams();
       } else if (activeTab === 'maclar') {
         // Maçlar için veri çekme fonksiyonu eklenebilir
-      }
+        }
       } catch (error: any) {
         console.error(`Veri çekme hatası: ${error?.message || 'Bilinmeyen hata'}`);
         setError('Veriler yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
@@ -958,13 +958,13 @@ export default function IndexScreen() {
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.logoContainer}>
-        <TouchableOpacity 
+      <TouchableOpacity 
           style={styles.logoButton}
           onPress={() => setShowAboutModal(true)}
-        >
+      >
           <FutbolXLogo size={32} showText={false} />
           <ThemedText style={styles.logoText}>FutbolX</ThemedText>
-        </TouchableOpacity>
+      </TouchableOpacity>
       </View>
     </View>
   );
@@ -1007,7 +1007,7 @@ export default function IndexScreen() {
           Halı Sahalarımız
         </ThemedText>
       </TouchableOpacity>
-
+      
       <TouchableOpacity 
         style={[styles.tab, activeTab === 'takimlar' && styles.activeTab]}
         onPress={isLoggedIn ? () => setActiveTab('takimlar') : handleRestrictedAction}
@@ -1088,11 +1088,11 @@ export default function IndexScreen() {
                   <View style={styles.customFieldFeatureItem}>
                     <IconSymbol name="ruler" size={16} color="#4CAF50" />
                     <ThemedText style={styles.customFieldFeatureText}>Boyut: 30m x 50m</ThemedText>
-                  </View>
+              </View>
                   <View style={styles.customFieldFeatureItem}>
                     <IconSymbol name="lightbulb" size={16} color="#4CAF50" />
                     <ThemedText style={styles.customFieldFeatureText}>7/24 Aydınlatma</ThemedText>
-                  </View>
+              </View>
                 </View>
                 <View style={styles.customFieldFeatureRow}>
                   <View style={styles.customFieldFeatureItem}>
@@ -1112,15 +1112,10 @@ export default function IndexScreen() {
                   <ThemedText style={styles.customFieldPrice}>350₺</ThemedText>
                 </View>
                 <TouchableOpacity 
-                  style={styles.reservationButton}
-                  onPress={isLoggedIn ? () => router.push("/field/1/reservation" as any) : handleRestrictedAction}
+                  style={[styles.reservationButton, { backgroundColor: primaryColor }]}
+                  onPress={() => router.push(`/reservations?fieldId=field1` as any)}
                 >
-                  <LinearGradient
-                    colors={['#4CAF50', '#2E7D32']}
-                    style={styles.reservationButtonGradient}
-                  >
-                    <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
-                  </LinearGradient>
+                  <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1165,15 +1160,10 @@ export default function IndexScreen() {
                   <ThemedText style={styles.customFieldPrice}>450₺</ThemedText>
                 </View>
                 <TouchableOpacity 
-                  style={styles.reservationButton}
-                  onPress={isLoggedIn ? () => router.push("/field/2/reservation" as any) : handleRestrictedAction}
+                  style={[styles.reservationButton, { backgroundColor: primaryColor }]}
+                  onPress={() => router.push(`/reservations?fieldId=field2` as any)}
                 >
-                  <LinearGradient
-                    colors={['#4CAF50', '#2E7D32']}
-                    style={styles.reservationButtonGradient}
-                  >
-                    <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
-                  </LinearGradient>
+                  <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1218,15 +1208,10 @@ export default function IndexScreen() {
                   <ThemedText style={styles.customFieldPrice}>380₺</ThemedText>
                 </View>
                 <TouchableOpacity 
-                  style={styles.reservationButton}
-                  onPress={isLoggedIn ? () => router.push("/field/3/reservation" as any) : handleRestrictedAction}
+                  style={[styles.reservationButton, { backgroundColor: primaryColor }]}
+                  onPress={() => router.push(`/reservations?fieldId=field3` as any)}
                 >
-                  <LinearGradient
-                    colors={['#4CAF50', '#2E7D32']}
-                    style={styles.reservationButtonGradient}
-                  >
-                    <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
-                  </LinearGradient>
+                  <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2444,12 +2429,12 @@ export default function IndexScreen() {
           />
         }
       >
-        {renderHeader()}
-        {renderTabs()}
-        
+      {renderHeader()}
+      {renderTabs()}
+      
         {/* İçerik alanı */}
-        {activeTab === 'kesfet' && renderDiscoverContent()}
-        {activeTab === 'halisaha' && renderPopularFields()}
+      {activeTab === 'kesfet' && renderDiscoverContent()}
+      {activeTab === 'halisaha' && renderPopularFields()}
         {activeTab === 'takimlar' && renderTeams()}
         {activeTab === 'maclar' && renderMatches()}
       </ScrollView>

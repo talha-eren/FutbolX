@@ -12,7 +12,8 @@ import {
   Animated,
   Dimensions,
   Keyboard,
-  Image
+  Image,
+  ImageBackground
 } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { useRouter } from 'expo-router';
@@ -22,8 +23,12 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { FutbolXLogo } from '@/components/FutbolXLogo';
 import { useAuth } from '@/context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 const { width, height } = Dimensions.get('window');
+
+// Futbol sahası arka plan resmi
+const BACKGROUND_IMAGE = 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1476&auto=format&fit=crop';
 
 function LoginScreen() {
   // Temel state ve hooklar
@@ -43,6 +48,7 @@ function LoginScreen() {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const formOpacity = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.8)).current;
   
   // Hata durumunda sallama animasyonu
   const shakeAnimation = () => {
@@ -54,15 +60,15 @@ function LoginScreen() {
     ]).start();
   };
   
-  // Renk teması
+  // Renk teması - Yeşil tema
   const isDark = colorScheme === 'dark';
-  const primaryColor = '#1976D2'; // Ana mavi renk
-  const secondaryColor = '#0D47A1'; // Koyu mavi
-  const accentColor = '#42A5F5'; // Açık mavi
+  const primaryColor = '#4CAF50'; // Ana yeşil renk
+  const secondaryColor = '#2E7D32'; // Koyu yeşil
+  const accentColor = '#8BC34A'; // Açık yeşil
   const backgroundColor = isDark ? '#121212' : '#F5F7FA';
-  const cardColor = isDark ? '#1E1E1E' : '#FFFFFF';
+  const cardColor = isDark ? 'rgba(30, 30, 30, 0.85)' : 'rgba(255, 255, 255, 0.85)';
   const textColor = isDark ? '#FFFFFF' : '#333333';
-  const inputBackgroundColor = isDark ? '#333' : '#F5F5F5';
+  const inputBackgroundColor = isDark ? 'rgba(51, 51, 51, 0.8)' : 'rgba(245, 245, 245, 0.8)';
   const placeholderColor = isDark ? '#AAA' : '#999';
   const errorColor = '#FF5252';
 
@@ -85,6 +91,11 @@ function LoginScreen() {
         duration: 1200,
         delay: 300,
         useNativeDriver: true
+      }),
+      Animated.timing(logoScale, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true
       })
     ]).start();
     
@@ -92,14 +103,14 @@ function LoginScreen() {
     if (authError) {
       setLoginError(authError);
     }
-  }, [fadeAnim, slideAnim, formOpacity, authError]);
+  }, [fadeAnim, slideAnim, formOpacity, logoScale, authError]);
   
   // Sayfa yüklenirken yapılacak işlemler
   useEffect(() => {
     console.log('Login sayfası yüklendi');
   }, []);
 
-  // Normal giriş fonksiyonu
+    // Normal giriş fonksiyonu
   const handleLogin = async () => {
     // Klavyeyi kapat
     Keyboard.dismiss();
@@ -108,12 +119,14 @@ function LoginScreen() {
     if (!username.trim()) {
       setLoginError('Kullanıcı adı gereklidir');
       shakeAnimation();
+      Alert.alert("Hata", "Lütfen kullanıcı adınızı girin.");
       return;
     }
     
     if (!password.trim()) {
       setLoginError('Şifre gereklidir');
       shakeAnimation();
+      Alert.alert("Hata", "Lütfen şifrenizi girin.");
       return;
     }
     
@@ -123,13 +136,25 @@ function LoginScreen() {
     try {
       console.log('Giriş isteği gönderiliyor:', { username, password: '***' });
       
+      // Giriş animasyonu başlat
+      Animated.sequence([
+        Animated.timing(logoScale, { toValue: 1.1, duration: 300, useNativeDriver: true }),
+        Animated.timing(logoScale, { toValue: 1, duration: 300, useNativeDriver: true })
+      ]).start();
+      
       // Giriş yap
       await login(username, password);
       
       console.log('Giriş başarılı, ana sayfaya yönlendiriliyor');
       
-      // Doğrudan ana sayfaya yönlendir
-      router.replace('/(tabs)');
+      // Başarılı animasyon
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: -50, duration: 500, useNativeDriver: true })
+      ]).start(() => {
+        // Animasyon bittikten sonra yönlendir
+        router.replace('/(tabs)');
+      });
       
     } catch (error: any) {
       console.error('Giriş yaparken hata:', error.message || error);
@@ -147,8 +172,17 @@ function LoginScreen() {
         }
       }
       
+      // Hata animasyonu ve mesajı
       setLoginError(errorMessage);
       shakeAnimation();
+      
+      // Kullanıcıya hata mesajını göster
+      Alert.alert(
+        "Giriş Başarısız",
+        errorMessage,
+        [{ text: "Tamam", style: "cancel" }]
+      );
+      
     } finally {
       setIsLoading(false);
     }
@@ -171,129 +205,146 @@ function LoginScreen() {
       style={{ flex: 1 }} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <LinearGradient
-        colors={isDark ? 
-          ['#0A1929', '#102A43', '#1E3A5F'] : 
-          ['#E1F5FE', '#B3E5FC', '#E3F2FD']}
-        style={styles.gradientBackground}
+      <ImageBackground
+        source={{ uri: BACKGROUND_IMAGE }}
+        style={styles.backgroundImage}
+        resizeMode="cover"
       >
-        <Animated.View 
-          style={[{
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }]
-          }]}
+        <LinearGradient
+          colors={isDark ? 
+            ['rgba(10, 46, 10, 0.9)', 'rgba(27, 77, 27, 0.85)', 'rgba(46, 125, 50, 0.8)'] : 
+            ['rgba(232, 245, 233, 0.9)', 'rgba(200, 230, 201, 0.85)', 'rgba(232, 245, 233, 0.8)']}
+          style={styles.gradientBackground}
         >
-          <ScrollView 
-            contentContainerStyle={styles.container} 
-            keyboardShouldPersistTaps="handled"
+          <Animated.View 
+            style={[{
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }]}
           >
-            <View style={styles.logoContainer}>
-              <FutbolXLogo size={120} showText={false} />
-              <ThemedText style={styles.title}>FutbolX</ThemedText>
-              <ThemedText style={styles.subtitle}>Futbol tutkunlarını buluşturan platform</ThemedText>
-            </View>
-
-            <Animated.View 
-              style={[styles.formCard, { 
-                backgroundColor: cardColor,
-                opacity: formOpacity,
-                transform: [{ translateY: slideAnim }]
-              }]}
+            <ScrollView 
+              contentContainerStyle={styles.container} 
+              keyboardShouldPersistTaps="handled"
             >
-              <ThemedText style={styles.formTitle}>Hesabınıza Giriş Yapın</ThemedText>
-              
-              {/* Hata mesajı */}
-              {loginError ? (
-                <Animated.View 
-                  style={[styles.errorContainer, {
-                    transform: [{ translateX: shakeAnim }]
-                  }]}
-                >
-                  <MaterialIcons name="error-outline" size={20} color={errorColor} />
-                  <ThemedText style={styles.errorText}>{loginError}</ThemedText>
+              <View style={styles.logoContainer}>
+                <Animated.View style={{
+                  transform: [
+                    { scale: logoScale }
+                  ]
+                }}>
+                  <FutbolXLogo size={120} showText={false} />
                 </Animated.View>
-              ) : null}
-              
-              {/* Kullanıcı adı input */}
-              <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-                <IconSymbol name="person" size={20} color={primaryColor} />
-                <TextInput 
-                  style={[styles.input, { color: textColor }]}
-                  placeholder="Kullanıcı Adı"
-                  placeholderTextColor={placeholderColor}
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                />
-              </View>
-              
-              {/* Şifre input */}
-              <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
-                <IconSymbol name="lock" size={20} color={primaryColor} />
-                <TextInput 
-                  style={[styles.input, { color: textColor }]}
-                  placeholder="Şifre"
-                  placeholderTextColor={placeholderColor}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 5 }}>
-                  <IconSymbol 
-                    name={showPassword ? "eye.slash" : "eye"} 
-                    size={20} 
-                    color={primaryColor} 
-                  />
-                </TouchableOpacity>
+                <ThemedText style={styles.title}>FutbolX</ThemedText>
+                <ThemedText style={styles.subtitle}>Futbol tutkunlarını buluşturan platform</ThemedText>
               </View>
 
-              {/* Giriş butonu */}
-              <TouchableOpacity 
-                style={[styles.button, { 
-                  backgroundColor: isLoading || authLoading ? secondaryColor : primaryColor,
-                  shadowColor: primaryColor,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 8
+              <Animated.View 
+                style={[styles.formCard, { 
+                  backgroundColor: cardColor,
+                  opacity: formOpacity,
+                  transform: [{ translateY: slideAnim }]
                 }]}
-                onPress={handleLogin}
-                disabled={isLoading || authLoading}
               >
-                {isLoading || authLoading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <ThemedText style={styles.buttonText}>Giriş Yap</ThemedText>
-                )}
-              </TouchableOpacity>
+                <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={styles.blurContainer}>
+                  <ThemedText style={styles.formTitle}>Hesabınıza Giriş Yapın</ThemedText>
+                  
+                  {/* Hata mesajı */}
+                  {loginError ? (
+                    <Animated.View 
+                      style={[styles.errorContainer, {
+                        transform: [{ translateX: shakeAnim }]
+                      }]}
+                    >
+                      <MaterialIcons name="error-outline" size={20} color={errorColor} />
+                      <ThemedText style={styles.errorText}>{loginError}</ThemedText>
+                    </Animated.View>
+                  ) : null}
+                  
+                  {/* Kullanıcı adı input */}
+                  <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+                    <IconSymbol name="person" size={20} color={primaryColor} />
+                    <TextInput 
+                      style={[styles.input, { color: textColor }]}
+                      placeholder="Kullanıcı Adı"
+                      placeholderTextColor={placeholderColor}
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  
+                  {/* Şifre input */}
+                  <View style={[styles.inputContainer, { backgroundColor: inputBackgroundColor }]}>
+                    <IconSymbol name="lock" size={20} color={primaryColor} />
+                    <TextInput 
+                      style={[styles.input, { color: textColor }]}
+                      placeholder="Şifre"
+                      placeholderTextColor={placeholderColor}
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 5 }}>
+                      <IconSymbol 
+                        name={showPassword ? "eye.slash" : "eye"} 
+                        size={20} 
+                        color={primaryColor} 
+                      />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Şifremi unuttum */}
-              <TouchableOpacity 
-                style={styles.forgotPasswordContainer}
-                onPress={() => router.push('/forgot-password')}
-              >
-                <ThemedText style={[styles.forgotPassword, { color: primaryColor }]}>
-                  Şifremi Unuttum
-                </ThemedText>
-              </TouchableOpacity>
+                  {/* Giriş butonu */}
+                  <TouchableOpacity 
+                    style={[styles.button, { 
+                      backgroundColor: isLoading || authLoading ? secondaryColor : primaryColor,
+                      shadowColor: primaryColor,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 8,
+                      elevation: 8
+                    }]}
+                    onPress={handleLogin}
+                    disabled={isLoading || authLoading}
+                  >
+                    {isLoading || authLoading ? (
+                      <ActivityIndicator color="white" size="small" />
+                    ) : (
+                      <>
+                        <IconSymbol name="arrow.right.circle.fill" size={20} color="white" style={{marginRight: 8}} />
+                        <ThemedText style={styles.buttonText}>Giriş Yap</ThemedText>
+                      </>
+                    )}
+                  </TouchableOpacity>
 
-              {/* Kayıt ol */}
-              <View style={styles.registerContainer}>
-                <ThemedText style={styles.registerText}>Hesabınız yok mu? </ThemedText>
-                <TouchableOpacity onPress={goToRegister}>
-                  <ThemedText style={[styles.registerLink, { color: primaryColor }]}>
-                    Hemen Kaydolun
-                  </ThemedText>
-                </TouchableOpacity>
+                  {/* Şifremi unuttum */}
+                  <TouchableOpacity 
+                    style={styles.forgotPasswordContainer}
+                    onPress={() => router.push('/forgot-password')}
+                  >
+                    <ThemedText style={[styles.forgotPassword, { color: primaryColor }]}>
+                      Şifremi Unuttum
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  {/* Kayıt ol */}
+                  <View style={styles.registerContainer}>
+                    <ThemedText style={styles.registerText}>Hesabınız yok mu? </ThemedText>
+                    <TouchableOpacity onPress={goToRegister}>
+                      <ThemedText style={[styles.registerLink, { color: primaryColor }]}>
+                        Hemen Kaydolun
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                </BlurView>
+              </Animated.View>
+              
+              <View style={styles.footerContainer}>
+                <ThemedText style={styles.footerText}>© 2025 FutbolX - Tüm Hakları Saklıdır</ThemedText>
               </View>
-            </Animated.View>
-            
-            <View style={styles.footerContainer}>
-              <ThemedText style={styles.footerText}>© 2025 FutbolX - Tüm Hakları Saklıdır</ThemedText>
-            </View>
-          </ScrollView>
-        </Animated.View>
-      </LinearGradient>
+            </ScrollView>
+          </Animated.View>
+        </LinearGradient>
+      </ImageBackground>
     </KeyboardAvoidingView>
   );
 }
@@ -302,6 +353,11 @@ export default LoginScreen;
 
 const styles = StyleSheet.create({
   // Ana container
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   gradientBackground: {
     flex: 1,
   },
@@ -310,6 +366,11 @@ const styles = StyleSheet.create({
     padding: 20,
     justifyContent: 'center',
   },
+  blurContainer: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    padding: 24,
+  },
   
   // Logo bölümü
   logoContainer: {
@@ -317,18 +378,19 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   title: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: 'bold',
     marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 3,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
-    opacity: 0.8,
+    opacity: 0.9,
+    fontWeight: '500',
   },
   
   // Form kartı
@@ -337,18 +399,18 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: 'center',
     borderRadius: 20,
-    padding: 24,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 15,
     elevation: 10,
   },
   
   formTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: 'center',
   },
   
@@ -356,25 +418,28 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+    backgroundColor: 'rgba(255, 82, 82, 0.15)',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 82, 82, 0.3)',
   },
   errorText: {
     marginLeft: 8,
     fontSize: 14,
     flex: 1,
+    fontWeight: '500',
   },
   
   // Input alanları
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 16,
     paddingHorizontal: 16,
-    height: 55,
+    height: 60,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.05)',
   },
@@ -387,8 +452,8 @@ const styles = StyleSheet.create({
   
   // Butonlar
   button: {
-    borderRadius: 12,
-    paddingVertical: 15,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
     marginTop: 10,
     flexDirection: 'row',
@@ -396,7 +461,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   
@@ -406,7 +471,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   forgotPassword: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
   },
   
@@ -417,10 +482,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   registerText: {
-    fontSize: 14,
+    fontSize: 15,
   },
   registerLink: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   
@@ -431,6 +496,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    opacity: 0.6,
+    opacity: 0.7,
   },
 });

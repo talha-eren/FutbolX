@@ -7,6 +7,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { getApiUrl } from '@/services/networkConfig';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Halı saha maç veri tipi tanımı
 interface Match {
@@ -27,18 +28,32 @@ interface Match {
   level: string;
   image: string;
   isPrivate: boolean;
+  teams?: {
+    home: {
+      name: string;
+      avatar: string;
+      score: number;
+    },
+    away: {
+      name: string;
+      avatar: string;
+      score: number;
+    }
+  };
+  status?: 'upcoming' | 'live' | 'completed';
 }
 
 export default function MatchesScreen() {
-  const [filter, setFilter] = useState('hepsi');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('son');
   const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const textColor = useThemeColor({}, 'text');
-  const tintColor = useThemeColor({}, 'tint');
+  const primaryColor = useThemeColor({}, 'tint');
   const backgroundColor = useThemeColor({}, 'background');
+  const cardBgColor = useThemeColor({}, 'card');
+  const borderColor = useThemeColor({}, 'border');
   
   const router = useRouter();
   const { token } = useAuth();
@@ -46,146 +61,295 @@ export default function MatchesScreen() {
   // Verileri API'den çek
   useEffect(() => {
     fetchMatches();
-  }, []);
+  }, [activeTab]);
 
   // Maçları API'den çekme fonksiyonu
   const fetchMatches = async () => {
-    // API'den maçları çek
     setLoading(true);
     try {
-      const apiUrl = await getApiUrl('/matches');
-      console.log('Maç listesi isteği URL:', apiUrl);
+      // Gerçek veriler için API çağrısı yapılacak
+      // Şu an için örnek veri kullanıyoruz
+      setTimeout(() => {
+        const mockMatches: Match[] = [
+          {
+            id: '1',
+            fieldName: 'Sporium 23',
+            location: 'Elazığ',
+            date: '01.12.2023',
+            time: '19:00',
+            price: 50,
+            organizer: {
+              _id: 'user1',
+              username: 'TalhaEren',
+              profilePicture: 'https://randomuser.me/api/portraits/men/32.jpg'
+            },
+            playersJoined: 8,
+            totalPlayers: 10,
+            level: 'Orta',
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            isPrivate: false,
+            teams: {
+              home: {
+                name: 'Yıldızlar',
+                avatar: 'Y',
+                score: 1
+              },
+              away: {
+                name: 'Aslanlar',
+                avatar: 'A',
+                score: 0
+              }
+            },
+            status: 'completed'
+          },
+          {
+            id: '2',
+            fieldName: 'Sporium 23',
+            location: 'Elazığ',
+            date: '02.12.2023',
+            time: '20:00',
+            price: 60,
+            organizer: {
+              _id: 'user2',
+              username: 'Şirinler',
+              profilePicture: 'https://randomuser.me/api/portraits/women/44.jpg'
+            },
+            playersJoined: 10,
+            totalPlayers: 10,
+            level: 'Amatör',
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            isPrivate: true,
+            teams: {
+              home: {
+                name: 'Şimşekler',
+                avatar: 'Ş',
+                score: 0
+              },
+              away: {
+                name: 'Aslanlar',
+                avatar: 'A',
+                score: 3
+              }
+            },
+            status: 'completed'
+          },
+          {
+            id: '3',
+            fieldName: 'Sporium 23',
+            location: 'Elazığ',
+            date: '03.12.2023',
+            time: '21:00',
+            price: 55,
+            organizer: {
+              _id: 'user3',
+              username: 'Kartallar',
+              profilePicture: 'https://randomuser.me/api/portraits/men/22.jpg'
+            },
+            playersJoined: 6,
+            totalPlayers: 12,
+            level: 'İleri',
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            isPrivate: false,
+            teams: {
+              home: {
+                name: 'Kartallar',
+                avatar: 'K',
+                score: 2
+              },
+              away: {
+                name: 'Yıldızlar',
+                avatar: 'Y',
+                score: 0
+              }
+            },
+            status: 'completed'
+          },
+          {
+            id: '4',
+            fieldName: 'Sporium 23',
+            location: 'Elazığ',
+            date: '05.12.2023',
+            time: '18:00',
+            price: 65,
+            organizer: {
+              _id: 'user4',
+              username: 'Sivri',
+              profilePicture: 'https://randomuser.me/api/portraits/men/42.jpg'
+            },
+            playersJoined: 12,
+            totalPlayers: 12,
+            level: 'Orta',
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            isPrivate: false,
+            teams: {
+              home: {
+                name: 'Sivri',
+                avatar: 'S',
+                score: 1
+              },
+              away: {
+                name: 'Alternatif',
+                avatar: 'Alt',
+                score: 4
+              }
+            },
+            status: 'completed'
+          },
+          {
+            id: '5',
+            fieldName: 'Sporium 23',
+            location: 'Elazığ',
+            date: '07.12.2023',
+            time: '20:00',
+            price: 55,
+            organizer: {
+              _id: 'user5',
+              username: 'Kartallar',
+              profilePicture: 'https://randomuser.me/api/portraits/men/30.jpg'
+            },
+            playersJoined: 7,
+            totalPlayers: 12,
+            level: 'Amatör',
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            isPrivate: false,
+            teams: {
+              home: {
+                name: 'Kartallar',
+                avatar: 'K',
+                score: 0
+              },
+              away: {
+                name: 'Aslanlar',
+                avatar: 'A',
+                score: 1
+              }
+            },
+            status: 'completed'
+          },
+          {
+            id: '6',
+            fieldName: 'Sporium 23',
+            location: 'Elazığ',
+            date: '11.12.2023',
+            time: '19:00',
+            price: 60,
+            organizer: {
+              _id: 'user6',
+              username: 'Şimsekler',
+              profilePicture: 'https://randomuser.me/api/portraits/men/50.jpg'
+            },
+            playersJoined: 9,
+            totalPlayers: 10,
+            level: 'İleri',
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            isPrivate: false,
+            teams: {
+              home: {
+                name: 'Şimşekler',
+                avatar: 'Ş',
+                score: 1
+              },
+              away: {
+                name: 'Kartallar',
+                avatar: 'K',
+                score: 4
+              }
+            },
+            status: 'completed'
+          }
+        ];
+        setMatches(mockMatches);
+        setLoading(false);
+      }, 1000);
       
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Maçlar yüklenirken bir hata oluştu');
-      }
-      
-      const data = await response.json() as Match[];
-      setMatches(data);
     } catch (err: any) {
       console.error('Maçları getirme hatası:', err);
       setError('Maçlar yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.');
-    } finally {
       setLoading(false);
     }
   };
   
-  // Filtreleme fonksiyonu
-  const filteredMatches = matches.filter(match => {
-    const matchesSearch = match.fieldName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        match.location.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (filter === 'hepsi') return matchesSearch;
-    if (filter === 'açık' && !match.isPrivate) return matchesSearch;
-    if (filter === 'özel' && match.isPrivate) return matchesSearch;
-    return false;
-  });
+  // Tab butonlarını render et
+  const renderTabs = () => (
+    <View style={styles.tabContainer}>
+      <TouchableOpacity 
+        style={[styles.tabButton, activeTab === 'son' && styles.activeTabButton]}
+        onPress={() => setActiveTab('son')}
+      >
+        <IconSymbol 
+          name="clock.arrow.circlepath" 
+          size={16} 
+          color={activeTab === 'son' ? 'white' : textColor} 
+        />
+        <ThemedText style={[
+          styles.tabButtonText, 
+          activeTab === 'son' && styles.activeTabButtonText
+        ]}>
+          Son Oynanan Maçlar
+        </ThemedText>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={[styles.tabButton, activeTab === 'yaklaşan' && styles.activeTabButton]}
+        onPress={() => setActiveTab('yaklaşan')}
+      >
+        <IconSymbol 
+          name="calendar" 
+          size={16} 
+          color={activeTab === 'yaklaşan' ? 'white' : textColor} 
+        />
+        <ThemedText style={[
+          styles.tabButtonText, 
+          activeTab === 'yaklaşan' && styles.activeTabButtonText
+        ]}>
+          Yaklaşan Maçlar
+        </ThemedText>
+      </TouchableOpacity>
+    </View>
+  );
   
-  // Maç oluşturma ekranına yönlendir
-  const navigateToCreateMatch = () => {
-    router.push('/(tabs)/create-match');
-  };
-  
-  // Seviye gösterimi için fonksiyon
-  const renderLevel = (level: string) => {
-    const colors: Record<string, string> = {
-      'Amatör': '#4CAF50',
-      'Orta': '#FFC107',
-      'İleri': '#F44336'
-    };
+  // Maç kartını render et
+  const renderMatchItem = ({ item }: { item: Match }) => {
+    if (!item.teams) return null;
     
     return (
-      <View style={[styles.levelTag, { backgroundColor: colors[level] }]}>
-        <ThemedText style={styles.levelText}>{level}</ThemedText>
-      </View>
-    );
-  };
-  
-  const renderMatchCard = ({ item }: { item: Match }) => {
-    return (
-      <View style={[styles.card, { borderColor: '#E0E0E0' }]}>
-        <View style={styles.cardHeader}>
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: item.image }} style={styles.fieldImage} />
-            {item.isPrivate && (
-              <View style={styles.privateTag}>
-                <IconSymbol name="lock.fill" size={12} color="#FFFFFF" />
-                <ThemedText style={styles.privateText}>Özel</ThemedText>
-              </View>
-            )}
-          </View>
+      <View style={[styles.matchCard, { backgroundColor: cardBgColor, borderColor }]}>
+        <View style={styles.matchHeader}>
+          <ThemedText style={styles.matchDate}>{item.date}</ThemedText>
+          <ThemedText style={styles.matchTime}>{item.time}</ThemedText>
         </View>
         
-        <View style={styles.cardContent}>
-          <View style={styles.cardTitle}>
-            <ThemedText style={styles.fieldName}>{item.fieldName}</ThemedText>
-            {renderLevel(item.level)}
+        <View style={styles.matchContent}>
+          <View style={styles.teamContainer}>
+            <View style={styles.teamAvatar}>
+              <ThemedText style={styles.teamAvatarText}>{item.teams.home.avatar}</ThemedText>
+            </View>
+            <ThemedText style={styles.teamName}>{item.teams.home.name}</ThemedText>
           </View>
           
-          <View style={styles.infoRow}>
-            <IconSymbol name="mappin.and.ellipse" size={14} color={textColor} />
-            <ThemedText style={styles.infoText}>{item.location}</ThemedText>
+          <View style={styles.scoreContainer}>
+            <ThemedText style={styles.scoreText}>{item.teams.home.score}</ThemedText>
+            <ThemedText style={styles.scoreSeparator}>-</ThemedText>
+            <ThemedText style={styles.scoreText}>{item.teams.away.score}</ThemedText>
           </View>
           
-          <View style={styles.infoRow}>
-            <IconSymbol name="calendar" size={14} color={textColor} />
-            <ThemedText style={styles.infoText}>{item.date} • {item.time}</ThemedText>
+          <View style={styles.teamContainer}>
+            <View style={[styles.teamAvatar, styles.awayTeamAvatar]}>
+              <ThemedText style={styles.teamAvatarText}>{item.teams.away.avatar}</ThemedText>
           </View>
-          
-          <View style={styles.infoRow}>
-            <IconSymbol name="turkishlirasign.circle" size={14} color={textColor} />
-            <ThemedText style={styles.infoText}>{item.price} TL / Kişi</ThemedText>
-          </View>
-          
-          <View style={styles.separator} />
-          
-          <View style={styles.organizerRow}>
-            <View style={styles.organizerInfo}>
-              <Image 
-                source={{ 
-                  uri: item.organizer?.profilePicture || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
-                }} 
-                style={styles.organizerAvatar} 
-              />
-              <View>
-                <ThemedText style={styles.organizerLabel}>Organizatör</ThemedText>
-                <ThemedText style={styles.organizerName}>{item.organizer?.username || 'Anonim'}</ThemedText>
+            <ThemedText style={styles.teamName}>{item.teams.away.name}</ThemedText>
               </View>
             </View>
             
-            <View style={styles.playersInfo}>
-              <View style={styles.playersProgress}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { 
-                      width: `${(item.playersJoined / item.totalPlayers) * 100}%`,
-                      backgroundColor: tintColor 
-                    }
-                  ]} 
-                />
-              </View>
-              <ThemedText style={styles.playersText}>
-                {item.playersJoined}/{item.totalPlayers} Oyuncu
-              </ThemedText>
-            </View>
+        <View style={styles.matchFooter}>
+          <View style={styles.fieldInfo}>
+            <IconSymbol name="mappin" size={14} color={primaryColor} />
+            <ThemedText style={styles.fieldText}>{item.fieldName}</ThemedText>
           </View>
           
-          <TouchableOpacity 
-            style={[styles.joinButton, { backgroundColor: tintColor }]}
-            disabled={item.playersJoined >= item.totalPlayers}
-          >
-            <ThemedText style={styles.joinButtonText}>
-              {item.playersJoined >= item.totalPlayers ? 'Doldu' : 'Katıl'}
-            </ThemedText>
+          <TouchableOpacity style={styles.detailsButton}>
+            <ThemedText style={styles.detailsButtonText}>Detaylar</ThemedText>
+            <IconSymbol name="chevron.right" size={14} color={primaryColor} />
           </TouchableOpacity>
         </View>
       </View>
@@ -195,119 +359,44 @@ export default function MatchesScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText style={styles.title}>Yaklaşan Maçlar</ThemedText>
+        <View>
+          <ThemedText style={styles.title}>Sporium 23</ThemedText>
+          <ThemedText style={styles.subtitle}>Son Oynanan Maçlar</ThemedText>
+        </View>
         
-        {/* Yeni Maç Oluştur Butonu */}
         <TouchableOpacity
-          style={[styles.createMatchButton, { backgroundColor: tintColor }]}
-          onPress={navigateToCreateMatch}
+          style={[styles.createMatchButton, { backgroundColor: primaryColor }]}
+          onPress={() => router.push('/reservations?fieldId=sporium23')}
         >
           <IconSymbol name="plus" size={18} color="#FFFFFF" />
           <ThemedText style={styles.createMatchButtonText}>Yeni Maç</ThemedText>
         </TouchableOpacity>
       </View>
       
-      <View style={styles.searchContainer}>
-        <IconSymbol name="magnifyingglass" size={18} color="#999" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Saha veya konum ara..."
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-      
-      <View style={styles.filtersContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <TouchableOpacity 
-            style={[
-              styles.filterButton, 
-              filter === 'hepsi' && { backgroundColor: tintColor }
-            ]}
-            onPress={() => setFilter('hepsi')}
-          >
-            <ThemedText 
-              style={[
-                styles.filterText, 
-                filter === 'hepsi' && { color: '#FFFFFF' }
-              ]}
-            >
-              Hepsi
-            </ThemedText>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[
-              styles.filterButton, 
-              filter === 'açık' && { backgroundColor: tintColor }
-            ]}
-            onPress={() => setFilter('açık')}
-          >
-            <ThemedText 
-              style={[
-                styles.filterText, 
-                filter === 'açık' && { color: '#FFFFFF' }
-              ]}
-            >
-              Açık Maçlar
-            </ThemedText>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[
-              styles.filterButton, 
-              filter === 'özel' && { backgroundColor: tintColor }
-            ]}
-            onPress={() => setFilter('özel')}
-          >
-            <ThemedText 
-              style={[
-                styles.filterText, 
-                filter === 'özel' && { color: '#FFFFFF' }
-              ]}
-            >
-              Özel Maçlar
-            </ThemedText>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
+      {renderTabs()}
       
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={tintColor} />
-          <ThemedText style={styles.messageText}>Maçlar yükleniyor...</ThemedText>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={primaryColor} />
+          <ThemedText style={styles.loadingText}>Maçlar yükleniyor...</ThemedText>
         </View>
       ) : error ? (
-        <View style={styles.centerContainer}>
-          <IconSymbol name="exclamationmark.triangle" size={40} color="#FF6B6B" />
+        <View style={styles.errorContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={40} color="#F44336" />
           <ThemedText style={styles.errorText}>{error}</ThemedText>
           <TouchableOpacity 
-            style={[styles.retryButton, { backgroundColor: tintColor }]}
+            style={[styles.retryButton, { backgroundColor: primaryColor }]}
             onPress={fetchMatches}
           >
             <ThemedText style={styles.retryButtonText}>Tekrar Dene</ThemedText>
           </TouchableOpacity>
         </View>
-      ) : filteredMatches.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <IconSymbol name="calendar.badge.exclamationmark" size={50} color="#9E9E9E" />
-          <ThemedText style={styles.messageText}>
-            {searchQuery ? 'Aramanızla eşleşen maç bulunamadı.' : 'Henüz maç bulunmuyor.'}
-          </ThemedText>
-          <TouchableOpacity 
-            style={[styles.createButton, { backgroundColor: tintColor }]}
-            onPress={navigateToCreateMatch}
-          >
-            <ThemedText style={styles.createButtonText}>Yeni Maç Oluştur</ThemedText>
-          </TouchableOpacity>
-        </View>
       ) : (
       <FlatList
-        data={filteredMatches}
-        renderItem={renderMatchCard}
-        keyExtractor={item => item._id || item.id || `match-${Math.random()}`}
-        contentContainerStyle={styles.listContainer}
+          data={matches}
+          renderItem={renderMatchItem}
+          keyExtractor={item => item.id.toString()}
+          contentContainerStyle={styles.matchList}
         showsVerticalScrollIndicator={false}
       />
       )}
@@ -318,18 +407,22 @@ export default function MatchesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
+    padding: 16,
   },
   header: {
-    marginBottom: 16,
-    paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
+  },
+  subtitle: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginTop: 2,
   },
   createMatchButton: {
     flexDirection: 'row',
@@ -339,202 +432,161 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   createMatchButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    marginLeft: 4,
+    marginLeft: 6,
+    fontWeight: '600',
+    color: 'white',
   },
-  searchContainer: {
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  tabButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-  },
-  filtersContainer: {
-    marginBottom: 16,
-    paddingHorizontal: 16,
-  },
-  filterButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    marginRight: 10,
-    backgroundColor: '#F0F0F0',
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  listContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  card: {
-    borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    position: 'relative',
-  },
-  imageContainer: {
-    width: '100%',
-    height: 150,
-  },
-  fieldImage: {
-    width: '100%',
-    height: '100%',
-  },
-  privateTag: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  privateText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  cardContent: {
-    padding: 16,
-  },
-  cardTitle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  fieldName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  levelTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  levelText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  infoText: {
-    marginLeft: 8,
-    fontSize: 14,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 12,
-  },
-  organizerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  organizerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  organizerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
-  organizerLabel: {
-    fontSize: 12,
-    opacity: 0.6,
+  activeTabButton: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
   },
-  organizerName: {
+  tabButtonText: {
+    marginLeft: 6,
     fontWeight: '500',
   },
-  playersInfo: {
-    alignItems: 'flex-end',
+  activeTabButtonText: {
+    color: 'white',
   },
-  playersProgress: {
-    width: 100,
-    height: 6,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 3,
-    marginBottom: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  playersText: {
-    fontSize: 12,
-  },
-  joinButton: {
-    borderRadius: 8,
-    paddingVertical: 12,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  joinButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+  loadingText: {
+    marginTop: 12,
     fontSize: 16,
+    opacity: 0.7,
   },
-  centerContainer: {
+  errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  messageText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-    color: '#9E9E9E',
-  },
   errorText: {
-    fontSize: 16,
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-    color: '#FF6B6B',
+    marginVertical: 12,
+    fontSize: 16,
+    opacity: 0.7,
   },
   retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 8,
+    marginTop: 8,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: 'white',
+    fontWeight: '600',
+  },
+  matchList: {
+    paddingBottom: 16,
+  },
+  matchCard: {
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  matchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  matchDate: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  matchTime: {
+    fontSize: 14,
+  },
+  matchContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  teamContainer: {
+    alignItems: 'center',
+    width: '35%',
+  },
+  teamAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  awayTeamAvatar: {
+    backgroundColor: '#2196F3',
+  },
+  teamAvatarText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  teamName: {
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30%',
+  },
+  scoreText: {
+    fontSize: 24,
     fontWeight: 'bold',
   },
-  createButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  createButtonText: {
-    color: '#FFFFFF',
+  scoreSeparator: {
+    fontSize: 24,
     fontWeight: 'bold',
+    marginHorizontal: 8,
+    opacity: 0.6,
   },
+  matchFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  fieldInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fieldText: {
+    marginLeft: 6,
+    fontSize: 14,
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailsButtonText: {
+    marginRight: 4,
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '500',
+  }
 });

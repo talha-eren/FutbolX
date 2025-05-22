@@ -58,9 +58,19 @@ export const OFFLINE_DATA = {
     username: "test_user",
     email: "test@example.com",
     name: "Test Kullanıcı",
+    firstName: "Test",
+    lastName: "Kullanıcı",
     profilePicture: "https://via.placeholder.com/150",
     level: "Orta",
     position: "Forvet",
+    footballExperience: "Orta",
+    preferredFoot: "Sağ",
+    favoriteTeam: "Galatasaray",
+    height: 175,
+    weight: 70,
+    location: "İstanbul",
+    phone: "+90 555 123 4567",
+    bio: "Futbol tutkunu",
     stats: {
       matches: 15,
       goals: 8,
@@ -552,35 +562,254 @@ export const authService = {
       console.log(`API isteği gönderiliyor: /auth/register`);
       console.log('Kayıt verileri:', { username, email, name, profileData });
       
-      // Profil bilgilerini ekle
+      // Web projesindeki başarılı formata uygun veri yapısı
       const registerData = {
+        // Temel kullanıcı bilgileri
         username,
         email,
         password,
         name,
-        location: profileData?.location || '',
-        level: profileData?.level || '',
+        
+        // Profil bilgileri - web projesindeki gibi düz yapıda
+        firstName: profileData?.firstName || name.split(' ')[0] || '',
+        lastName: profileData?.lastName || (name.split(' ').length > 1 ? name.split(' ').slice(1).join(' ') : ''),
         position: profileData?.position || '',
-        footPreference: profileData?.footPreference || '',
+        level: profileData?.footballExperience || profileData?.level || 'Başlangıç',
+        footPreference: profileData?.preferredFoot || 'Sağ',
+        
+        // Ek profil bilgileri - ihtiyaç olursa
         bio: profileData?.bio || '',
-        stats: profileData?.stats || {
-          matches: 0,
-          goals: 0,
-          assists: 0,
-          playHours: 0,
-          rating: 0
-        }
+        location: profileData?.location || '',
+        phone: profileData?.phone || '',
+        
+        // Eski formatla uyumluluk için
+        footballExperience: profileData?.footballExperience || profileData?.level || 'Başlangıç',
       };
       
+      console.log('Sunucuya gönderilecek kayıt verileri:', JSON.stringify(registerData, null, 2));
+      
       const url = await getApiUrl('/auth/register');
-      const data = await fetchAPI(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(registerData)
-      });
-      console.log('Sunucu yanıtı:', data);
+      
+      // API isteğini gönder - timeout ve retry mekanizması ile
+      let data;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          // Abort controller ile timeout kontrolü
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 saniye timeout
+          
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(registerData),
+            signal: controller.signal as any
+          });
+          
+          clearTimeout(timeoutId);
+          
+          // HTTP yanıt kodunu kontrol et
+          console.log(`Kayıt yanıtı alındı (HTTP ${response.status})`, {
+            ok: response.ok,
+            statusText: response.statusText
+          });
+          
+          // Yanıtı text olarak al
+          const responseText = await response.text();
+          console.log(`Sunucu yanıt uzunluğu: ${responseText.length} karakter`);
+          
+          // JSON parse et
+          try {
+            data = JSON.parse(responseText);
+            console.log('Sunucu yanıtı:', data);
+            break; // Başarılı yanıt, döngüden çık
+          } catch (parseError) {
+            console.error('JSON parse hatası:', parseError);
+            console.log('Ham yanıt:', responseText.substring(0, 200));
+            
+            // Yanıt parse edilemedi, manuel yanıt oluştur
+            if (response.ok) {
+              // Başarılı yanıt ama JSON değil
+              data = { 
+                success: true,
+                message: 'Kayıt başarılı (JSON parse hatası)',
+                token: responseText.includes('token') ? responseText.match(/token["\s:=]+([^"'\s,}]+)/)?.[1] : null,
+                user: {
+                  username,
+                  email,
+                  name,
+                  ...profileData
+                }
+              };
+              break;
+            } else {
+              // Başarısız yanıt
+              throw new Error(`Sunucu yanıtı geçerli JSON formatında değil: ${responseText.substring(0, 100)}`);
+            }
+          }
+        } catch (fetchError: any) {
+          console.error(`Kayıt isteği hatası (deneme ${retryCount + 1}/${maxRetries + 1}):`, fetchError.message || fetchError);
+          
+          if (retryCount === maxRetries) {
+            throw fetchError; // Son deneme başarısız, hatayı fırlat
+          }
+          
+          // Kısa bir beklemeden sonra tekrar dene
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          retryCount++;
+        }
+      }
+      
+      console.log('Kayıt yanıtı alındı:', JSON.stringify(data, null, 2));
+      
+      // Sunucudan gelen yanıtı kontrol et
+      if (!data.user) {
+        console.warn('Sunucudan gelen yanıtta user nesnesi bulunamadı!');
+        
+        // Kullanıcı nesnesini manuel olarak oluştur
+        data.user = {
+          // Temel bilgiler - kayıt verilerinden al
+          username,
+          email,
+          name,
+          
+          // Profil bilgileri - registerData'dan al
+          firstName: registerData.firstName,
+          lastName: registerData.lastName,
+          position: registerData.position,
+          level: registerData.level,
+          footPreference: registerData.footPreference,
+          footballExperience: registerData.footballExperience,
+          bio: registerData.bio,
+          location: registerData.location,
+          height: profileData?.height || 0,
+          weight: profileData?.weight || 0
+        };
+        
+        // ID'yi token'dan çıkarmayı dene
+        if (data.token) {
+          try {
+            const tokenParts = data.token.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              if (payload.id) {
+                data.user._id = payload.id;
+                console.log('ID token\'dan çıkarıldı:', payload.id);
+              }
+            }
+          } catch (e) {
+            console.error('Token parse hatası:', e);
+          }
+        }
+      }
+      
+      // Kayıt sonrası profil verilerini güncelleme işlemi
+      if (data.token && (data.user._id || data.user.id)) {
+        try {
+          // Kullanıcı ID'si ve token'ı al
+          const userId = data.user._id || data.user.id;
+          const token = data.token;
+          
+          console.log('Profil verilerini güncelleme işlemi başlatılıyor...', { userId });
+          
+          // Profil verilerini güncelleme isteği - doğrudan profile endpoint'ini kullan
+          const updateUrl = await getApiUrl(`/users/profile`);
+          
+          // Güncellenecek profil verileri - sunucu loglarına göre düzenlendi
+          const updatedData = { 
+            // Sunucu loglarında görülen çalışan alanlar
+            level: profileData.level || profileData.footballExperience || 'Başlangıç',
+            footPreference: profileData.footPreference || profileData.preferredFoot || 'Sağ',
+            position: profileData.position || '',
+            bio: profileData.bio || '',
+            location: profileData.location || '',
+            phone: profileData.phone || '',
+            
+            // Diğer profil alanları
+            favoriteTeam: profileData.favoriteTeam || '',
+            footballExperience: profileData.footballExperience || profileData.level || 'Başlangıç',
+            preferredFoot: profileData.preferredFoot || profileData.footPreference || 'Sağ',
+            firstName: profileData.firstName || '',
+            lastName: profileData.lastName || '',
+            height: profileData?.height || 0,
+            weight: profileData?.weight || 0
+          };
+          
+          console.log('Profil güncelleme verileri:', updatedData);
+          
+          // PUT isteği gönder - token'ı hem header'da hem de body'de gönder
+          fetch(updateUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'x-auth-token': token
+            },
+            body: JSON.stringify({
+              ...updatedData,
+              token // Token'ı body'de de gönder
+            })
+          })
+          .then(response => {
+            console.log('Profil güncelleme yanıt status:', response.status);
+            return response.text();
+          })
+          .then(text => {
+            try {
+              // Yanıtı JSON olarak parse etmeyi dene
+              const updatedUser = JSON.parse(text);
+              console.log('Profil başarıyla güncellendi:', updatedUser);
+              
+              // Güncellenmiş kullanıcı verilerini data.user'a aktar
+              if (updatedUser) {
+                Object.assign(data.user, updatedUser);
+              }
+            } catch (e) {
+              console.log('JSON parse hatası, ham yanıt:', text);
+            }
+          })
+          .catch(error => {
+            console.error('Profil güncelleme hatası:', error);
+            
+            // Hata durumunda alternatif endpoint dene
+            console.log('Alternatif endpoint deneniyor...');
+            
+            // Alternatif endpoint için ayrı bir işlev
+            const tryAlternativeEndpoint = async () => {
+              try {
+                const altUrl = await getApiUrl(`/users/${userId}`);
+                const altResponse = await fetch(altUrl, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-auth-token': token
+                  },
+                  body: JSON.stringify({
+                    ...updatedData,
+                    token // Token'ı body'de de gönder
+                  })
+                });
+                
+                const altText = await altResponse.text();
+                console.log('Alternatif endpoint yanıtı:', altText);
+              } catch (err) {
+                console.error('Alternatif endpoint hatası:', err);
+              }
+            };
+            
+            // Alternatif endpoint'i çağır
+            tryAlternativeEndpoint();
+          });
+        } catch (updateError) {
+          console.error('Profil güncelleme işlemi sırasında hata:', updateError);
+          // Güncelleme hatası olsa bile kayıt işlemine devam et
+        }
+      }
       
       if (data.error) {
         // Daha detaylı hata bilgisi
@@ -601,6 +830,7 @@ export const authService = {
       }
       
       console.log('Kayıt başarılı, token alındı');
+      console.log('Kullanıcı verileri:', JSON.stringify(data.user, null, 2));
       
       // Token ve kullanıcı bilgileri AuthContext tarafından kaydedilecek
       return data;
@@ -1171,14 +1401,37 @@ export const userService = {
         throw new Error('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.');
       }
       
-      // stats alanı için özel işlem yapalım
-      const updatedData = { ...profileData };
+      // Tüm profil alanlarını içeren veri hazırlayalım - sunucu loglarına göre düzenlendi
+      const updatedData = { 
+        // Sunucu loglarında görülen çalışan alanlar
+        level: profileData.level || profileData.footballExperience || 'Başlangıç',
+        footPreference: profileData.footPreference || profileData.preferredFoot || 'Sağ',
+        position: profileData.position || '',
+        bio: profileData.bio || '',
+        location: profileData.location || '',
+        phone: profileData.phone || '',
+        
+        // Diğer profil alanları
+        favoriteTeam: profileData.favoriteTeam || '',
+        footballExperience: profileData.footballExperience || profileData.level || 'Başlangıç',
+        preferredFoot: profileData.preferredFoot || profileData.footPreference || 'Sağ',
+        firstName: profileData.firstName || '',
+        lastName: profileData.lastName || '',
+        height: profileData.height || 0,
+        weight: profileData.weight || 0
+      };
       
-      // İsteği yapalım
+      console.log('Profil güncelleme verileri (userService):', updatedData);
+      
+      // İsteği yapalım - token'ı hem header'da hem de body'de gönder
       const url = await getApiUrl('/users/profile');
       const response = await fetch(url, {
         method: 'PUT',
-        headers,
+        headers: {
+          ...headers,
+          'Authorization': `Bearer ${token}`,
+          'x-auth-token': token
+        },
         body: JSON.stringify(updatedData)
       });
 
