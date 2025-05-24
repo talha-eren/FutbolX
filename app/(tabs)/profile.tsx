@@ -6,12 +6,15 @@ import { useThemeColor } from '../../hooks/useThemeColor';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
-import { userService } from '../../services/api';
+import { userService, OFFLINE_DATA } from '@/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
-import { IS_OFFLINE_MODE, OFFLINE_DATA, checkOfflineMode } from '@/services/api';
+import { IS_OFFLINE_MODE, checkOfflineMode } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Card } from '../../components/ui/Card';
+import { StatusBar } from 'expo-status-bar';
+import { Stack } from 'expo-router';
+import VideoPlayer from '../../components/VideoPlayer';
 
 // Varsayılan profil resmi URL'si
 const DEFAULT_PROFILE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -59,7 +62,6 @@ type UserProfile = {
 };
 
 import { VideoMeta, videoService, API_URL } from '../../services/videoApi';
-import VideoPlayer from '../../components/VideoPlayer';
 
 export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState('profile');
@@ -97,9 +99,30 @@ export default function ProfileScreen() {
   // Çevrimdışı mod desteği
   const [isOffline, setIsOffline] = useState(IS_OFFLINE_MODE);
   
+  // Stack Screen ekle
+  useEffect(() => {
+    // Profil sayfası yüklendiğinde çalışacak kodlar
+    fetchUserProfile();
+    fetchVideos();
+    fetchMatches();
+    console.log("ProfileScreen useEffect çalıştı - ilk yükleme");
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Sayfa her odaklandığında çalışacak kodlar
+      console.log("ProfileScreen useFocusEffect çalıştı - sayfa odaklandı");
+      fetchUserProfile();
+      return () => {
+        // Temizleme işlemleri
+        console.log("ProfileScreen cleanup çalıştı");
+      };
+    }, [])
+  );
+  
   // Profil verilerini çek - çevrimdışı mod desteği ile
   const fetchUserProfile = async () => {
-        setLoading(true);
+    setLoading(true);
     try {
       // Çevrimdışı mod kontrolü
       const offline = await checkOfflineMode();
@@ -108,20 +131,19 @@ export default function ProfileScreen() {
       if (offline) {
         console.log('Çevrimdışı mod: Örnek profil verileri kullanılıyor');
         // Örnek profil verilerini UserProfile formatına dönüştür
-        const offlineUser = OFFLINE_DATA.user;
         const formattedOfflineUser: UserProfile = {
-          id: offlineUser._id,
-          name: offlineUser.name || '',
-          username: offlineUser.username,
-          email: offlineUser.email,
-          profilePicture: offlineUser.profilePicture || DEFAULT_PROFILE_IMAGE,
+          id: OFFLINE_DATA.user._id,
+          name: OFFLINE_DATA.user.name || '',
+          username: OFFLINE_DATA.user.username,
+          email: OFFLINE_DATA.user.email,
+          profilePicture: OFFLINE_DATA.user.profilePicture || DEFAULT_PROFILE_IMAGE,
           bio: 'Futbol tutkunu',
           location: 'İstanbul',
-          level: offlineUser.level || 'Orta',
-          position: offlineUser.position || 'Forvet',
+          level: OFFLINE_DATA.user.level || 'Orta',
+          position: OFFLINE_DATA.user.position || 'Forvet',
           footPreference: 'Sağ',
-          phone: offlineUser.phone || '+90 555 123 4567',
-          stats: offlineUser.stats || {
+          phone: OFFLINE_DATA.user.phone || '+90 555 123 4567',
+          stats: OFFLINE_DATA.user.stats || {
             matches: 15,
             goals: 8,
             assists: 5,
@@ -264,19 +286,6 @@ export default function ProfileScreen() {
       }
     };
 
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchUserProfile();
-      fetchVideos();
-      fetchMatches();
-      
-      // Cleanup function if needed
-      return () => {
-        // Cleanup code here if needed
-      };
-    }, []) // Empty dependency array ensures this only runs when screen is focused
-  );
-
   // Videoları getir
     const fetchVideos = async () => {
       if (user) {
@@ -369,49 +378,42 @@ export default function ProfileScreen() {
           style={styles.headerBackground}
           start={{x: 0, y: 0}}
           end={{x: 1, y: 0}}
-        />
-        
+        >
+          <View style={styles.headerContent}>
             <View style={styles.profileImageContainer}>
               <Image 
-            source={{ 
-              uri: userData?.profilePicture ? 
-                `https://api.futbolx.app/uploads/${userData?.profilePicture}` : 
-                DEFAULT_PROFILE_IMAGE
-            }}
+                source={{ 
+                  uri: userData?.profilePicture ? 
+                    `https://api.futbolx.app/uploads/${userData?.profilePicture}` : 
+                    DEFAULT_PROFILE_IMAGE
+                }}
                 style={styles.profileImage} 
-          />
-          {isOffline && (
-            <View style={styles.offlineBadge}>
-              <IconSymbol name="wifi.slash" size={16} color="#FFFFFF" />
-            </View>
-          )}
+              />
+              {isOffline && (
+                <View style={styles.offlineBadge}>
+                  <IconSymbol name="wifi.slash" size={16} color="#FFFFFF" />
+                </View>
+              )}
             </View>
             
             <View style={styles.profileInfo}>
-          <ThemedText style={[styles.profileName, {color: '#FFFFFF'}]}>
-            {userData?.firstName} {userData?.lastName}
-                  </ThemedText>
-          <ThemedText style={[styles.profileUsername, {color: 'rgba(255,255,255,0.9)'}]}>
-            @{userData?.username || "kullanici"}
-                  </ThemedText>
-          
-          <View style={styles.profileStatsContainer}>
-            <View style={styles.badgeContainer}>
-              <IconSymbol name="person.badge.key" size={16} color="#FFC107" />
-              <ThemedText style={styles.badgeText}>
-                {userData?.footballExperience || "Sporcu"}
-                  </ThemedText>
-                </View>
-              </View>
+              <ThemedText style={[styles.profileName, {color: '#FFFFFF', fontSize: 26}]}>
+                Hoş Geldin, {userData?.firstName || userData?.name || userData?.username || "Kullanıcı"}!
+              </ThemedText>
+              <ThemedText style={[styles.profileUsername, {color: 'rgba(255,255,255,0.9)'}]}>
+                @{userData?.username || "kullanici"}
+              </ThemedText>
             </View>
-        
-          <TouchableOpacity 
-          style={styles.editProfileButton}
-          onPress={() => router.push('/edit-profile')}
-          >
-          <IconSymbol name="pencil" size={16} color="#FFFFFF" />
-          <ThemedText style={styles.editProfileText}>Düzenle</ThemedText>
-          </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.editProfileButton}
+              onPress={() => router.push('/edit-profile')}
+            >
+              <IconSymbol name="pencil" size={16} color="#FFFFFF" />
+              <ThemedText style={styles.editProfileText}>Düzenle</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </View>
     );
   };
@@ -486,7 +488,7 @@ export default function ProfileScreen() {
         <View style={styles.errorContainer}>
           <IconSymbol name="exclamationmark.triangle" size={50} color="#e53935" />
           <ThemedText style={styles.errorText}>{error}</ThemedText>
-      <TouchableOpacity 
+          <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: tintColor }]}
             onPress={() => {
               setError(null);
@@ -494,9 +496,9 @@ export default function ProfileScreen() {
             }}
           >
             <ThemedText style={styles.retryButtonText}>Tekrar Dene</ThemedText>
-      </TouchableOpacity>
-    </View>
-  );
+          </TouchableOpacity>
+        </View>
+      );
     }
 
     if (!userData) {
@@ -557,7 +559,7 @@ export default function ProfileScreen() {
               <IconSymbol name="medal" size={24} color={tintColor} />
               <ThemedText style={styles.characteristicLabel}>Seviye</ThemedText>
               <ThemedText style={[styles.characteristicValue, characteristicValueStyle]}>{userData.footballExperience || '-'}</ThemedText>
-        </View>
+            </View>
             
             <View style={[styles.characteristicItem, { backgroundColor: 'rgba(76, 175, 80, 0.1)' }]}>
               <IconSymbol name="person.fill" size={24} color={tintColor} />
@@ -569,7 +571,7 @@ export default function ProfileScreen() {
               <IconSymbol name="figure.walk" size={24} color={tintColor} />
               <ThemedText style={styles.characteristicLabel}>Ayak Tercihi</ThemedText>
               <ThemedText style={[styles.characteristicValue, characteristicValueStyle]}>{userData.footPreference || '-'}</ThemedText>
-          </View>
+            </View>
           </View>
           
           <View style={[styles.infoRow, {borderBottomWidth: 0}]}><ThemedText style={styles.infoLabel}>İlerleme:</ThemedText><ThemedText style={styles.infoValue}>{userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-'}</ThemedText></View>
@@ -587,8 +589,8 @@ export default function ProfileScreen() {
               <IconSymbol name="pencil" size={16} color="#FFFFFF" />
               <ThemedText style={styles.editButtonTextSmall}>Düzenle</ThemedText>
             </TouchableOpacity>
-        </View>
-        
+          </View>
+          
           <View style={styles.statRow}>
             <View style={styles.statisticContent}>
               <ThemedText style={[styles.statValue, statValueStyle]}>{userData.stats?.matches || '0'}</ThemedText>
@@ -622,7 +624,7 @@ export default function ProfileScreen() {
       } else {
         // Web veya diğer platformlar
         Alert.alert("Bildirim Ayarları", "Bildirim ayarlarını cihaz ayarlarınızdan değiştirebilirsiniz.");
-    }
+      }
     };
 
     // Gizlilik ve güvenlik
@@ -658,7 +660,7 @@ export default function ProfileScreen() {
                 Linking.openSettings();
               } else {
                 Alert.alert("Bilgi", "Konum izinlerini tarayıcı ayarlarınızdan değiştirebilirsiniz.");
-    }
+              }
             }
           },
           { 
@@ -669,7 +671,7 @@ export default function ProfileScreen() {
       );
     };
 
-      return (
+    return (
       <View style={styles.settingsContainer}>
         <Card style={styles.settingsCard}>
           <TouchableOpacity style={styles.settingsItem} onPress={() => router.push('/(tabs)/edit-profile')}>
@@ -695,8 +697,8 @@ export default function ProfileScreen() {
             <IconSymbol name="lock.shield" size={24} color={accentColor} />
             <ThemedText style={styles.settingsItemText}>Gizlilik ve Güvenlik</ThemedText>
             <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
-              </TouchableOpacity>
-              
+          </TouchableOpacity>
+          
           <View style={styles.settingsDivider} />
           
           <TouchableOpacity 
@@ -706,7 +708,7 @@ export default function ProfileScreen() {
             <IconSymbol name="map" size={24} color={accentColor} />
             <ThemedText style={styles.settingsItemText}>Konum Ayarları</ThemedText>
             <IconSymbol name="chevron.right" size={20} color={secondaryTextColor} />
-        </TouchableOpacity>
+          </TouchableOpacity>
         </Card>
         
         <Card style={styles.settingsCard}>
@@ -812,79 +814,160 @@ export default function ProfileScreen() {
     );
   }
   
+  // Profil sayfasında gösterilecek içerik
+  const renderProfileContent = () => {
+    return (
+      <View>
+        {renderProfileDetails()}
+        
+        {/* Son Aktivitelerim */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <IconSymbol name="clock.arrow.circlepath" size={20} color="#4CAF50" />
+            <ThemedText style={styles.sectionTitle}>Son Aktivitelerim</ThemedText>
+          </View>
+          
+          <View style={styles.activitiesContainer}>
+            <View style={styles.activityCard}>
+              <View style={styles.activityIconContainer}>
+                <IconSymbol name="person.2.fill" size={20} color="#4CAF50" />
+              </View>
+              <View style={styles.activityContent}>
+                <ThemedText style={styles.activityTitle}>Takım Oyunu</ThemedText>
+                <ThemedText style={styles.activityDescription}>3 vs 3 maçına katıldınız</ThemedText>
+                <ThemedText style={styles.activityTime}>2 gün önce</ThemedText>
+              </View>
+            </View>
+            
+            <View style={styles.activityCard}>
+              <View style={styles.activityIconContainer}>
+                <IconSymbol name="star.fill" size={20} color="#FFC107" />
+              </View>
+              <View style={styles.activityContent}>
+                <ThemedText style={styles.activityTitle}>Başarı Kazandınız</ThemedText>
+                <ThemedText style={styles.activityDescription}>5 gol atma başarısı kazandınız</ThemedText>
+                <ThemedText style={styles.activityTime}>1 hafta önce</ThemedText>
+              </View>
+            </View>
+            
+            <View style={styles.activityCard}>
+              <View style={styles.activityIconContainer}>
+                <IconSymbol name="soccerball" size={20} color="#2196F3" />
+              </View>
+              <View style={styles.activityContent}>
+                <ThemedText style={styles.activityTitle}>Yeni Antrenman</ThemedText>
+                <ThemedText style={styles.activityDescription}>Haftalık antrenman programınız güncellendi</ThemedText>
+                <ThemedText style={styles.activityTime}>2 hafta önce</ThemedText>
+              </View>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.viewAllButton}
+            onPress={() => {
+              Alert.alert(
+                "Aktiviteler",
+                "Yakında tüm aktivitelerinize buradan erişebileceksiniz.",
+                [
+                  { text: "Tamam", style: "default" }
+                ]
+              );
+            }}
+          >
+            <ThemedText style={styles.viewAllButtonText}>Tümünü Görüntüle</ThemedText>
+            <IconSymbol name="chevron.right" size={16} color="#4CAF50" />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Halı Sahalarımız */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <IconSymbol name="soccerball" size={20} color="#4CAF50" />
+            <ThemedText style={styles.sectionTitle}>Halı Sahalarımız</ThemedText>
+          </View>
+          
+          <View style={styles.fieldList}>
+            <TouchableOpacity 
+              style={styles.fieldCard}
+              onPress={() => router.push('/field/reservation?id=halisaha1')}
+            >
+              <View style={styles.fieldImageContainer}>
+                <Image 
+                  source={require('@/assets/images/pitch1.jpg')}
+                  style={styles.fieldImage}
+                />
+                <View style={styles.fieldOverlay}>
+                  {/* Rakamlar kaldırıldı */}
+                </View>
+              </View>
+              <ThemedText style={styles.fieldName}>Halı Saha 1</ThemedText>
+              <TouchableOpacity 
+                style={styles.reserveButton}
+                onPress={() => router.push('/fields')}
+              >
+                {/* <IconSymbol name="calendar" size={14} color="#FFFFFF" /> */}
+                <ThemedText style={styles.reserveButtonText}>Rezerv Et</ThemedText>
+              </TouchableOpacity>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.fieldCard}
+              onPress={() => router.push('/field/reservation?id=halisaha2')}
+            >
+              <View style={styles.fieldImageContainer}>
+                <Image 
+                  source={require('@/assets/images/pitch2.jpg')}
+                  style={styles.fieldImage}
+                />
+                <View style={styles.fieldOverlay}>
+                  {/* Rakamlar kaldırıldı */}
+                </View>
+              </View>
+              <ThemedText style={styles.fieldName}>Halı Saha 2</ThemedText>
+              <TouchableOpacity 
+                style={styles.reserveButton}
+                onPress={() => router.push('/fields')}
+              >
+                {/* <IconSymbol name="calendar" size={14} color="#FFFFFF" /> */}
+                <ThemedText style={styles.reserveButtonText}>Rezerv Et</ThemedText>
+              </TouchableOpacity>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.fieldCard}
+              onPress={() => router.push('/field/reservation?id=halisaha3')}
+            >
+              <View style={styles.fieldImageContainer}>
+                <Image 
+                  source={require('@/assets/images/pitch3.jpg')}
+                  style={styles.fieldImage}
+                />
+                <View style={styles.fieldOverlay}>
+                  {/* Rakamlar kaldırıldı */}
+                </View>
+              </View>
+              <ThemedText style={styles.fieldName}>Halı Saha 3</ThemedText>
+              <TouchableOpacity 
+                style={styles.reserveButton}
+                onPress={() => router.push('/fields')}
+              >
+                {/* <IconSymbol name="calendar" size={14} color="#FFFFFF" /> */}
+                <ThemedText style={styles.reserveButtonText}>Rezerv Et</ThemedText>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   // Aktif sekmeye göre içerik render etme
   const renderActiveTabContent = () => {
     if (activeTab === 'profile') {
-        return renderProfileDetails();
-    } else if (activeTab === 'settings') {
+      return renderProfileContent();
+    } else {
       return renderSettings();
     }
-    return renderProfileDetails();
-  };
-
-  // Profil sayfasındaki istatistik kartları için düzenleme
-  const renderProfileStatistics = () => {
-    // Stil değişkenlerini önceden hesapla
-    const iconContainerStyle = { backgroundColor: accentColor };
-    
-    return (
-      <View style={[styles.statsContainer, { marginTop: 20, marginBottom: 30 }]}>
-        <ThemedText style={[styles.statsTitle, { marginBottom: 16 }]}>İstatistiklerim</ThemedText>
-        <ScrollView horizontal={false} showsHorizontalScrollIndicator={false}>
-          <View style={styles.statsRowContainer}>
-            <Card style={styles.statisticCard}>
-              <View style={styles.statisticContent}>
-                <View style={[styles.statisticIconContainer, iconContainerStyle]}>
-                  <IconSymbol name="figure.soccer" size={24} color="white" />
-                </View>
-                <View style={styles.statisticTextContent}>
-                  <ThemedText style={styles.statValue}>{userData?.matches || 0}</ThemedText>
-                  <ThemedText style={styles.statLabel}>Maçlar</ThemedText>
-                </View>
-              </View>
-            </Card>
-
-            <Card style={styles.statisticCard}>
-              <View style={styles.statisticContent}>
-                <View style={[styles.statisticIconContainer, iconContainerStyle]}>
-                  <IconSymbol name="soccerball" size={24} color="white" />
-                </View>
-                <View style={styles.statisticTextContent}>
-                  <ThemedText style={styles.statValue}>{userData?.goals || 0}</ThemedText>
-                  <ThemedText style={styles.statLabel}>Goller</ThemedText>
-                </View>
-              </View>
-            </Card>
-          </View>
-
-          <View style={styles.statsRowContainer}>
-            <Card style={styles.statisticCard}>
-              <View style={styles.statisticContent}>
-                <View style={[styles.statisticIconContainer, iconContainerStyle]}>
-                  <IconSymbol name="hand.point.up" size={24} color="white" />
-                </View>
-                <View style={styles.statisticTextContent}>
-                  <ThemedText style={styles.statValue}>{userData?.assists || 0}</ThemedText>
-                  <ThemedText style={styles.statLabel}>Asistler</ThemedText>
-                </View>
-              </View>
-            </Card>
-
-            <Card style={styles.statisticCard}>
-              <View style={styles.statisticContent}>
-                <View style={[styles.statisticIconContainer, iconContainerStyle]}>
-                  <IconSymbol name="clock" size={24} color="white" />
-                </View>
-                <View style={styles.statisticTextContent}>
-                  <ThemedText style={styles.statValue}>{userData?.playHours || 0}</ThemedText>
-                  <ThemedText style={styles.statLabel}>Oyun Saati</ThemedText>
-                </View>
-              </View>
-            </Card>
-          </View>
-        </ScrollView>
-      </View>
-    );
   };
 
   // Gizlilik politikası ve kullanım koşulları
@@ -1049,14 +1132,83 @@ Kullanım koşulları ile ilgili sorular için: bilikcitalha@gmail.com
 
   return (
     <ThemedView style={styles.container}>
-      {renderOfflineBanner()}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <StatusBar style="light" />
+      
+      <Stack.Screen
+        options={{
+          headerTitle: "FutbolX",
+          headerTitleStyle: { 
+            fontWeight: '700', 
+            fontSize: 20
+          },
+          headerStyle: { backgroundColor: primaryColor },
+          headerTintColor: '#FFFFFF',
+        }}
+      />
+      
+      {isOffline && renderOfflineBanner()}
+      
+      {/* Profil Banner */}
+      <View style={styles.profileBanner}>
+        <LinearGradient
+          colors={['#4CAF50', '#2E7D32']}
+          style={styles.bannerGradient}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 0}}
+        >
+          <View style={styles.bannerContent}>
+            <Image 
+              source={{ uri: 'https://cdn-icons-png.flaticon.com/512/33/33699.png' }} 
+              style={styles.footballIcon} 
+              resizeMode="contain"
+            />
+            <ThemedText style={styles.bannerTitle}>Profilim</ThemedText>
+          </View>
+        </LinearGradient>
+      </View>
+      
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {renderHeader()}
         {renderTabs()}
         {renderActiveTabContent()}
-        {renderProfileStatistics()}
       </ScrollView>
+
+      {/* Video Oynatıcı Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          setModalVisible(false);
+        }}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <IconSymbol name="xmark" size={24} color="#FFF" />
+            </TouchableOpacity>
+            {selectedVideoUrl && (
+              <VideoPlayer
+                uri={selectedVideoUrl}
+                autoPlay={true}
+                isFullScreen={true}
+                onClose={() => setModalVisible(false)}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Gizlilik Politikası Modal */}
       {renderPrivacyPolicyModal()}
+      
+      {/* Kullanım Koşulları Modal */}
       {renderTermsOfServiceModal()}
     </ThemedView>
   );
@@ -1065,7 +1217,7 @@ Kullanım koşulları ile ilgili sorular için: bilikcitalha@gmail.com
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
+    backgroundColor: '#F5F5F5',
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -1078,9 +1230,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
+    color: '#4CAF50',
     fontSize: 16,
-    marginTop: 12,
-    textAlign: 'center',
+    fontWeight: 'bold',
+    marginTop: 10,
   },
   headerContainer: {
     marginBottom: 16,
@@ -1099,89 +1252,72 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   profileHeader: {
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerBackground: {
+    padding: 16,
+  },
+  headerContent: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    alignItems: 'center',
   },
   profileImageContainer: {
     position: 'relative',
-    marginRight: 20,
   },
   profileImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     borderWidth: 3,
     borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    backgroundColor: '#f0f0f0',
-  },
-  editProfileButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#4CAF50',
-    borderRadius: 18,
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  profileInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  profileName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  profileUsername: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.9)',
-    marginBottom: 14,
-  },
-  profileStatsContainer: {
-    marginTop: 16,
-  },
-  editProfileText: {
-    color: 'white',
-    marginLeft: 6,
-    fontWeight: '600',
   },
   offlineBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 18,
-    width: 36,
-    height: 36,
+    backgroundColor: '#FF5252',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
-  headerBackground: {
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingTop: 40,
-    paddingBottom: 30,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-    overflow: 'hidden',
+  profileInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  profileUsername: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginTop: 4,
+  },
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  editProfileText: {
+    color: '#FFFFFF',
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '600',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -1224,18 +1360,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.1)',
   },
   infoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(76, 175, 80, 0.1)',
+    paddingBottom: 12,
   },
   infoTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#212121',
+    color: '#4CAF50',
   },
   infoRow: {
     flexDirection: 'row',
@@ -1276,180 +1417,85 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    marginTop: 12,
-    letterSpacing: 0.3,
-    color: '#212121',
-  },
-  detailText: {
-    fontSize: 16,
-    marginLeft: 10,
-    lineHeight: 22,
-  },
-  matchesContainer: {
-    marginBottom: 20,
-    marginHorizontal: 16,
-  },
-  matchCard: {
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 20,
-    marginBottom: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+  sectionContainer: {
     backgroundColor: '#FFFFFF',
-  },
-  matchImageContainer: {
-    position: 'relative',
-  },
-  matchImage: {
-    width: '100%',
-    height: 150,
-  },
-  statusTag: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-    letterSpacing: 0.3,
-  },
-  dateTag: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  dateText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-    letterSpacing: 0.2,
-  },
-  matchContent: {
-    padding: 24,
-  },
-  matchTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 18,
-    letterSpacing: 0.3,
-    color: '#212121',
-  },
-  matchInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  matchInfoText: {
-    fontSize: 16,
-    marginLeft: 10,
-    color: '#424242',
-    letterSpacing: 0.2,
-  },
-  matchActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  matchButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
     borderRadius: 12,
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 5,
+    marginBottom: 16,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  matchButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 15,
-    letterSpacing: 0.3,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingBottom: 12,
   },
-  findMatchButton: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 10,
+    color: '#4CAF50',
+  },
+  activitiesContainer: {
+    marginTop: 10,
+  },
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    padding: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  activityIconContainer: {
+    marginRight: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  activityDescription: {
+    fontSize: 14,
+    color: '#666666',
+    marginTop: 2,
+  },
+  activityTime: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 4,
+  },
+  viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    borderRadius: 16,
-    marginTop: 20,
-    marginHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  findMatchText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 18,
-    marginLeft: 12,
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  performanceContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-    paddingTop: 20,
+    paddingVertical: 10,
+    marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    backgroundColor: 'rgba(0,0,0,0.01)',
-    paddingBottom: 10,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
-  performanceItem: {
-    alignItems: 'center',
-    paddingHorizontal: 10,
-  },
-  performanceValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 8,
+  viewAllButtonText: {
     color: '#4CAF50',
-  },
-  performanceLabel: {
+    fontWeight: 'bold',
     fontSize: 14,
-    opacity: 0.9,
-    fontWeight: '500',
-    marginTop: 2,
+    marginRight: 4,
   },
   stars: {
     flexDirection: 'row',
@@ -1460,145 +1506,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 4,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    marginVertical: 20,
-  },
-  emptyText: {
-    marginTop: 10,
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#9E9E9E',
-    marginBottom: 20,
-  },
-  ratingContainer: {
-    marginTop: 20,
-    padding: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  ratingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  ratingTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#212121',
-  },
-  ratingValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginRight: 4,
-  },
-  ratingMax: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#9E9E9E',
-  },
-  ratingBarContainer: {
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#E0E0E0',
-    overflow: 'hidden',
-  },
-  ratingBar: {
-    height: '100%',
-    borderRadius: 10,
-    backgroundColor: '#4CAF50',
-  },
-  statsContainer: {
-    marginTop: 16,
-    marginBottom: 20,
-    padding: 10,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    paddingHorizontal: 5,
-  },
-  statsRowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  statisticCard: {
-    flex: 1,
-    marginHorizontal: 5,
-    padding: 12,
-    borderRadius: 10,
-  },
-  statisticContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statisticIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  statisticTextContent: {
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: 12,
-    opacity: 0.7,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginBottom: 28,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    flex: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  primaryButton: {
-    marginRight: 12,
-  },
-  secondaryButton: {
-    borderWidth: 1.5,
-    marginLeft: 12,
-    backgroundColor: 'white',
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 10,
-    letterSpacing: 0.3,
   },
   settingsContainer: {
     padding: 16,
@@ -1637,7 +1544,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
-  // Eksik stil tanımları
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1691,31 +1597,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 10,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 10,
-  },
-  badgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#FFC107',
-    borderRadius: 8,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1750,4 +1631,233 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  closeButton: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 5,
+  },
+  videoPlayer: {
+    width: '100%',
+    height: '100%',
+  },
+  profileTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: {width: 0, height: 2},
+    textShadowRadius: 3,
+  },
+  headerBanner: {
+    height: 120,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-start',
+  },
+  patternBackground: {
+    width: '100%',
+    height: '100%',
+  },
+  profileBanner: {
+    position: 'relative',
+  },
+  bannerGradient: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    paddingVertical: 15,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    justifyContent: 'flex-start',
+  },
+  footballIcon: {
+    width: 40,
+    height: 40,
+    tintColor: '#FFFFFF',
+    opacity: 0.8,
+  },
+  bannerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginLeft: 15,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  scrollView: {
+    flex: 1,
+    padding: 16,
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalView: {
+    backgroundColor: '#000',
+    width: '100%',
+    height: '50%',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  // İstatistikler bölümü için stiller
+  statsContainer: {
+    marginTop: 16,
+    marginBottom: 20,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.1)',
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(76, 175, 80, 0.1)',
+    paddingBottom: 12,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    paddingHorizontal: 5,
+    color: '#4CAF50',
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 10,
+    marginTop: 10,
+  },
+  statisticContent: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#4CAF50',
+  },
+  statLabel: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  // Düğmeler için stiller
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#4CAF50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  fieldList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  fieldCard: {
+    width: '31%',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  fieldImageContainer: {
+    position: 'relative',
+    height: 90,
+  },
+  fieldImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fieldOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fieldName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    padding: 8,
+    textAlign: 'center',
+  },
+  reserveButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    marginHorizontal: 8,
+    marginBottom: 8,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    minWidth: 70,
+  },
+  reserveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });
+

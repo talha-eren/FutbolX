@@ -8,11 +8,21 @@ interface FutbolXLogoProps {
   showText?: boolean;
   textStyle?: TextStyle;
   containerStyle?: ViewStyle;
+  subtitle?: string;
+  showSubtitle?: boolean;
 }
 
-export function FutbolXLogo({ size = 40, showText = true, textStyle, containerStyle }: FutbolXLogoProps) {
+export function FutbolXLogo({ 
+  size = 40, 
+  showText = true, 
+  textStyle, 
+  containerStyle,
+  subtitle = "Futbol tutkunlarını buluşturan platform",
+  showSubtitle = false
+}: FutbolXLogoProps) {
   const textColor = useThemeColor({}, 'text');
   const fontSize = size * 0.5;
+  const subtitleSize = size * 0.25;
   
   return (
     <View style={[styles.container, containerStyle]}>
@@ -27,9 +37,10 @@ export function FutbolXLogo({ size = 40, showText = true, textStyle, containerSt
           source={require('../assets/images/logo512.png')} 
           style={{ width: size, height: size }} 
           resizeMode="contain"
-        />
+          />
       </View>
       
+      <View style={styles.textContainer}>
       {showText && (
         <ThemedText style={[
           styles.logoText, 
@@ -37,8 +48,18 @@ export function FutbolXLogo({ size = 40, showText = true, textStyle, containerSt
           textStyle
         ]}>
           FutbolX
-        </ThemedText>
+          </ThemedText>
       )}
+        
+        {showSubtitle && (
+          <ThemedText style={[
+            styles.subtitleText, 
+            { fontSize: subtitleSize }
+          ]}>
+            {subtitle}
+          </ThemedText>
+        )}
+      </View>
     </View>
   );
 }
@@ -52,9 +73,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  textContainer: {
+    flexDirection: 'column',
+    marginLeft: 8,
+  },
   logoText: {
     fontWeight: 'bold',
-    marginLeft: 8,
     letterSpacing: 0.5,
+  },
+  subtitleText: {
+    opacity: 0.8,
+    marginTop: 2,
   }
 });

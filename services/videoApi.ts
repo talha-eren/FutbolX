@@ -87,9 +87,12 @@ async function checkNetworkConnection(): Promise<boolean> {
     // Basit bir fetch ile baglanti kontrolu
     const response = await fetch('https://www.google.com', { 
       method: 'HEAD',
-      cache: 'no-cache',
-      mode: 'no-cors',
-      signal: controller.signal
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      },
+      // TypeScript uyumluluğu için as unknown as RequestInit['signal'] kullan
+      signal: controller.signal as unknown as RequestInit['signal']
     });
     
     clearTimeout(timeoutId);

@@ -245,9 +245,7 @@ export default function RegisterScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoContainer}>
-              <FutbolXLogo size={100} showText={false} />
-              <ThemedText style={styles.title}>FutbolX</ThemedText>
-              <ThemedText style={styles.subtitle}>Futbol tutkunlarını buluşturan platform</ThemedText>
+              <FutbolXLogo size={100} showText={true} showSubtitle={true} />
         </View>
 
             <Animated.View 

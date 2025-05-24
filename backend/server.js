@@ -1,19 +1,18 @@
 // Çevre değişkenlerini yükle
 require('dotenv').config();
 
+// JWT Secret'i ayarla (yalnızca eğer tanımlanmamışsa)
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'futbolxapikey123';
+
 // Çevre değişkenlerini kontrol et
 if (!process.env.MONGODB_URI) {
   console.error('HATA: MONGODB_URI çevre değişkeni tanımlanmamış!');
-  console.error('Lütfen .env dosyasını oluşturun ve gerekli değişkenleri tanımlayın.');
+  console.error('Lütfen .env dosyasını oluşturun ve MONGODB_URI değişkenini tanımlayın.');
   process.exit(1); // Hata kodu ile çık
 }
 
 // Diğer çevre değişkenleri için varsayılan değerler
 process.env.PORT = process.env.PORT || 5000;
-
-if (!process.env.JWT_SECRET) {
-  console.warn('UYARI: JWT_SECRET çevre değişkeni tanımlanmamış! Güvenlik için .env dosyasında tanımlanması önerilir.');
-}
 
 console.log('Çevre değişkenleri ayarlandı');
 console.log(`PORT: ${process.env.PORT}`);
@@ -21,7 +20,6 @@ console.log(`PORT: ${process.env.PORT}`);
 const maskedURI = process.env.MONGODB_URI.replace(/:([^:@]+)@/, ':****@');
 console.log(`MongoDB URI: ${maskedURI}`);
 console.log(`JWT_SECRET: ${process.env.JWT_SECRET ? 'Ayarlandı' : 'Ayarlanmadı'}`);
-
 
 const express = require('express');
 const mongoose = require('mongoose');

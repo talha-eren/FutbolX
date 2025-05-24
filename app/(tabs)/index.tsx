@@ -12,6 +12,7 @@ import { FutbolXLogo } from '@/components/FutbolXLogo';
 import * as Linking from 'expo-linking';
 import { useAuth } from '@/context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { postService } from '@/services/api';
 
 // Ana renk
 const primaryColor = '#4CAF50';
@@ -138,7 +139,7 @@ export default function IndexScreen() {
   const [teams, setTeams] = useState<Team[]>([]);
   
   const router = useRouter();
-  const { isLoggedIn, token } = useAuth();
+  const { isLoggedIn, token, user } = useAuth();
   
   const secondaryColor = '#2E7D32'; // Koyu yeşil
   const accentColor = '#81C784'; // Açık yeşil
@@ -146,6 +147,113 @@ export default function IndexScreen() {
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const isDark = useThemeColor({}, 'background') === '#121212';
+  
+  // Gönderi beğenme işlevi
+  const handleLikePost = async (postId: string) => {
+    if (!isLoggedIn) {
+      handleRestrictedAction();
+      return;
+    }
+    
+    try {
+      await postService.likePost(postId);
+      
+      // Beğeni sayısını artır
+      setPosts(prevPosts => prevPosts.map(post => {
+        if ((post.id === postId || post._id === postId)) {
+          return {
+            ...post,
+            likes: (post.likes || 0) + 1
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error('Beğeni hatası:', error);
+      Alert.alert('Hata', 'Gönderi beğenilirken bir sorun oluştu.');
+    }
+  };
+  
+  // Yorum ekleme işlevi
+  const handleAddComment = (postId: string) => {
+    if (!isLoggedIn) {
+      handleRestrictedAction();
+      return;
+    }
+    
+    Alert.prompt(
+      'Yorum Ekle',
+      'Yorumunuzu yazın:',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Gönder',
+          onPress: async (comment?: string) => {
+            if (!comment || comment.trim() === '') {
+              Alert.alert('Uyarı', 'Yorum boş olamaz.');
+              return;
+            }
+            
+            try {
+              await postService.addComment(postId, comment);
+              
+              // Yorum sayısını artır
+              setPosts(prevPosts => prevPosts.map(post => {
+                if ((post.id === postId || post._id === postId)) {
+                  return {
+                    ...post,
+                    comments: (post.comments || 0) + 1
+                  };
+                }
+                return post;
+              }));
+              
+              Alert.alert('Başarılı', 'Yorumunuz eklendi.');
+            } catch (error) {
+              console.error('Yorum ekleme hatası:', error);
+              Alert.alert('Hata', 'Yorum eklenirken bir sorun oluştu.');
+            }
+          }
+        }
+      ]
+    );
+  };
+  
+  // Gönderi silme işlevi
+  const handleDeletePost = (postId: string) => {
+    Alert.alert(
+      "Gönderiyi Sil",
+      "Bu gönderiyi silmek istediğinize emin misiniz?",
+      [
+        {
+          text: "İptal",
+          style: "cancel"
+        },
+        {
+          text: "Sil",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await postService.deletePost(postId);
+              // Başarılı silme işleminden sonra gönderileri güncelle
+              setPosts(prevPosts => prevPosts.filter(post => 
+                (post.id !== postId && post._id !== postId)
+              ));
+              Alert.alert("Başarılı", "Gönderi başarıyla silindi");
+            } catch (error: any) {
+              Alert.alert("Hata", error.message || "Gönderi silinirken bir hata oluştu");
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
   
   // Hakkımızda modal'ı gösterme durumunu kontrol et - uygulama ilk açıldığında bir kez göster
   useEffect(() => {
@@ -1076,12 +1184,12 @@ export default function IndexScreen() {
           {/* Halı Saha 1 - Açık Alan */}
           <View style={styles.customFieldCard}>
             <Image 
-              source={require('@/assets/images/field1.jpg')} 
+              source={require('../../halı sahalar/3.jpg')} 
               style={styles.customFieldImage} 
               resizeMode="cover"
             />
             <View style={styles.customFieldContent}>
-              <ThemedText style={styles.customFieldName}>Gece Işıklandırmalı Açık Halı Saha</ThemedText>
+              <ThemedText style={styles.customFieldName}>Halı Saha 1</ThemedText>
               
               <View style={styles.customFieldFeatures}>
                 <View style={styles.customFieldFeatureRow}>
@@ -1124,12 +1232,12 @@ export default function IndexScreen() {
           {/* Halı Saha 2 - Kapalı Alan (Beyaz) */}
           <View style={styles.customFieldCard}>
             <Image 
-              source={require('@/assets/images/field2.jpg')} 
+              source={require('../../halı sahalar/kh2.jpg')} 
               style={styles.customFieldImage} 
               resizeMode="cover"
             />
             <View style={styles.customFieldContent}>
-              <ThemedText style={styles.customFieldName}>Premium Kapalı Halı Saha (Beyaz)</ThemedText>
+              <ThemedText style={styles.customFieldName}>Halı Saha 2</ThemedText>
               
               <View style={styles.customFieldFeatures}>
                 <View style={styles.customFieldFeatureRow}>
@@ -1161,23 +1269,23 @@ export default function IndexScreen() {
                 </View>
                 <TouchableOpacity 
                   style={[styles.reservationButton, { backgroundColor: primaryColor }]}
-                  onPress={() => router.push(`/reservations?fieldId=field2` as any)}
+                  onPress={() => router.push(`/reservations?fieldId=field1` as any)}
                 >
-                  <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
+                  <ThemedText style={styles.reservationButtonText}>Rezerve Yap</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
           
-          {/* Halı Saha 3 - Kapalı Alan (Yeşil) */}
+          {/* Halı Saha 3 - Açık Alan */}
           <View style={styles.customFieldCard}>
             <Image 
-              source={require('@/assets/images/field3.jpg')} 
+              source={require('../../halı sahalar/indir.jpg')} 
               style={styles.customFieldImage} 
               resizeMode="cover"
             />
             <View style={styles.customFieldContent}>
-              <ThemedText style={styles.customFieldName}>Standart Kapalı Halı Saha (Yeşil)</ThemedText>
+              <ThemedText style={styles.customFieldName}>Halı Saha 3</ThemedText>
               
               <View style={styles.customFieldFeatures}>
                 <View style={styles.customFieldFeatureRow}>
@@ -1205,13 +1313,13 @@ export default function IndexScreen() {
               <View style={styles.customFieldPriceRow}>
                 <View>
                   <ThemedText style={styles.customFieldPriceLabel}>Saatlik Ücret</ThemedText>
-                  <ThemedText style={styles.customFieldPrice}>380₺</ThemedText>
+                  <ThemedText style={styles.customFieldPrice}>450₺</ThemedText>
                 </View>
                 <TouchableOpacity 
                   style={[styles.reservationButton, { backgroundColor: primaryColor }]}
                   onPress={() => router.push(`/reservations?fieldId=field3` as any)}
                 >
-                  <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
+                  <ThemedText style={styles.reservationButtonText}>Rezerve Yap</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1602,12 +1710,20 @@ export default function IndexScreen() {
                       
                       <View style={styles.contentFooter}>
                         <View style={styles.contentStats}>
+                          <TouchableOpacity 
+                            style={styles.postStat}
+                            onPress={() => handleLikePost(item._id || item.id || '')}
+                          >
                           <IconSymbol name="heart" size={16} color="#777" />
-                          <ThemedText style={styles.statsText}>{item.likes}</ThemedText>
-                        </View>
-                        <View style={styles.contentStats}>
-                          <IconSymbol name="bubble.right" size={16} color="#777" />
-                          <ThemedText style={styles.statsText}>{item.comments}</ThemedText>
+                            <ThemedText style={styles.postStatText}>{item.likes || 0}</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.postStat}
+                            onPress={() => handleAddComment(item._id || item.id || '')}
+                          >
+                            <IconSymbol name="message" size={16} color="#777" />
+                            <ThemedText style={styles.postStatText}>{item.comments || 0}</ThemedText>
+                          </TouchableOpacity>
                         </View>
                         {item.location && (
                           <View style={styles.contentStats}>
@@ -1784,6 +1900,19 @@ export default function IndexScreen() {
                         : 'Bilinmeyen zaman'}
                   </ThemedText>
                 </View>
+                
+                {/* Kullanıcının kendi gönderisi ise silme butonu göster */}
+                {user && (post.user?._id === user.id || post.user?.id === user.id || post.username === user.username) && (
+                  <TouchableOpacity 
+                    style={styles.deleteButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeletePost(post._id || post.id || '');
+                    }}
+                  >
+                    <IconSymbol name="trash" size={18} color="#FF5252" />
+                  </TouchableOpacity>
+                )}
                 </View>
                 
                 <ThemedText style={styles.postContent}>{post.content || ''}</ThemedText>
@@ -1814,14 +1943,20 @@ export default function IndexScreen() {
                 )}
                 
                 <View style={styles.postFooter}>
-                  <View style={styles.postStat}>
+                  <TouchableOpacity 
+                    style={styles.postStat}
+                    onPress={() => handleLikePost(post._id || post.id || '')}
+                  >
                     <IconSymbol name="heart" size={16} color="#777" />
                     <ThemedText style={styles.postStatText}>{post.likes || 0}</ThemedText>
-              </View>
-                  <View style={styles.postStat}>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.postStat}
+                    onPress={() => handleAddComment(post._id || post.id || '')}
+                  >
                     <IconSymbol name="message" size={16} color="#777" />
                     <ThemedText style={styles.postStatText}>{post.comments || 0}</ThemedText>
-            </View>
+                  </TouchableOpacity>
                 </View>
               </TouchableOpacity>
             );
@@ -3547,5 +3682,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginRight: 4,
+  },
+  deleteButton: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+    zIndex: 10,
   },
 });

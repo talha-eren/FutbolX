@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, FlatList, TouchableOpacity, ActivityIndicator, Alert, Platform, Image, RefreshControl } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { StyleSheet, View, FlatList, TouchableOpacity, ActivityIndicator, Alert, Platform, RefreshControl, Image } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -10,9 +10,8 @@ import { useAuth } from '@/context/AuthContext';
 import { reservationService } from '@/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IS_OFFLINE_MODE } from '@/services/api';
 
-interface Reservation {
+interface ReservationRequest {
   _id: string;
   field: {
     _id: string;
@@ -28,21 +27,22 @@ interface Reservation {
   totalPrice: number;
   paymentStatus: string;
   createdAt: string;
+  isOffline?: boolean;
 }
 
-export default function ReservationsScreen() {
+export default function ReservationRequestsScreen() {
   const router = useRouter();
   const { isLoggedIn, user } = useAuth();
   
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [requests, setRequests] = useState<ReservationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Rezervasyonları getir
-  const fetchReservations = async () => {
+  // Rezervasyon taleplerini getir
+  const fetchReservationRequests = async () => {
     if (!isLoggedIn) {
-      setReservations([]);
+      setRequests([]);
       setLoading(false);
       return;
     }
@@ -51,21 +51,45 @@ export default function ReservationsScreen() {
       setLoading(true);
       setError(null);
       
-      console.log('Kullanıcı rezervasyonları getiriliyor...');
+      console.log('Kullanıcı rezervasyon talepleri getiriliyor...');
       
-      // API'den rezervasyonları almayı dene
+      // Çevrimdışı rezervasyonları al
+      let offlineReservations: ReservationRequest[] = [];
       try {
-        // Token kontrolü yap
-        const token = await AsyncStorage.getItem('token');
-        if (!token) {
-          throw new Error('Token bulunamadı');
+        const offlineReservationsStr = await AsyncStorage.getItem('offlineReservations');
+        if (offlineReservationsStr) {
+          const parsedOffline = JSON.parse(offlineReservationsStr);
+          // Sadece "Onay Bekliyor" durumundaki çevrimdışı rezervasyonları al
+          offlineReservations = parsedOffline
+            .filter(item => item.status === 'Onay Bekliyor')
+            .map(item => ({
+              ...item,
+              field: {
+                _id: item.fieldId,
+                name: item.fieldName,
+                location: 'Sporyum 23, Elazığ',
+                image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+                price: item.totalPrice
+              },
+              isOffline: true
+            }));
         }
-        
+      } catch (offlineError) {
+        console.error('Çevrimdışı rezervasyonlar alınamadı:', offlineError);
+      }
+      
+      // API'den rezervasyon taleplerini almayı dene
+      try {
         const data = await reservationService.getMyReservations();
         
         if (data && Array.isArray(data)) {
-          console.log(`${data.length} rezervasyon bulundu`);
-          setReservations(data);
+          // Sadece "Onay Bekliyor" durumundaki rezervasyonları filtrele
+          const pendingRequests = data.filter(req => req.status === 'Onay Bekliyor');
+          console.log(`${pendingRequests.length} rezervasyon talebi bulundu`);
+          
+          // API'den gelen ve çevrimdışı talepleri birleştir
+          const allRequests = [...pendingRequests, ...offlineReservations];
+          setRequests(allRequests);
           setLoading(false);
           setRefreshing(false);
           return;
@@ -74,86 +98,104 @@ export default function ReservationsScreen() {
           throw new Error('API yanıtı beklenmeyen formatta');
         }
       } catch (apiError: any) {
-        console.error('API\'den rezervasyonlar alınamadı:', apiError);
+        console.error('API\'den rezervasyon talepleri alınamadı:', apiError);
         
-        // Hata mesajını kullanıcıya göster
-        if (apiError.message && apiError.message.includes('Token')) {
-          setError('Oturum süreniz dolmuş, lütfen tekrar giriş yapın');
-        } else if (apiError.message && apiError.message.includes('Network')) {
-          setError('İnternet bağlantınızı kontrol edin ve tekrar deneyin');
-        } else {
-          setError('Rezervasyonlar yüklenirken bir hata oluştu');
+        // API hatası durumunda, çevrimdışı talepleri göster
+        if (offlineReservations.length > 0) {
+          setRequests(offlineReservations);
+          setLoading(false);
+          setRefreshing(false);
+          return;
         }
         
-        // API hatası durumunda, sadece son çare olarak örnek veriler kullan
-        if (IS_OFFLINE_MODE) {
-          console.log('Çevrimdışı mod, örnek rezervasyon verileri kullanılıyor');
-          // API'den alınamazsa örnek veriler kullan
-          const mockReservations: Reservation[] = [
-            {
-              _id: 'mock-1',
-              field: {
-                _id: 'sporyum23-indoor-1',
-                name: 'Kapalı Saha 1',
-                location: 'Sporyum 23, Elazığ',
-                image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
-                price: 450
-              },
-              date: new Date().toISOString(),
-              startTime: '19:00',
-              endTime: '20:00',
-              status: 'Onay Bekliyor',
-              totalPrice: 450,
-              paymentStatus: 'Ödenmedi',
-              createdAt: new Date().toISOString()
+        // Örnek veriler
+        const mockRequests: ReservationRequest[] = [
+          {
+            _id: 'req-1',
+            field: {
+              _id: 'sporyum23-indoor-1',
+              name: 'Halı Saha 1',
+              location: 'Sporyum 23, Elazığ',
+              image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+              price: 450
             },
-            {
-              _id: 'mock-2',
-              field: {
-                _id: 'sporyum23-indoor-2',
-                name: 'Kapalı Saha 2',
-                location: 'Sporyum 23, Elazığ',
-                image: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1470&auto=format&fit=crop',
-                price: 400
-              },
-              date: new Date(Date.now() - 86400000).toISOString(), // 1 gün önce
-              startTime: '20:00',
-              endTime: '21:00',
-              status: 'Tamamlandı',
-              totalPrice: 400,
-              paymentStatus: 'Ödendi',
-              createdAt: new Date(Date.now() - 86400000).toISOString()
-            }
-          ];
-          
-          setReservations(mockReservations);
-        }
+            date: new Date().toISOString(),
+            startTime: '19:00',
+            endTime: '20:00',
+            status: 'Onay Bekliyor',
+            totalPrice: 450,
+            paymentStatus: 'Ödenmedi',
+            createdAt: new Date().toISOString()
+          },
+          {
+            _id: 'req-2',
+            field: {
+              _id: 'sporyum23-indoor-2',
+              name: 'Halı Saha 2',
+              location: 'Sporyum 23, Elazığ',
+              image: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1470&auto=format&fit=crop',
+              price: 450
+            },
+            date: new Date(Date.now() + 86400000).toISOString(), // 1 gün sonra
+            startTime: '20:00',
+            endTime: '21:00',
+            status: 'Onay Bekliyor',
+            totalPrice: 450,
+            paymentStatus: 'Ödenmedi',
+            createdAt: new Date().toISOString()
+          }
+        ];
+        
+        setRequests([...mockRequests, ...offlineReservations]);
       }
     } catch (err: any) {
       setError(err.message || 'Bir hata oluştu');
-      console.error('Rezervasyon listeleme hatası:', err);
+      console.error('Rezervasyon talepleri listeleme hatası:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
   
-  // Sayfa yüklendiğinde ve kullanıcı oturumu değiştiğinde rezervasyonları getir
+  // Sayfa yüklendiğinde ve kullanıcı oturumu değiştiğinde rezervasyon taleplerini getir
   useEffect(() => {
-    fetchReservations();
+    fetchReservationRequests();
   }, [isLoggedIn]);
   
   // Yenileme işlemi
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchReservations();
+    fetchReservationRequests();
+  };
+  
+  // Talepler üzerinde işlemler için ekstra fonksiyonlar
+  const updateRequestStatus = (requestId: string, newStatus: string) => {
+    // Talep listesini güncelle
+    setRequests(requests.map(req => 
+      req._id === requestId ? { ...req, status: newStatus as any } : req
+    ));
+  };
+  
+  // Rezervasyon talebini detaylı görüntüle
+  const viewRequestDetails = (request: ReservationRequest) => {
+    Alert.alert(
+      'Rezervasyon Talebi Detayı',
+      `Saha: ${request.field.name}\n` +
+      `Tarih: ${formatDate(request.date)}\n` +
+      `Saat: ${request.startTime} - ${request.endTime}\n` +
+      `Fiyat: ${request.totalPrice}₺\n` +
+      `Durum: ${request.status}\n` +
+      `Ödeme: ${request.paymentStatus}\n` +
+      `Talep Tarihi: ${new Date(request.createdAt).toLocaleString('tr-TR')}`,
+      [{ text: 'Tamam', style: 'cancel' }]
+    );
   };
   
   // Rezervasyon iptal et
-  const handleCancelReservation = (reservationId: string) => {
+  const handleCancelRequest = (requestId: string) => {
     Alert.alert(
-      'Rezervasyon İptali',
-      'Bu rezervasyonu iptal etmek istediğinize emin misiniz?',
+      'Rezervasyon Talebi İptali',
+      'Bu rezervasyon talebini iptal etmek istediğinize emin misiniz?',
       [
         { text: 'Vazgeç', style: 'cancel' },
         { 
@@ -165,15 +207,13 @@ export default function ReservationsScreen() {
               
               // API'den rezervasyonu iptal etmeyi dene
               try {
-                const response = await reservationService.cancelReservation(reservationId);
+                const response = await reservationService.cancelReservation(requestId);
                 
                 if (response) {
-                  // Rezervasyon listesini güncelle
-                  setReservations(reservations.map(res => 
-                    res._id === reservationId ? { ...res, status: 'İptal Edildi' } : res
-                  ));
+                  // Talep listesini güncelle (iptal edilen talebi kaldır)
+                  setRequests(requests.filter(req => req._id !== requestId));
                   
-                  Alert.alert('Başarılı', 'Rezervasyonunuz iptal edildi');
+                  Alert.alert('Başarılı', 'Rezervasyon talebiniz iptal edildi');
                   return;
                 }
               } catch (apiError) {
@@ -182,9 +222,7 @@ export default function ReservationsScreen() {
               
               // API çağrısı başarısız olursa veya offline modda çalışıyorsa
               // İptal işlemini simüle et
-              setReservations(reservations.map(res => 
-                res._id === reservationId ? { ...res, status: 'İptal Edildi' } : res
-              ));
+              setRequests(requests.filter(req => req._id !== requestId));
               
               Alert.alert('İşlem Alındı', 'Rezervasyon iptal talebiniz alındı');
             } catch (err: any) {
@@ -199,41 +237,28 @@ export default function ReservationsScreen() {
     );
   };
   
-  // Rezervasyon durumuna göre renk belirle
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Onay Bekliyor':
-        return '#FFA000'; // Amber
-      case 'Onaylandı':
-        return '#4CAF50'; // Green
-      case 'İptal Edildi':
-        return '#F44336'; // Red
-      case 'Tamamlandı':
-        return '#2196F3'; // Blue
-      default:
-        return '#757575'; // Grey
-    }
-  };
-  
   // Tarih formatını düzenle
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return format(date, 'd MMMM yyyy, EEEE', { locale: tr });
   };
   
-  // Rezervasyon kartı bileşeni
-  const renderReservationCard = ({ item }: { item: Reservation }) => {
-    const isPastReservation = new Date(item.date) < new Date() || 
-                              item.status === 'Tamamlandı' || 
-                              item.status === 'İptal Edildi';
-    
+  // Rezervasyon talebi kartı bileşeni
+  const renderRequestCard = ({ item }: { item: ReservationRequest }) => {
     return (
-      <View style={styles.reservationCard}>
+      <View style={styles.requestCard}>
         <View style={styles.cardHeader}>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <ThemedText style={styles.statusText}>{item.status}</ThemedText>
+          <View style={styles.statusBadge}>
+            <ThemedText style={styles.statusText}>Onay Bekliyor</ThemedText>
           </View>
           <ThemedText style={styles.dateText}>{formatDate(item.date)}</ThemedText>
+          
+          {item.isOffline && (
+            <View style={styles.offlineTag}>
+              <IconSymbol name="wifi.slash" size={12} color="#FF9800" />
+              <ThemedText style={styles.offlineText}>Çevrimdışı</ThemedText>
+            </View>
+          )}
         </View>
         
         <View style={styles.cardContent}>
@@ -253,29 +278,66 @@ export default function ReservationsScreen() {
             </View>
             
             <ThemedText style={styles.priceText}>{item.totalPrice}₺</ThemedText>
+            
+            <View style={styles.waitingTag}>
+              <IconSymbol name="hourglass" size={14} color="#FFA000" />
+              <ThemedText style={styles.waitingText}>Onay bekleniyor</ThemedText>
+            </View>
           </View>
         </View>
         
         <View style={styles.cardFooter}>
-          {!isPastReservation && item.status !== 'İptal Edildi' && (
-            <TouchableOpacity 
-              style={styles.cancelButton}
-              onPress={() => handleCancelReservation(item._id)}
-            >
-              <IconSymbol name="xmark.circle" size={16} color="#F44336" />
-              <ThemedText style={styles.cancelButtonText}>İptal Et</ThemedText>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity 
+            style={styles.cancelButton}
+            onPress={() => handleCancelRequest(item._id)}
+          >
+            <IconSymbol name="xmark.circle" size={16} color="#F44336" />
+            <ThemedText style={styles.cancelButtonText}>İptal Et</ThemedText>
+          </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.detailsButton}
-            onPress={() => Alert.alert('Bilgi', `Rezervasyon ID: ${item._id}\nÖdeme Durumu: ${item.paymentStatus}`)}
+            onPress={() => viewRequestDetails(item)}
           >
             <IconSymbol name="info.circle" size={16} color="#2196F3" />
             <ThemedText style={styles.detailsButtonText}>Detaylar</ThemedText>
           </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.fieldButton}
+            onPress={() => router.push(`/field/${item.field._id}` as any)}
+          >
+            <IconSymbol name="map" size={16} color="#4CAF50" />
+            <ThemedText style={styles.fieldButtonText}>Saha Bilgisi</ThemedText>
+          </TouchableOpacity>
         </View>
       </View>
+    );
+  };
+  
+  // Rezervasyon işlemleri butonunu tanımla
+  const handleReservationActions = () => {
+    Alert.alert(
+      'Rezervasyon İşlemleri',
+      'Yapmak istediğiniz işlemi seçiniz:',
+      [
+        {
+          text: 'Yeni Rezervasyon',
+          onPress: () => router.push('/field/reservation')
+        },
+        {
+          text: 'Rezervasyonlarım',
+          onPress: () => router.push('/reservations')
+        },
+        {
+          text: 'Halı Sahaları Görüntüle',
+          onPress: () => router.push('/fields')
+        },
+        {
+          text: 'İptal',
+          style: 'cancel'
+        }
+      ]
     );
   };
   
@@ -284,7 +346,7 @@ export default function ReservationsScreen() {
       <ThemedView style={styles.container}>
         <Stack.Screen 
           options={{
-            title: 'Rezervasyonlarım',
+            title: 'Rezervasyon Taleplerim',
             headerShown: true,
           }}
         />
@@ -292,7 +354,7 @@ export default function ReservationsScreen() {
         <View style={styles.notLoggedInContainer}>
           <IconSymbol name="person.circle.fill" size={80} color="#BDBDBD" />
           <ThemedText style={styles.notLoggedInText}>
-            Rezervasyonlarınızı görmek için giriş yapmanız gerekiyor
+            Rezervasyon taleplerinizi görmek için giriş yapmanız gerekiyor
           </ThemedText>
           <TouchableOpacity 
             style={styles.loginButton}
@@ -309,15 +371,29 @@ export default function ReservationsScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen 
         options={{
-          title: 'Rezervasyonlarım',
+          title: 'Rezervasyon Taleplerim',
           headerShown: true,
         }}
       />
       
+      {/* Rezervasyon İşlemleri Butonu */}
+      <TouchableOpacity 
+        style={styles.actionsButton}
+        onPress={handleReservationActions}
+      >
+        <LinearGradient
+          colors={['#4CAF50', '#2E7D32']}
+          style={styles.actionsButtonGradient}
+        >
+          <IconSymbol name="list.bullet" size={20} color="#FFFFFF" />
+          <ThemedText style={styles.actionsButtonText}>Rezervasyon İşlemleri</ThemedText>
+        </LinearGradient>
+      </TouchableOpacity>
+      
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4CAF50" />
-          <ThemedText style={styles.loadingText}>Rezervasyonlar yükleniyor...</ThemedText>
+          <ThemedText style={styles.loadingText}>Rezervasyon talepleri yükleniyor...</ThemedText>
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
@@ -325,15 +401,15 @@ export default function ReservationsScreen() {
           <ThemedText style={styles.errorText}>{error}</ThemedText>
           <TouchableOpacity 
             style={styles.retryButton}
-            onPress={fetchReservations}
+            onPress={fetchReservationRequests}
           >
             <ThemedText style={styles.retryButtonText}>Tekrar Dene</ThemedText>
           </TouchableOpacity>
         </View>
-      ) : reservations.length === 0 ? (
+      ) : requests.length === 0 ? (
         <View style={styles.emptyContainer}>
           <IconSymbol name="calendar.badge.exclamationmark" size={60} color="#BDBDBD" />
-          <ThemedText style={styles.emptyText}>Henüz rezervasyonunuz bulunmuyor</ThemedText>
+          <ThemedText style={styles.emptyText}>Henüz onay bekleyen rezervasyon talebiniz bulunmuyor</ThemedText>
           <TouchableOpacity 
             style={styles.newReservationButton}
             onPress={() => router.push('/field/reservation' as any)}
@@ -349,8 +425,8 @@ export default function ReservationsScreen() {
         </View>
       ) : (
         <FlatList
-          data={reservations}
-          renderItem={renderReservationCard}
+          data={requests}
+          renderItem={renderRequestCard}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContainer}
           refreshControl={
@@ -457,7 +533,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 80,
   },
-  reservationCard: {
+  requestCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 16,
@@ -480,6 +556,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 4,
+    backgroundColor: '#FFA000', // Amber for pending
   },
   statusText: {
     color: '#fff',
@@ -511,17 +588,17 @@ const styles = StyleSheet.create({
   fieldLocation: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   timeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   timeText: {
-    marginLeft: 6,
     fontSize: 14,
     color: '#666',
+    marginLeft: 6,
   },
   priceText: {
     fontSize: 16,
@@ -532,50 +609,102 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+    padding: 12,
   },
   cancelButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRightWidth: 1,
-    borderRightColor: '#f0f0f0',
+    marginRight: 16,
   },
   cancelButtonText: {
-    marginLeft: 6,
-    fontSize: 14,
     color: '#F44336',
+    marginLeft: 4,
+    fontWeight: '500',
   },
   detailsButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
   },
   detailsButtonText: {
-    marginLeft: 6,
-    fontSize: 14,
     color: '#2196F3',
+    marginLeft: 4,
+    fontWeight: '500',
   },
   newReservationButton: {
     marginTop: 8,
-    marginBottom: 24,
+    marginBottom: 20,
     borderRadius: 8,
     overflow: 'hidden',
-    alignSelf: 'center',
   },
   newReservationGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    paddingVertical: 14,
   },
   newReservationText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: 'bold',
     color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
   },
-});
+  waitingTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+  },
+  waitingText: {
+    fontSize: 12,
+    color: '#FFA000',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  fieldButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  fieldButtonText: {
+    color: '#4CAF50',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  actionsButton: {
+    marginVertical: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginHorizontal: 16,
+  },
+  actionsButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  actionsButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  offlineTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 6,
+  },
+  offlineText: {
+    fontSize: 10,
+    color: '#FF9800',
+    marginLeft: 2,
+    fontWeight: 'bold',
+  },
+}); 

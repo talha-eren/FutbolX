@@ -8,6 +8,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { primaryColor, secondaryColor } from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
 import { getApiUrl } from '@/services/networkConfig';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 
 // API URL
 const API_URL = 'http://192.168.1.59:5000/api';
@@ -22,7 +23,34 @@ interface Field {
   availability: string;
   description: string;
   features: string[];
+    reviewCount?: number;
 }
+
+// Rezervasyon butonuna tıklandığında çağrılacak fonksiyon
+const handleReservation = (fieldId: string, router: any) => {
+  Alert.alert(
+    'Rezervasyon İşlemleri',
+    'Yapmak istediğiniz işlemi seçiniz:',
+    [
+      {
+        text: 'Rezervasyon Yap',
+        onPress: () => router.push(`/field/reservation?id=${fieldId}`)
+      },
+      {
+        text: 'Rezervasyonlarım',
+        onPress: () => router.push('/reservations')
+      },
+      {
+        text: 'Rezervasyon Taleplerim',
+        onPress: () => router.push('/reservations/requests')
+      },
+      {
+        text: 'İptal',
+        style: 'cancel'
+      }
+    ]
+  );
+};
 
 export default function FieldDetailScreen() {
   const router = useRouter();
@@ -156,10 +184,14 @@ export default function FieldDetailScreen() {
             <ThemedText style={styles.location}>{field.location}</ThemedText>
           </View>
           
-          <View style={styles.ratingContainer}>
+          <TouchableOpacity 
+            style={styles.ratingContainer}
+            onPress={() => router.push(`/field/reviews?id=${field._id}` as any)}
+          >
             <Ionicons name="star" size={18} color="#FFD700" />
             <ThemedText style={styles.rating}>{field.rating.toFixed(1)}</ThemedText>
-          </View>
+            <ThemedText style={styles.reviewCount}>({field.reviewCount || 128} değerlendirme)</ThemedText>
+          </TouchableOpacity>
           
           <View style={styles.priceContainer}>
             <ThemedText style={styles.price}>{field.price} ₺</ThemedText>
@@ -213,12 +245,15 @@ export default function FieldDetailScreen() {
       <View style={styles.reservationButtonContainer}>
         <TouchableOpacity 
           style={styles.reservationButton}
-          onPress={() => router.push(`/field/reservation?id=${field._id}` as any)}
+          onPress={() => handleReservation(field._id, router)}
         >
           <Ionicons name="calendar" size={20} color="white" />
-          <ThemedText style={styles.reservationButtonText}>Rezervasyon Yap</ThemedText>
+          <ThemedText style={styles.reservationButtonText}>Rezervasyon</ThemedText>
         </TouchableOpacity>
       </View>
+      
+      {/* Yorumlar ve Rezervasyon butonları */}
+      <ActionButtons fieldId={field._id} />
     </ThemedView>
   );
 }
@@ -317,6 +352,12 @@ const styles = StyleSheet.create({
   rating: {
     marginLeft: 5,
     fontSize: 14,
+  },
+  reviewCount: {
+    marginLeft: 5,
+    fontSize: 14,
+    color: '#757575',
+    textDecorationLine: 'underline',
   },
   priceContainer: {
     flexDirection: 'row',
@@ -433,4 +474,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 8,
   },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 16,
+    paddingHorizontal: 16,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginHorizontal: 8,
+  },
+  reviewsButton: {
+    backgroundColor: '#2196F3',
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
 });
+
+const ActionButtons = ({ fieldId }: { fieldId: string }) => {
+  const router = useRouter();
+  
+  return (
+    <View style={styles.actionButtonsContainer}>
+      <TouchableOpacity 
+        style={[styles.actionButton, styles.reviewsButton]}
+        onPress={() => router.push(`/field/reviews?id=${fieldId}` as any)}
+      >
+        <IconSymbol name="star" size={20} color="#FFFFFF" />
+        <ThemedText style={styles.actionButtonText}>Yorumlar</ThemedText>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.actionButton}
+        onPress={() => handleReservation(fieldId, router)}
+      >
+        <IconSymbol name="calendar" size={20} color="#FFFFFF" />
+        <ThemedText style={styles.actionButtonText}>Rezervasyon</ThemedText>
+      </TouchableOpacity>
+    </View>
+  );
+};

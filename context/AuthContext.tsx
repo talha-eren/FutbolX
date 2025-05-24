@@ -359,13 +359,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       try {
         const apiResponse = await authService.register(
-          username, 
-          email, 
-          password, 
-          name, 
+        username, 
+        email, 
+        password, 
+        name, 
           enhancedProfileData
-        );
-        
+      );
+      
         console.log('KAYIT YANITI ALINDI:', apiResponse);
         
         if (apiResponse) {
@@ -447,7 +447,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Token ve kullanıcı bilgilerini AsyncStorage'a kaydet
       if (response.token) {
-        await AsyncStorage.setItem('token', response.token);
+      await AsyncStorage.setItem('token', response.token);
         setToken(response.token);
       } else {
         console.warn('Token bulunamadı, kayıt işlemi eksik olabilir');

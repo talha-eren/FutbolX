@@ -602,10 +602,10 @@ export const authService = {
           const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 saniye timeout
           
           const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
             body: JSON.stringify(registerData),
             signal: controller.signal as any
           });
@@ -625,7 +625,7 @@ export const authService = {
           // JSON parse et
           try {
             data = JSON.parse(responseText);
-            console.log('Sunucu yanıtı:', data);
+      console.log('Sunucu yanıtı:', data);
             break; // Başarılı yanıt, döngüden çık
           } catch (parseError) {
             console.error('JSON parse hatası:', parseError);
@@ -853,41 +853,87 @@ export const authService = {
   }
 };
 
-// Halı saha servisleri
+// Halı saha servisi
 export const fieldService = {
   // Tüm halı sahaları getir
   getFields: async () => {
     try {
-      const url = await getApiUrl('/fields');
-      const data = await fetchAPI(url);
-      console.log('Halı sahalar başarıyla alındı:', data);
-      return data;
+      const response = await fetchAPI('/fields');
+      return response;
     } catch (error) {
-      console.error('Halı saha getirme hatası:', error);
-      return []; // Boş dizi döndür
+      console.error('Halı sahaları getirme hatası:', error);
+      throw error;
+    }
+  },
+
+  // Halı saha detayı getir
+  getById: async (id) => {
+    try {
+      const response = await fetchAPI(`/fields/${id}`);
+      return response;
+    } catch (error) {
+      console.error('Halı saha detayı getirme hatası:', error);
+      throw error;
     }
   },
   
-  // ID'ye göre halı saha getir
-  getById: async (id: string) => {
+  // Sporyum 23 halı saha bilgilerini getir
+  getSporyum23Fields: async () => {
     try {
-      const headers = await getAuthHeaders();
-      const url = await getApiUrl(`/fields/${id}`);
-      const response = await fetch(url, {
-        method: 'GET',
-        headers
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json() as { message?: string };
-        throw new Error(errorData.message || 'Halı saha detaylarını getirme başarısız');
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error: any) {
-      console.error('Get field details error:', error);
-      throw new Error(error.message || 'Halı saha detaylarını getirirken bir hata oluştu');
+      const response = await fetchAPI('/fields/name/Sporyum%2023');
+      return response;
+    } catch (error) {
+      console.error('Sporyum 23 bilgilerini getirme hatası:', error);
+      // Statik veri döndür
+      return {
+        id: 'sporyum23',
+        name: 'Sporyum 23',
+        location: 'Çaydaçıra Mah. Zübeyde Hanım Caddesi No:23, Elazığ/Merkez',
+        address: 'Çaydaçıra Mah. Zübeyde Hanım Caddesi No:23',
+        city: 'Elazığ',
+        district: 'Merkez',
+        phone: '0424 238 23 23',
+        email: 'info@sporyum23.com',
+        website: 'https://www.sporyum23.com',
+        description: 'Elazığ\'ın en modern halı saha tesisi, gece aydınlatmalı kapalı sahaları ile kaliteli bir oyun deneyimi sunuyor.',
+        images: [
+          'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1470&auto=format&fit=crop'
+        ],
+        featuredImage: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+        price: 450,
+        rating: 4.8,
+        ratingCount: 128,
+        indoorFields: [
+          {
+            id: 'sporyum23-indoor-1',
+            name: 'Kapalı Saha 1',
+            description: 'Profesyonel standartlarda, tam boy kapalı halı saha',
+            size: '25m x 40m',
+            price: 450,
+            image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop',
+            features: ['Profesyonel Zemin', 'Tam Boy', 'Klima']
+          },
+          {
+            id: 'sporyum23-indoor-2',
+            name: 'Kapalı Saha 2',
+            description: 'Orta boy, kapalı halı saha',
+            size: '20m x 35m',
+            price: 400,
+            image: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1470&auto=format&fit=crop',
+            features: ['Standart Zemin', 'Orta Boy', 'Klima']
+          },
+          {
+            id: 'sporyum23-indoor-3',
+            name: 'Kapalı Saha 3',
+            description: 'Küçük boy, kapalı halı saha',
+            size: '15m x 25m',
+            price: 350,
+            image: 'https://images.unsplash.com/photo-1542541864-c0e546f4b689?q=80&w=1470&auto=format&fit=crop',
+            features: ['Standart Zemin', 'Küçük Boy', 'Klima']
+          }
+        ]
+      };
     }
   }
 };
@@ -1339,32 +1385,105 @@ export const postService = {
         throw new Error(errorData.message || 'Gönderi beğenme başarısız');
       }
       
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (error: any) {
-      console.error('Like post error:', error);
-      throw new Error(error.message || 'Gönderi beğenirken bir hata oluştu');
+      console.error('Gönderi beğenme hatası:', error);
+      throw new Error(error.message || 'Gönderi beğenme işlemi başarısız');
     }
   },
   
-  // Gönderiyi sil
+  // Gönderi beğenisini geri alma işlevi
+  unlikePost: async (postId: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const url = await getApiUrl(`/posts/${postId}/unlike`);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json() as { message?: string };
+        throw new Error(errorData.message || 'Gönderi beğeni geri alma işlemi başarısız');
+      }
+      
+      return await response.json();
+    } catch (error: any) {
+      console.error('Gönderi beğeni geri alma hatası:', error);
+      throw new Error(error.message || 'Gönderi beğeni geri alma işlemi başarısız');
+    }
+  },
+  
+  // Gönderiye yorum ekleme işlevi
+  addComment: async (postId: string, comment: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const url = await getApiUrl(`/posts/${postId}/comment`);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: comment })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json() as { message?: string };
+        throw new Error(errorData.message || 'Yorum ekleme işlemi başarısız');
+      }
+      
+      return await response.json();
+    } catch (error: any) {
+      console.error('Yorum ekleme hatası:', error);
+      throw new Error(error.message || 'Yorum ekleme işlemi başarısız');
+    }
+  },
+  
+  // Gönderi yorumlarını getirme işlevi
+  getComments: async (postId: string) => {
+    try {
+      const headers = await getAuthHeaders();
+      const url = await getApiUrl(`/posts/${postId}/comments`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json() as { message?: string };
+        throw new Error(errorData.message || 'Yorumları getirme işlemi başarısız');
+      }
+      
+      return await response.json();
+    } catch (error: any) {
+      console.error('Yorumları getirme hatası:', error);
+      throw new Error(error.message || 'Yorumları getirme işlemi başarısız');
+    }
+  },
+  
+  // Gönderi sil
   deletePost: async (postId: string) => {
     try {
       const headers = await getAuthHeaders();
-      const url = await getApiUrl(`/posts/${postId}`);
-      const response = await fetch(url, {
+      const apiUrl = await getApiUrl(`/posts/${postId}`);
+      
+      const response = await fetch(apiUrl, {
         method: 'DELETE',
         headers
       });
       
       if (!response.ok) {
         const errorData = await response.json() as { message?: string };
-        throw new Error(errorData.message || 'Gönderi silme başarısız');
+        throw new Error(errorData.message || 'Gönderi silinirken bir hata oluştu');
       }
       
-      return true;
+      return { success: true, message: 'Gönderi başarıyla silindi' };
     } catch (error: any) {
-      console.error('Delete post error:', error);
+      console.error('Gönderi silme hatası:', error);
       throw new Error(error.message || 'Gönderi silinirken bir hata oluştu');
     }
   }
@@ -1466,7 +1585,45 @@ export const userService = {
       console.error('Profil güncelleme hatası:', error);
       throw error;
     }
-  }
+  },
+
+  // Kullanıcının rezervasyonlarını getir
+  getUserReservations: async () => {
+    try {
+      // Çevrimdışı mod kontrolü
+      if (IS_OFFLINE_MODE) {
+        console.log('Çevrimdışı mod: Örnek rezervasyon verileri kullanılıyor');
+        // Örnek rezervasyon verileri
+        return [{
+          _id: "offline-reservation-1",
+          fieldName: "Yeşil Vadi Halı Saha",
+          location: "Kadıköy, İstanbul",
+          date: new Date().toLocaleDateString(),
+          time: "19:00 - 20:00",
+          price: 600,
+          status: "Onaylandı",
+          createdAt: new Date().toISOString()
+        },
+        {
+          _id: "offline-reservation-2",
+          fieldName: "Galatasaray Futbol Akademisi",
+          location: "Florya, İstanbul",
+          date: new Date(Date.now() + 86400000).toLocaleDateString(), // 1 gün sonra
+          time: "20:00 - 21:00",
+          price: 800,
+          status: "Beklemede",
+          createdAt: new Date().toISOString()
+        }];
+      }
+      
+      const result = await fetchAPI('/reservations/my');
+      return result.data || [];
+    } catch (error) {
+      console.error('Kullanıcı rezervasyonlarını getirme hatası:', error);
+      // Hata durumunda boş dizi döndür
+      return [];
+    }
+  },
 };
 
 // Axios isteği yapan fonksiyonu yerine fetch kullanan bir fonksiyon tanımlıyoruz
@@ -1532,3 +1689,162 @@ setInterval(async () => {
     console.error('Otomatik çevrimdışı mod kontrolü hatası:', error);
   }
 }, 1 * 60 * 1000); // 1 dakikada bir kontrol et (15 dakika yerine daha sık)
+
+// Rezervasyon servisi
+export const reservationService = {
+  // Tüm rezervasyonları getir (Admin için)
+  getAllReservations: async () => {
+    try {
+      const response = await fetchAPI('/reservations/admin');
+      return response;
+    } catch (error) {
+      console.error('Tüm rezervasyonları getirme hatası:', error);
+      throw error;
+    }
+  },
+
+  // Kullanıcının kendi rezervasyonlarını getir
+  getMyReservations: async () => {
+    try {
+      const response = await fetchAPI('/reservations/my');
+      return response;
+    } catch (error) {
+      console.error('Kullanıcı rezervasyonlarını getirme hatası:', error);
+      throw error;
+    }
+  },
+
+  // Belirli bir halı sahanın rezervasyonlarını getir
+  getFieldReservations: async (fieldId) => {
+    try {
+      const response = await fetchAPI(`/reservations/field/${fieldId}`);
+      return response;
+    } catch (error) {
+      console.error('Saha rezervasyonlarını getirme hatası:', error);
+      throw error;
+    }
+  },
+
+  // Belirli bir tarihteki müsait saatleri kontrol et
+  getAvailableTimeSlots: async (fieldId, date) => {
+    try {
+      // ISO formatına dönüştür
+      const formattedDate = new Date(date).toISOString().split('T')[0];
+      const response = await fetchAPI(`/reservations/available/${fieldId}/${formattedDate}`);
+      return response;
+    } catch (error) {
+      console.error('Müsait saatleri getirme hatası:', error);
+      throw error;
+    }
+  },
+
+  // Yeni rezervasyon oluştur
+  createReservation: async (reservationData) => {
+    try {
+      console.log('Rezervasyon oluşturma isteği gönderiliyor...');
+      
+      // Token kontrolü yap
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        throw new Error('Oturum açık değil, lütfen giriş yapın');
+      }
+      
+      // API URL'sini al
+      const url = await getApiUrl('/reservations');
+      console.log('Rezervasyon URL:', url);
+      
+      // Kullanıcı bilgilerini al
+      const userStr = await AsyncStorage.getItem('user');
+      let userId = '';
+      
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          userId = userData.id || userData._id;
+          console.log('Rezervasyon için kullanıcı ID:', userId);
+        } catch (err) {
+          console.error('Kullanıcı verileri JSON parse hatası:', err);
+        }
+      }
+      
+      // Kullanıcı kimliği yoksa hata fırlat
+      if (!userId) {
+        throw new Error('Kullanıcı kimliği bulunamadı');
+      }
+      
+      // Kullanıcı ID'sini ekle
+      const dataToSend = {
+        ...reservationData,
+        userId: userId
+      };
+      
+      console.log('Sunucuya gönderilecek rezervasyon verileri:', dataToSend);
+      
+      // API isteği gönder
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(dataToSend)
+      });
+      
+      // Sunucu yanıtının içeriğini kontrol et
+      const contentType = response.headers.get('content-type');
+      console.log('Rezervasyon yanıt uzunluğu:', await response.clone().text().then(t => t.length + ' karakter'));
+      
+      // JSON yanıt içeriği
+      let data: any = null;
+      
+      try {
+        data = await response.json();
+        console.log('Rezervasyon yanıtı:', JSON.stringify(data, null, 2));
+      } catch (jsonError) {
+        console.error('JSON parse hatası:', jsonError);
+        throw new Error('Sunucu yanıtı işlenemedi');
+      }
+      
+      // Başarılı yanıt kontrolü
+      if (!response.ok) {
+        let errorMessage = data && data.message ? data.message : 'Rezervasyon oluşturulamadı';
+        console.error('API rezervasyon hatası:', errorMessage);
+        throw new Error(errorMessage);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Rezervasyon hatası:', error);
+      throw error;
+    }
+  },
+
+  // Rezervasyon durumunu güncelle
+  updateReservationStatus: async (reservationId, status) => {
+    try {
+      const response = await fetchAPI(`/reservations/${reservationId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status })
+      });
+      return response;
+    } catch (error) {
+      console.error('Rezervasyon durumu güncelleme hatası:', error);
+      throw error;
+    }
+  },
+
+  // Rezervasyon iptal et
+  cancelReservation: async (reservationId) => {
+    try {
+      const response = await fetchAPI(`/reservations/${reservationId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'İptal Edildi' })
+      });
+      return response;
+    } catch (error) {
+      console.error('Rezervasyon iptal hatası:', error);
+      throw error;
+    }
+  }
+};
+

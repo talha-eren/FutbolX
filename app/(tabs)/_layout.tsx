@@ -4,7 +4,7 @@ import { Platform, View, StyleSheet, TouchableOpacity, Alert, Pressable } from '
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { ThemedText } from '@/components/ThemedText';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { FutbolXLogo } from '@/components/FutbolXLogo';
 import { useAuth } from '@/context/AuthContext';
@@ -60,6 +60,7 @@ export default function TabLayout() {
   const isWeb = Platform.OS === 'web';
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const pathname = usePathname();
   const { isLoggedIn, user } = useAuth();
   
   // Hover durumları için state
@@ -220,17 +221,18 @@ export default function TabLayout() {
         >
           <View style={[
             styles.iconWrapper, 
-            { backgroundColor: hoveredTab === 'reservation' ? accentColor : '#4CAF50' }
+            { backgroundColor: hoveredTab === 'reservation' ? accentColor : (pathname.includes('/field/reservation') ? '#4CAF50' : '#777') }
           ]}>
             <IconSymbol name="calendar" size={22} color="#FFFFFF" />
           </View>
           <ThemedText style={[
             styles.footerTabText, 
             { 
-              color: '#4CAF50',
-              fontWeight: '600'
+              color: pathname.includes('/field/reservation') ? '#4CAF50' : textColor,
+              fontWeight: pathname.includes('/field/reservation') ? '600' : '500',
+              opacity: pathname.includes('/field/reservation') ? 1 : 0.7
             }
-          ]}>Rezervasyon</ThemedText>
+          ]}>Rezerv</ThemedText>
         </HoverableTouchable>
         
         <HoverableTouchable 
@@ -314,7 +316,7 @@ export default function TabLayout() {
               color: textColor,
               opacity: 0.7
             }
-          ]}>Hakkımızda</ThemedText>
+          ]}>Hakkımız</ThemedText>
         </HoverableTouchable>
 
         {/* Admin sekmesi sadece admin kullanıcılara gösterilir */}
@@ -348,7 +350,8 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 5,
     borderTopWidth: 1,
     position: 'absolute',
     bottom: 0,
@@ -359,11 +362,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    justifyContent: 'space-between',
   },
   footerTab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 2,
     ...Platform.select({
       web: {
         cursor: 'pointer',
@@ -372,9 +377,9 @@ const styles = StyleSheet.create({
     })
   },
   iconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
@@ -385,7 +390,10 @@ const styles = StyleSheet.create({
     })
   },
   footerTabText: {
-    fontSize: 12,
+    fontSize: 10,
+    fontWeight: '500',
+    textAlign: 'center',
+    width: '100%',
     ...Platform.select({
       web: {
         transition: 'all 0.2s ease-in-out',

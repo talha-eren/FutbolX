@@ -12,11 +12,13 @@ import { StatusBar } from 'expo-status-bar';
 
 const { width } = Dimensions.get('window');
 
+// Global olarak primaryColor tanımla
+const primaryColor = '#4CAF50';
+
 export default function AboutScreen() {
   const router = useRouter();
 
   // Tema renkleri
-  const primaryColor = '#4CAF50';
   const secondaryColor = '#2196F3';
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -38,9 +40,16 @@ export default function AboutScreen() {
       <Stack.Screen
         options={{
           headerTitle: "Sporium 23 Halı Saha",
-          headerTitleStyle: { fontWeight: '700', fontSize: 18 },
-          headerStyle: { backgroundColor: primaryColor },
+          headerTitleStyle: { 
+            fontWeight: '700', 
+            fontSize: 18,
+            color: '#FFFFFF'
+          },
+          headerStyle: { 
+            backgroundColor: primaryColor
+          },
           headerTintColor: '#FFFFFF',
+          headerTitleAlign: 'center'
         }}
       />
 
@@ -48,37 +57,46 @@ export default function AboutScreen() {
         {/* Hero Section */}
         <View style={styles.heroContainer}>
           <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1471&auto=format&fit=crop' }}
+            source={require('@/assets/images/pitch1.jpg')}
             style={styles.heroImage}
             resizeMode="cover"
           />
           <LinearGradient
-            colors={['rgba(0,0,0,0.7)', 'transparent']}
+            colors={['rgba(76, 175, 80, 0.9)', 'rgba(76, 175, 80, 0.7)', 'rgba(76, 175, 80, 0.4)']}
             style={styles.gradient}
             start={{x: 0, y: 0}}
             end={{x: 0, y: 1}}
           >
             <View style={styles.heroContent}>
-              <ThemedText style={styles.heroTitle}>SPORIUM 23 HALI SAHA</ThemedText>
-              <ThemedText style={styles.heroSubtitle}>Elazığ'ın En Modern Halı Saha ve Spor Tesisi</ThemedText>
+              <View style={styles.titleBadge}>
+                <Image
+                  source={{ uri: 'https://cdn-icons-png.flaticon.com/512/33/33699.png' }}
+                  style={styles.titleIcon}
+                  resizeMode="contain"
+                />
+                <View style={styles.titleTextContainer}>
+                  <ThemedText style={styles.heroTitle}>SPORIUM 23</ThemedText>
+                  <ThemedText style={styles.heroSubtitle}>Premium Halı Saha Tesisi</ThemedText>
+                </View>
+              </View>
               <ThemedText style={styles.heroDescription}>
                 2020 yılından bu yana Elazığ'da profesyonel halı saha ve spor tesisi olarak hizmet vermekteyiz. Modern tesislerimiz ve profesyonel hizmet anlayışımız ile sportmenliğin keyfini çıkartabilirsiniz.
               </ThemedText>
               
               <View style={styles.heroButtonContainer}>
                 <TouchableOpacity 
-                  style={[styles.heroButton, { backgroundColor: primaryColor }]} 
+                  style={[styles.heroButton, { backgroundColor: '#FFFFFF' }]} 
                   onPress={handleReservation}
                 >
-                  <IconSymbol name="calendar" size={18} color="white" />
-                  <ThemedText style={styles.buttonText}>Rezervasyon Yap</ThemedText>
+                  <IconSymbol name="calendar" size={18} color={primaryColor} />
+                  <ThemedText style={[styles.buttonText, {color: primaryColor, fontWeight: '700'}]}>Rezervasyon Yap</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={[styles.heroButton, styles.outlineButton, { borderColor: primaryColor }]} 
+                  style={[styles.heroButton, styles.outlineButton, { borderColor: '#FFFFFF' }]} 
                   onPress={handleLocation}
                 >
-                  <IconSymbol name="location.fill" size={18} color={primaryColor} />
-                  <ThemedText style={[styles.buttonText, {color: primaryColor}]}>Bize Ulaşın</ThemedText>
+                  <IconSymbol name="location.fill" size={18} color="#FFFFFF" />
+                  <ThemedText style={[styles.buttonText, {color: '#FFFFFF'}]}>Bize Ulaşın</ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -98,7 +116,7 @@ export default function AboutScreen() {
           </ThemedText>
           
           <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1470&auto=format&fit=crop' }}
+            source={require('@/assets/images/pitch2.jpg')}
             style={styles.sectionImage}
           />
           
@@ -275,8 +293,17 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   heroContainer: {
-    height: 400,
+    height: 320,
     position: 'relative',
+    marginBottom: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   heroImage: {
     width: '100%',
@@ -297,22 +324,39 @@ const styles = StyleSheet.create({
   heroContent: {
     width: '100%',
   },
+  titleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  titleIcon: {
+    width: 40,
+    height: 40,
+    tintColor: primaryColor,
+    marginRight: 12,
+  },
+  titleTextContainer: {
+    flex: 1,
+  },
   heroTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: {width: 0, height: 2},
-    textShadowRadius: 5
+    color: primaryColor,
+    marginBottom: 4,
   },
   heroSubtitle: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    marginBottom: 12,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: {width: 0, height: 1},
-    textShadowRadius: 3
+    fontSize: 16,
+    color: '#333333',
+    fontWeight: '500',
   },
   heroDescription: {
     fontSize: 14,
@@ -320,7 +364,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginBottom: 24,
     lineHeight: 20,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: {width: 0, height: 1},
     textShadowRadius: 2
   },
@@ -337,15 +381,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   outlineButton: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
   },
   buttonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: 'white',
     marginLeft: 8,
   },
   section: {

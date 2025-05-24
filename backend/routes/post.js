@@ -207,12 +207,94 @@ router.post('/:id/like', auth, async (req, res) => {
       return res.status(404).json({ message: 'Gönderi bulunamadı' });
     }
     
-    post.likes += 1;
+    // Beğeni sayısını artır
+    post.likes = (post.likes || 0) + 1;
     await post.save();
     
     res.json({ message: 'Gönderi beğenildi', likes: post.likes });
   } catch (error) {
     console.error('Gönderi beğenme hatası:', error);
+    res.status(500).json({ message: 'Sunucu hatası' });
+  }
+});
+
+// Gönderi beğenisini geri al
+router.post('/:id/unlike', auth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Gönderi bulunamadı' });
+    }
+    
+    // Beğeni sayısını azalt (0'dan küçük olmamasını sağla)
+    post.likes = Math.max(0, (post.likes || 0) - 1);
+    await post.save();
+    
+    res.json({ message: 'Gönderi beğenisi geri alındı', likes: post.likes });
+  } catch (error) {
+    console.error('Gönderi beğeni geri alma hatası:', error);
+    res.status(500).json({ message: 'Sunucu hatası' });
+  }
+});
+
+// Gönderiye yorum ekle
+router.post('/:id/comment', auth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Gönderi bulunamadı' });
+    }
+    
+    const user = await User.findById(req.user.id).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    // Yeni yorum oluştur
+    const Comment = require('../models/Comment');
+    const newComment = new Comment({
+      contentId: req.params.id,
+      contentType: 'post',
+      user: req.user.id,
+      username: user.username,
+      userImage: user.profilePicture || '',
+      text: req.body.content
+    });
+    
+    await newComment.save();
+    
+    // Gönderi yorum sayısını artır
+    post.comments = (post.comments || 0) + 1;
+    await post.save();
+    
+    res.status(201).json({ 
+      message: 'Yorum eklendi', 
+      comment: newComment,
+      commentCount: post.comments 
+    });
+  } catch (error) {
+    console.error('Yorum ekleme hatası:', error);
+    res.status(500).json({ message: 'Sunucu hatası' });
+  }
+});
+
+// Gönderi yorumlarını getir
+router.get('/:id/comments', async (req, res) => {
+  try {
+    const Comment = require('../models/Comment');
+    const comments = await Comment.find({ 
+      contentId: req.params.id,
+      contentType: 'post'
+    })
+    .sort({ createdAt: -1 })
+    .populate('user', 'username profilePicture');
+    
+    res.json(comments);
+  } catch (error) {
+    console.error('Yorum getirme hatası:', error);
     res.status(500).json({ message: 'Sunucu hatası' });
   }
 });

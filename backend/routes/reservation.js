@@ -4,6 +4,7 @@ const Reservation = require('../models/Reservation');
 const Field = require('../models/Field');
 const auth = require('../middleware/auth');
 const { check, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 
 // Tüm rezervasyonları getir (Admin için)
 router.get('/admin', auth, async (req, res) => {
@@ -61,6 +62,7 @@ router.get('/field/:fieldId', async (req, res) => {
 router.get('/available/:fieldId/:date', async (req, res) => {
   try {
     const { fieldId, date } = req.params;
+    const { indoorFieldId } = req.query; // Kapalı saha ID'si query parametresi olarak alınıyor
     
     // Tarih formatını kontrol et
     const selectedDate = new Date(date);
@@ -68,50 +70,19 @@ router.get('/available/:fieldId/:date', async (req, res) => {
       return res.status(400).json({ message: 'Geçersiz tarih formatı' });
     }
     
-    // Seçilen tarihteki tüm rezervasyonları getir
-    const reservations = await Reservation.find({
-      field: fieldId,
-      date: {
-        $gte: new Date(selectedDate.setHours(0, 0, 0, 0)),
-        $lt: new Date(selectedDate.setHours(23, 59, 59, 999))
-      },
-      status: { $ne: 'İptal Edildi' }
-    }).select('startTime endTime');
-    
-    // Halı sahanın çalışma saatlerini getir (varsayılan: 08:00-23:00)
+    // Halı sahanın varlığını kontrol et
     const field = await Field.findById(fieldId);
     if (!field) {
       return res.status(404).json({ message: 'Halı saha bulunamadı' });
     }
     
-    // Müsait saatleri hesapla
-    const workingHours = {
-      start: '08:00',
-      end: '23:00'
-    };
-    
-    // Saat aralıklarını oluştur (1 saatlik dilimler)
-    const timeSlots = [];
-    let currentHour = parseInt(workingHours.start.split(':')[0]);
-    const endHour = parseInt(workingHours.end.split(':')[0]);
-    
-    while (currentHour < endHour) {
-      const startTime = `${currentHour.toString().padStart(2, '0')}:00`;
-      const endTime = `${(currentHour + 1).toString().padStart(2, '0')}:00`;
-      
-      // Bu saat aralığında rezervasyon var mı kontrol et
-      const isReserved = reservations.some(reservation => 
-        reservation.startTime <= startTime && reservation.endTime > startTime
-      );
-      
-      timeSlots.push({
-        startTime,
-        endTime,
-        available: !isReserved
-      });
-      
-      currentHour++;
+    // Sporyum 23 için özel kontrol
+    if (fieldId === 'sporyum23' && !indoorFieldId) {
+      return res.status(400).json({ message: 'Sporyum 23 için kapalı saha ID\'si gereklidir' });
     }
+    
+    // Müsait saatleri kontrol et
+    const timeSlots = await Reservation.checkAvailability(fieldId, indoorFieldId, selectedDate);
     
     res.json(timeSlots);
   } catch (err) {
@@ -138,82 +109,256 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { fieldId, date, startTime, endTime, notes } = req.body;
+    const { fieldId, indoorFieldId, date, startTime, endTime, notes, totalPrice, matchType, participants } = req.body;
 
     try {
-      // Halı sahayı kontrol et
-      const field = await Field.findById(fieldId);
-      if (!field) {
-        return res.status(404).json({ message: 'Halı saha bulunamadı' });
+      console.log('Rezervasyon isteği alındı:', {
+        fieldId,
+        indoorFieldId,
+        userId: req.user.id,
+        date,
+        startTime,
+        endTime
+      });
+      
+      // Kullanıcı kontrolü
+      if (!req.user || !req.user.id) {
+        return res.status(401).json({ message: 'Kimlik doğrulama gerekli. Lütfen tekrar giriş yapın.' });
+      }
+      
+      // Sporyum 23 için özel durum - Field kontrolünü atlayıp doğrudan sabit ID kullan
+      let fieldData;
+      
+      if (fieldId === 'sporium23' || fieldId.includes('sporyum')) {
+        // Sabit field ID kullan (yeni bir ObjectID oluştur)
+        fieldData = {
+          _id: new mongoose.Types.ObjectId(),
+          name: 'Sporium 23 Halı Saha',
+          slugId: 'sporium23',
+          location: 'Elazığ'
+        };
+        
+        console.log('Sporyum 23 özel durumu tanımlandı:', fieldData._id);
+      } else {
+        // Diğer sahalar için normal akış
+        let fieldQuery = {};
+        
+        // fieldId bir ObjectId formatında mı kontrol et
+        if (fieldId && fieldId.match(/^[0-9a-fA-F]{24}$/)) {
+          fieldQuery = { _id: fieldId };
+        } else {
+          // String ID'yi name veya slugId alanında ara
+          fieldQuery = { 
+            $or: [
+              { slugId: fieldId },
+              { name: fieldId }
+            ]
+          };
+        }
+
+        // Alan bilgisini bul
+        const field = await Field.findOne(fieldQuery);
+        
+        if (!field) {
+          console.log('Saha bulma hatası: Alan bulunamadı -', fieldId);
+          return res.status(404).json({ message: 'Alan bulunamadı' });
+        }
+        
+        fieldData = field;
+        console.log('Alan bilgisi bulundu:', field._id);
+      }
+      
+      // Sporyum 23 için özel kontrol
+      if (fieldId === 'sporium23' && !indoorFieldId) {
+        return res.status(400).json({ message: 'Sporyum 23 için kapalı saha ID\'si gereklidir' });
       }
 
       // Seçilen tarih ve saat için müsaitlik kontrolü
-      const existingReservation = await Reservation.findOne({
-        field: fieldId,
-        date: new Date(date),
-        startTime: { $lt: endTime },
-        endTime: { $gt: startTime },
-        status: { $ne: 'İptal Edildi' }
-      });
-
-      if (existingReservation) {
-        return res.status(400).json({ message: 'Seçilen saat aralığı dolu' });
-      }
-
-      // Toplam fiyatı hesapla (saat başına)
-      const startHour = parseInt(startTime.split(':')[0]);
-      const endHour = parseInt(endTime.split(':')[0]);
-      const hours = endHour - startHour;
-      const totalPrice = field.price * hours;
-
-      // Yeni rezervasyon oluşturmadan önce tekrar kontrol et
-      // Aynı kullanıcının aynı saha için aynı tarih ve saatte rezervasyonu var mı?
-      const userExistingReservation = await Reservation.findOne({
-        field: fieldId,
-        user: req.user.id,
-        date: new Date(date),
-        startTime: startTime,
-        endTime: endTime,
-        status: { $ne: 'İptal Edildi' }
-      });
-      
-      if (userExistingReservation) {
-        return res.status(400).json({ 
-          message: 'Zaten bu saat aralığında bir rezervasyonunuz bulunmaktadır.' 
+      // Sporyum 23 için basitleştirilmiş müsaitlik kontrolü
+      if (fieldId === 'sporium23' || fieldId.includes('sporyum')) {
+        // Çakışan rezervasyon kontrolü yap
+        const existingReservation = await Reservation.findOne({
+          // field alanını kullan, fieldId değil
+          field: fieldData._id,
+          indoorField: indoorFieldId,
+          date: {
+            $gte: new Date(new Date(date).setHours(0, 0, 0, 0)),
+            $lt: new Date(new Date(date).setHours(23, 59, 59, 999))
+          },
+          startTime,
+          endTime,
+          status: { $ne: 'İptal Edildi' }
         });
-      }
-      
-      // Yeni rezervasyon oluştur
-      const newReservation = new Reservation({
-        field: fieldId,
-        user: req.user.id,
-        date: new Date(date),
-        startTime,
-        endTime,
-        totalPrice,
-        notes
-      });
-
-      try {
-        await newReservation.save();
-      } catch (saveError) {
-        if (saveError.code === 11000) {
+        
+        if (existingReservation) {
+          console.log('Çakışan rezervasyon bulundu:', existingReservation._id);
           return res.status(400).json({ 
-            message: 'Bu saat aralığı için zaten bir rezervasyon bulunmaktadır.' 
+            message: 'Seçilen saat aralığı dolu',
+            conflictingReservation: {
+              id: existingReservation._id,
+              date: existingReservation.date,
+              startTime: existingReservation.startTime,
+              endTime: existingReservation.endTime
+            }
           });
         }
-        throw saveError;
+      } else {
+        // Normal müsaitlik kontrolü
+        try {
+          const existingReservation = await Reservation.checkConflict(
+            fieldData._id, 
+            indoorFieldId, 
+            date, 
+            startTime, 
+            endTime
+          );
+
+          if (existingReservation) {
+            console.log('Çakışan rezervasyon bulundu:', existingReservation._id);
+            return res.status(400).json({ 
+              message: 'Seçilen saat aralığı dolu',
+              conflictingReservation: {
+                id: existingReservation._id,
+                date: existingReservation.date,
+                startTime: existingReservation.startTime,
+                endTime: existingReservation.endTime
+              }
+            });
+          }
+        } catch (conflictError) {
+          console.error('Çakışma kontrolü hatası:', conflictError);
+          return res.status(500).json({ message: 'Müsaitlik kontrolü sırasında hata oluştu' });
+        }
+      }
+
+      // Geçmiş tarih kontrolü
+      const reservationDate = new Date(date);
+      const now = new Date();
+      if (reservationDate < now) {
+        return res.status(400).json({ message: 'Geçmiş tarihler için rezervasyon yapılamaz' });
+      }
+
+      // Toplam fiyatı hesapla (eğer gönderilmemişse)
+      let calculatedTotalPrice = totalPrice;
+      if (!calculatedTotalPrice) {
+        const startHour = parseInt(startTime.split(':')[0]);
+        const endHour = parseInt(endTime.split(':')[0]);
+        const hours = endHour - startHour;
+        
+        // Saat farkı kontrolü
+        if (hours <= 0) {
+          return res.status(400).json({ message: 'Bitiş saati başlangıç saatinden sonra olmalıdır' });
+        }
+        
+        // Sporyum 23 için kapalı sahalara göre fiyatlandırma
+        if (fieldId === 'sporium23') {
+          let hourlyRate = 450; // Varsayılan fiyat
+          
+          // Kapalı sahaya göre fiyat belirle
+          if (indoorFieldId === 'sporyum23-indoor-1') {
+            hourlyRate = 450;
+          } else if (indoorFieldId === 'sporyum23-indoor-2') {
+            hourlyRate = 400;
+          } else if (indoorFieldId === 'sporyum23-indoor-3') {
+            hourlyRate = 350;
+          }
+          
+          calculatedTotalPrice = hourlyRate * hours;
+        } else {
+          calculatedTotalPrice = fieldData.price || 350;
+        }
+      }
+
+      // Yeni rezervasyon oluştur
+      const newReservation = new Reservation({
+        field: fieldData._id, // Field ID'si kullan
+        indoorField: indoorFieldId,
+        user: req.user.id,
+        date,
+        startTime,
+        endTime,
+        totalPrice: calculatedTotalPrice,
+        notes,
+        matchType: matchType || 'Özel Maç',
+        participants: participants || []
+      });
+
+      console.log('Yeni rezervasyon oluşturuluyor:', {
+        field: newReservation.field,
+        indoorField: newReservation.indoorField,
+        date: newReservation.date,
+        startTime: newReservation.startTime,
+        endTime: newReservation.endTime,
+        user: newReservation.user
+      });
+
+      // Burada rezervasyonu kaydedelim
+      let savedReservation;
+      try {
+        savedReservation = await newReservation.save();
+        console.log('Rezervasyon başarıyla kaydedildi:', savedReservation._id);
+        
+        // Başarılı kayıt kontrolü
+        if (!savedReservation || !savedReservation._id) {
+          console.error('Rezervasyon kaydedildi ancak ID bulunamadı');
+          return res.status(500).json({ message: 'Rezervasyon kaydedilirken bir hata oluştu' });
+        }
+      } catch (saveError) {
+        if (saveError.code === 11000) {
+          console.error('Duplicate key hatası:', saveError);
+          return res.status(400).json({ 
+            message: 'Bu saat aralığı için zaten bir rezervasyon bulunmaktadır.',
+            error: saveError.message
+          });
+        }
+        console.error('Rezervasyon kaydetme hatası:', saveError);
+        return res.status(500).json({ 
+          message: 'Rezervasyon kaydedilirken bir hata oluştu: ' + saveError.message,
+          error: saveError.toString()
+        });
       }
 
       // Rezervasyon detaylarını döndür
-      const reservation = await Reservation.findById(newReservation._id)
-        .populate('field', 'name location image')
-        .populate('user', 'username name');
+      try {
+        const reservation = await Reservation.findById(savedReservation._id)
+          .populate('field', 'name location image')
+          .populate('user', 'username name');
 
-      res.json(reservation);
+        if (!reservation) {
+          console.error('Rezervasyon kaydedildi ancak geri alınamadı');
+          return res.status(200).json({ 
+            message: 'Rezervasyon oluşturuldu ancak detayları alınamadı',
+            success: true,
+            reservation: {
+              _id: savedReservation._id,
+              date: savedReservation.date,
+              startTime: savedReservation.startTime,
+              endTime: savedReservation.endTime,
+              status: savedReservation.status
+            }
+          });
+        }
+
+        console.log('Rezervasyon başarıyla oluşturuldu:', reservation._id);
+        res.status(201).json(reservation);
+      } catch (populateError) {
+        console.error('Rezervasyon detayları alınamadı:', populateError);
+        return res.status(201).json({
+          message: 'Rezervasyon oluşturuldu ancak detayları alınamadı',
+          success: true,
+          _id: savedReservation._id,
+          date: savedReservation.date,
+          startTime: savedReservation.startTime,
+          endTime: savedReservation.endTime,
+          status: savedReservation.status
+        });
+      }
     } catch (err) {
-      console.error('Rezervasyon oluşturma hatası:', err.message);
-      res.status(500).send('Sunucu hatası');
+      console.error('Rezervasyon oluşturma hatası:', err);
+      res.status(500).json({ 
+        message: 'Sunucu hatası: ' + (err.message || 'Bilinmeyen hata'),
+        error: err.toString()
+      });
     }
   }
 );
