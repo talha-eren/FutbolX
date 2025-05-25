@@ -436,43 +436,80 @@ exports.getAvailableTimeSlots = async (req, res) => {
 exports.updateReservationStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    let { status } = req.body;
     
     console.log(`Rezervasyon durumu güncelleniyor: ${id} -> ${status}`);
+    console.log('Request body:', req.body);
+    console.log('Request params:', req.params);
     
-    if (!['beklemede', 'onaylandı', 'iptal edildi', 'tamamlandı'].includes(status)) {
-      return res.status(400).json({ message: 'Geçersiz durum değeri' });
+    if (!id) {
+      console.error('ID parametresi bulunamadı');
+      return res.status(400).json({ message: 'Rezervasyon ID parametresi gereklidir' });
     }
     
-    const reservation = await Reservation.findById(id);
-    
-    if (!reservation) {
-      return res.status(404).json({ message: 'Rezervasyon bulunamadı' });
+    if (!status) {
+      console.error('Status parametresi bulunamadı');
+      return res.status(400).json({ message: 'Status parametresi gereklidir' });
     }
     
-    // Önceki ve yeni durum bilgilerini logla
-    console.log(`Rezervasyon #${id} durumu değiştiriliyor: ${reservation.status} -> ${status}`);
+    // Status değerini normalize et (büyük/küçük harf ve farklı yazımlar için)
+    status = status.toLowerCase();
+    if (status.includes('onay') && status.includes('bekl')) {
+      status = 'beklemede';
+    }
+    else if (status === 'onaylandı' || status === 'onayli' || status === 'onaylı') {
+      status = 'onaylandı';
+    }
+    else if (status.includes('iptal')) {
+      status = 'iptal edildi';
+    }
+    else if (status.includes('tamam')) {
+      status = 'tamamlandı';
+    }
     
-    // Durumu güncelle
-    reservation.status = status;
-    await reservation.save();
+    // Normalize edilmiş değer geçerli mi kontrol et
+    const validStatuses = ['beklemede', 'onaylandı', 'iptal edildi', 'tamamlandı'];
+    if (!validStatuses.includes(status)) {
+      console.error(`Geçersiz durum değeri (normalize edilmiş): ${status}`);
+      return res.status(400).json({ message: `Geçersiz durum değeri: '${status}'. Geçerli değerler: ${validStatuses.join(', ')}` });
+    }
+    
+    console.log(`MongoDB'de ${id} ID'li rezervasyon aranıyor...`);
+    
+    // findByIdAndUpdate kullanarak sadece status alanını güncelle
+    // Bu şekilde diğer alanlar için doğrulama gerçekleşmez
+    try {
+      const updatedReservation = await Reservation.findByIdAndUpdate(
+        id,
+        { status: status },
+        { new: true, runValidators: false }
+      );
+      
+      if (!updatedReservation) {
+        console.error(`Rezervasyon bulunamadı: ${id}`);
+        return res.status(404).json({ message: 'Rezervasyon bulunamadı' });
+      }
     
     console.log(`Rezervasyon durumu başarıyla güncellendi: ${id} -> ${status}`);
     
     // Başarılı yanıt döndür
-    res.json({ 
+      res.status(200).json({ 
       message: 'Rezervasyon durumu güncellendi', 
       reservation: {
-        _id: reservation._id,
-        venue: reservation.venue,
-        user: reservation.user,
-        date: reservation.date,
-        startTime: reservation.startTime,
-        endTime: reservation.endTime,
-        status: reservation.status,
-        price: reservation.price
+          _id: updatedReservation._id,
+          venue: updatedReservation.venue,
+          user: updatedReservation.user,
+          date: updatedReservation.date,
+          startTime: updatedReservation.startTime,
+          endTime: updatedReservation.endTime,
+          status: updatedReservation.status,
+          price: updatedReservation.price
       }
     });
+    } catch (dbError) {
+      console.error('Veritabanı işlem hatası:', dbError);
+      return res.status(500).json({ message: 'Veritabanı işlem hatası: ' + dbError.message });
+    }
   } catch (error) {
     console.error('Rezervasyon durumu güncelleme hatası:', error);
     res.status(500).json({ message: error.message });

@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 const Player = require('./models/Player');
 const Venue = require('./models/Venue');
+const Team = require('./models/Team');
+const Match = require('./models/Match');
+const User = require('./models/User');
+const Admin = require('./models/Admin');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 // MongoDB bağlantısı
@@ -455,23 +460,207 @@ const venueData = [
   }
 ];
 
-// Veritabanını temizle ve yeni verileri ekle
+// Örnek takım verileri
+const teamData = [
+  {
+    name: 'Yıldızlar FC',
+    level: 'Orta',
+    neededPlayers: 2,
+    preferredTime: '20:00',
+    contactNumber: '05321234567',
+    description: 'Haftada 2 kez halı sahada oynayan eğlence odaklı takım.',
+    isActive: true,
+    regularPlayDays: ['Salı', 'Perşembe'],
+    rating: 4.5,
+    location: {
+      city: 'İstanbul',
+      district: 'Kadıköy'
+    }
+  },
+  {
+    name: 'Kartallar Spor',
+    level: 'İyi',
+    neededPlayers: 1,
+    preferredTime: '21:00',
+    contactNumber: '05351234567',
+    description: 'Rekabetçi, disiplinli ve kazanmaya odaklı takım.',
+    isActive: true,
+    regularPlayDays: ['Pazartesi', 'Çarşamba', 'Cuma'],
+    rating: 4.8,
+    location: {
+      city: 'İstanbul',
+      district: 'Beşiktaş'
+    }
+  },
+  {
+    name: 'Aslanlar Halı Saha',
+    level: 'Pro',
+    neededPlayers: 0,
+    preferredTime: '19:00',
+    contactNumber: '05371234567',
+    description: 'Eski profesyonel oyunculardan oluşan ciddi takım.',
+    isActive: true,
+    regularPlayDays: ['Salı', 'Perşembe', 'Cumartesi'],
+    rating: 4.9,
+    location: {
+      city: 'İstanbul',
+      district: 'Ataşehir'
+    }
+  }
+];
+
+// Örnek maç verileri (seedDatabase fonksiyonunda kullanıcı ve saha verileri oluşturulduktan sonra doldurulacak)
+const matchData = [];
+
+// Veritabanını doldur
 const seedDatabase = async () => {
   try {
-    // Koleksiyonları temizle
-    await Player.deleteMany({});
-    await Venue.deleteMany({});
+    console.log('Veritabanına örnek veriler ekleniyor...');
     
-    // Yeni verileri ekle
-    await Player.insertMany(playerData);
-    await Venue.insertMany(venueData);
+    // Mevcut koleksiyonları kontrol et ve boşsa doldur
+    const playerCount = await Player.countDocuments();
+    const venueCount = await Venue.countDocuments();
     
-    console.log('Veritabanı başarıyla dolduruldu!');
-    process.exit(0);
+    // Oyuncuları ekle (sadece boşsa)
+    if (playerCount === 0) {
+      const players = await Player.insertMany(playerData);
+      console.log(`${players.length} oyuncu eklendi`);
+    } else {
+      console.log(`Zaten ${playerCount} oyuncu var, yeni oyuncu eklenmedi`);
+    }
+    
+    // Halı sahaları ekle (sadece boşsa)
+    if (venueCount === 0) {
+      const venues = await Venue.insertMany(venueData);
+      console.log(`${venues.length} halı saha eklendi`);
+    } else {
+      console.log(`Zaten ${venueCount} halı saha var, yeni halı saha eklenmedi`);
+    }
+    
+    // Takım ve Maç modellerini kontrol et
+    const Team = mongoose.models.Team || require('./models/Team');
+    const Match = mongoose.models.Match || require('./models/Match');
+    const User = mongoose.models.User || require('./models/User');
+    
+    // Sadece Team ve Match modelleri ve en az bir kullanıcı varsa örnek takım ve maç ekle
+    if (Team && Match && User) {
+      const teamCount = await Team.countDocuments();
+      const matchCount = await Match.countDocuments();
+      
+      // Eğer henüz takım yoksa örnek takımlar ekle
+      if (teamCount === 0) {
+        try {
+          // Varsayılan bir kullanıcı al
+          const user = await User.findOne();
+          
+          if (user) {
+            // Halı sahaları bul
+            const venues = await Venue.find().limit(5);
+            
+            if (venues.length > 0) {
+              // Takımları ekle
+              const teams = [];
+              
+              for (const team of teamData) {
+                const newTeam = new Team({
+                  ...team,
+                  createdBy: user._id,
+                  players: [{
+                    player: user._id,
+                    position: 'Orta Saha',
+                    isAdmin: true
+                  }],
+                  venue: venues[Math.floor(Math.random() * venues.length)]._id
+                });
+                
+                const savedTeam = await newTeam.save();
+                teams.push(savedTeam);
+              }
+              
+              console.log(`${teams.length} takım eklendi`);
+              
+              // Eğer henüz maç yoksa örnek maçlar ekle
+              if (matchCount === 0 && teams.length > 0) {
+                const matchesToAdd = [];
+                
+                for (let i = 0; i < 5; i++) {
+                  const venue = venues[Math.floor(Math.random() * venues.length)];
+                  const today = new Date();
+                  
+                  // Gelecekteki veya geçmişteki bir tarih oluştur
+                  const matchDate = new Date(today);
+                  matchDate.setDate(today.getDate() + (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * 7));
+                  
+                  const startHour = 18 + Math.floor(Math.random() * 5); // 18-22 arası
+                  
+                  const match = {
+                    title: `${teams[0].name} vs ${teams[1 % teams.length].name}`,
+                    venue: venue._id,
+                    date: matchDate,
+                    startTime: `${startHour}:00`,
+                    endTime: `${startHour + 1}:00`,
+                    organizer: user._id,
+                    players: [{
+                      player: user._id,
+                      position: 'Orta Saha',
+                      team: 'A'
+                    }],
+                    maxPlayers: 14,
+                    price: venue.price || 450,
+                    status: 'açık',
+                    description: 'Herkes katılabilir, seviyeler karışık.',
+                    isPublic: true
+                  };
+                  
+                  matchesToAdd.push(match);
+                }
+                
+                const matches = await Match.insertMany(matchesToAdd);
+                console.log(`${matches.length} maç eklendi`);
+                
+                // Maçları takımlara ekle
+                for (let i = 0; i < Math.min(teams.length, matches.length); i++) {
+                  const team = teams[i];
+                  const match = matches[i];
+                  
+                  team.matches.push({
+                    match: match._id,
+                    result: ['Galibiyet', 'Beraberlik', 'Mağlubiyet'][Math.floor(Math.random() * 3)],
+                    score: {
+                      goals: Math.floor(Math.random() * 5),
+                      conceded: Math.floor(Math.random() * 3)
+                    }
+                  });
+                  
+                  await team.save();
+                }
+                
+                console.log('Takımlara maçlar eklendi');
+              } else {
+                console.log(`Zaten ${matchCount} maç var, yeni maç eklenmedi`);
+              }
+            } else {
+              console.log('Halı saha bulunamadığı için takım ve maç verileri eklenemedi');
+            }
+          } else {
+            console.log('Kullanıcı bulunamadığı için takım ve maç verileri eklenemedi');
+          }
+        } catch (error) {
+          console.error('Takım ve maç verileri eklenirken hata:', error);
+        }
+      } else {
+        console.log(`Zaten ${teamCount} takım var, yeni takım eklenmedi`);
+      }
+    }
+    
+    console.log('Örnek veriler başarıyla eklendi');
   } catch (error) {
-    console.error('Seed hatası:', error);
-    process.exit(1);
+    console.error('Veritabanı doldurulurken hata:', error);
   }
 };
 
+// Veritabanını doldur - İlk çalıştırmada tetikle
 seedDatabase(); 
+
+// Diğer uygulamalardan erişilebilmesi için dışa aktar
+module.exports = { seedDatabase }; 

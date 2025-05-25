@@ -224,38 +224,179 @@ exports.rescheduleReservation = async (req, res) => {
 // Dashboard istatistikleri
 exports.getDashboardStats = async (req, res) => {
   try {
+    // Tarih hesaplamaları
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const lastWeekStart = new Date(today);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    
+    const lastMonthStart = new Date(today);
+    lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+    
     // Toplam rezervasyon sayısı
     const totalReservations = await Reservation.countDocuments();
     
     // Bugünkü rezervasyon sayısı
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
     const todayReservations = await Reservation.countDocuments({
       date: { $gte: today, $lt: tomorrow }
     });
     
-    // Duruma göre rezervasyon sayıları
-    const pendingReservations = await Reservation.countDocuments({ status: 'beklemede' });
-    const confirmedReservations = await Reservation.countDocuments({ status: 'onaylandı' });
-    const cancelledReservations = await Reservation.countDocuments({ status: 'iptal edildi' });
+    // Haftalık rezervasyon sayısı
+    const weeklyReservations = await Reservation.countDocuments({
+      date: { $gte: lastWeekStart, $lt: tomorrow }
+    });
     
-    // Toplam kullanıcı sayısı
-    const totalUsers = await User.countDocuments();
+    // Aylık rezervasyon sayısı
+    const monthlyReservations = await Reservation.countDocuments({
+      date: { $gte: lastMonthStart, $lt: tomorrow }
+    });
     
-    // Toplam venue sayısı
-    const totalVenues = await Venue.countDocuments();
+    // Ödeme durumuna göre gelir hesaplaması
+    const reservations = await Reservation.find({
+      paymentStatus: 'ödendi'
+    });
     
+    // Toplam gelir
+    const totalIncome = reservations.reduce((sum, reservation) => sum + reservation.price, 0);
+    
+    // Haftalık gelir
+    const weeklyReservationsWithPrice = await Reservation.find({
+      date: { $gte: lastWeekStart, $lt: tomorrow },
+      paymentStatus: 'ödendi'
+    });
+    const weeklyIncome = weeklyReservationsWithPrice.reduce((sum, reservation) => sum + reservation.price, 0);
+    
+    // Aylık gelir
+    const monthlyReservationsWithPrice = await Reservation.find({
+      date: { $gte: lastMonthStart, $lt: tomorrow },
+      paymentStatus: 'ödendi'
+    });
+    const monthlyIncome = monthlyReservationsWithPrice.reduce((sum, reservation) => sum + reservation.price, 0);
+    
+    // Kullanıcı sayısı
+    const customerCount = await User.countDocuments();
+    
+    // Son 10 rezervasyon
+    const recentBookings = await Reservation.find()
+      .populate('user', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+    
+    // Recentbookings'i frontend için dönüştür
+    const formattedRecentBookings = recentBookings.map(booking => {
+      const formatDate = (date) => {
+        const d = new Date(date);
+        return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+      };
+      
+      return {
+        id: booking._id,
+        customer: booking.user ? `${booking.user.firstName} ${booking.user.lastName}` : booking.customerName,
+        field: `Saha ${booking.field}`,
+        time: `${booking.startTime} - ${booking.endTime}`,
+        date: formatDate(booking.date),
+        amount: booking.price,
+        status: booking.status
+      };
+    });
+    
+    // Sahalara göre rezervasyon dağılımı
+    const field1Count = await Reservation.countDocuments({ field: 1 });
+    const field2Count = await Reservation.countDocuments({ field: 2 });
+    const field3Count = await Reservation.countDocuments({ field: 3 });
+    
+    const totalFieldCount = field1Count + field2Count + field3Count;
+    const calculatePercentage = (count) => totalFieldCount > 0 ? Math.round((count / totalFieldCount) * 100) : 0;
+    
+    const fieldUtilization = [
+      { name: 'Saha 1', value: calculatePercentage(field1Count) },
+      { name: 'Saha 2', value: calculatePercentage(field2Count) },
+      { name: 'Saha 3', value: calculatePercentage(field3Count) }
+    ];
+    
+    // Popüler saatler
+    const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+    
+    // Her saat için rezervasyon sayısını hesapla
+    const timeStats = [];
+    for (const time of timeSlots) {
+      const count = await Reservation.countDocuments({
+        startTime: time
+      });
+      timeStats.push({ time, count });
+    }
+    
+    // En çok tercih edilen saatleri bul (en yüksek 5 saat)
+    const sortedTimeStats = [...timeStats].sort((a, b) => b.count - a.count);
+    const topTimeStats = sortedTimeStats.slice(0, 5);
+    
+    // En çok tercih edilen saatlerin yüzdelik oranlarını hesapla
+    const maxTimeCount = Math.max(...timeStats.map(t => t.count));
+    const popularTimes = topTimeStats.map(t => ({
+      time: t.time,
+      count: t.count,
+      percentage: maxTimeCount > 0 ? Math.round((t.count / maxTimeCount) * 100) : 0
+    }));
+    
+    // Aylık trend verileri
+    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    const currentYear = today.getFullYear();
+    
+    const monthlyTrend = [];
+    for (let i = 0; i < 6; i++) {
+      const monthIndex = (today.getMonth() - 5 + i + 12) % 12; // Son 6 ay (negatif indeks olmaması için)
+      const year = monthIndex > today.getMonth() ? currentYear - 1 : currentYear;
+      
+      const monthStart = new Date(year, monthIndex, 1);
+      const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+      
+      const monthlyReservationCount = await Reservation.countDocuments({
+        date: { $gte: monthStart, $lte: monthEnd }
+      });
+      
+      const monthlyRevenueData = await Reservation.find({
+        date: { $gte: monthStart, $lte: monthEnd },
+        paymentStatus: 'ödendi'
+      });
+      
+      const monthlyRevenue = monthlyRevenueData.reduce((sum, r) => sum + r.price, 0);
+      
+      monthlyTrend.push({
+        name: months[monthIndex],
+        reservations: monthlyReservationCount,
+        revenue: monthlyRevenue
+      });
+    }
+    
+    // Doluluk oranı
+    // Son bir haftadaki toplam rezervasyonların, toplam kapasiteye oranı
+    const totalCapacityPerDay = timeSlots.length * 3; // 3 saha, her saat için bir kapasite
+    const totalCapacityWeek = totalCapacityPerDay * 7; // Haftalık toplam kapasite
+    
+    const occupancyRate = totalCapacityWeek > 0 
+      ? Math.round((weeklyReservations / totalCapacityWeek) * 100) 
+      : 0;
+    
+    // Tüm istatistikleri döndür
     res.json({
       totalReservations,
       todayReservations,
-      pendingReservations,
-      confirmedReservations,
-      cancelledReservations,
-      totalUsers,
-      totalVenues
+      weeklyReservations,
+      monthlyReservations,
+      totalIncome,
+      weeklyIncome,
+      monthlyIncome,
+      customerCount,
+      occupancyRate,
+      popularTimes,
+      recentBookings: formattedRecentBookings,
+      fieldUtilization,
+      monthlyTrend
     });
   } catch (error) {
     console.error('Dashboard istatistikleri hatası:', error);

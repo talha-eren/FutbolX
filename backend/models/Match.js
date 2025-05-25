@@ -63,6 +63,32 @@ const matchSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  score: {
+    teamA: {
+      name: {
+        type: String,
+        default: 'Formalı Takım'
+      },
+      goals: {
+        type: Number,
+        default: 0
+      }
+    },
+    teamB: {
+      name: {
+        type: String,
+        default: 'Formasız Takım'
+      },
+      goals: {
+        type: Number,
+        default: 0
+      }
+    },
+    mvp: {
+      type: String,
+      trim: true
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

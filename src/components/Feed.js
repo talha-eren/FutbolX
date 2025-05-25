@@ -5,6 +5,7 @@ import VideoFeed from './Feed/VideoFeed';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { format, addDays } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 // Sporyum 23 halı saha bilgileri
 const SPORYUM_23 = {
@@ -37,14 +38,6 @@ const SPORYUM_23 = {
   ]
 };
 
-// Son maç sonuçları
-const RECENT_MATCHES = [
-  { id: 1, date: '20.05.2025', time: '10:00', team1: 'Boğalar', team2: 'Kartallar', score: '5-0', field: 1 },
-  { id: 2, date: '14.05.2025', time: '12:00', team1: 'Aslanlar', team2: 'Şimşekler', score: '1-3', field: 2 },
-  { id: 3, date: '14.05.2025', time: '21:00', team1: 'Boğalar', team2: 'Kartallar', score: '1-0', field: 3 },
-  { id: 4, date: '15.05.2025', time: '16:00', team1: 'Kartallar', team2: 'Şimşekler', score: '3-2', field: 1 }
-];
-
 // Saha doluluk oranı (Saat - Hafta bazında)
 const OCCUPANCY_DATA = {
   weeklyRate: 85, // %85 doluluk
@@ -75,6 +68,25 @@ function Feed() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if the current user is talhaeren (admin)
+  useEffect(() => {
+    const checkAdminStatus = () => {
+      const userInfo = localStorage.getItem('userInfo');
+      if (!userInfo) return false;
+      
+      try {
+        const user = JSON.parse(userInfo);
+        return user.username === 'talhaeren';
+      } catch (error) {
+        console.error('Error parsing user info:', error);
+        return false;
+      }
+    };
+    
+    setIsAdmin(checkAdminStatus());
+  }, []);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -82,104 +94,7 @@ function Feed() {
 
   return (
     <Container maxWidth="xl">
-      {/* Son Maç Sonuçları Kartı */}
-      <Card sx={{ 
-        borderRadius: 3, 
-        overflow: 'hidden',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        mb: 3,
-        mt: 2
-      }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4CAF50', mb: 2 }}>
-            <SportsSoccer sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Son Maç Sonuçları
-          </Typography>
-          
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-            {RECENT_MATCHES.map((match, index) => (
-              <Box 
-                key={match.id}
-                sx={{ 
-                  flexBasis: { xs: '100%', sm: '48%', md: '23%' },
-                  py: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  border: '1px solid rgba(0,0,0,0.08)',
-                  borderRadius: 2,
-                  p: 1
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {match.date} • {match.time} • Saha {match.field}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center' 
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', width: '40%' }}>
-                    <Avatar sx={{ 
-                      bgcolor: '#1976d2', 
-                      width: 36, 
-                      height: 36,
-                      mr: 1
-                    }}>
-                      {match.team1.charAt(0)}
-                    </Avatar>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                      {match.team1}
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ 
-                    px: 2,
-                    py: 0.5,
-                    bgcolor: 'rgba(0,0,0,0.05)',
-                    borderRadius: 1
-                  }}>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                      {match.score}
-              </Typography>
-                  </Box>
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    width: '40%',
-                    justifyContent: 'flex-end'
-                  }}>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 1 }}>
-                      {match.team2}
-                    </Typography>
-                    <Avatar sx={{ 
-                      bgcolor: '#d32f2f',
-                      width: 36, 
-                      height: 36
-                    }}>
-                      {match.team2.charAt(0)}
-                    </Avatar>
-                  </Box>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-          
-          <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Button 
-              variant="outlined" 
-              color="primary"
-              href="/matches"
-              sx={{ borderRadius: 20 }}
-            >
-              Tüm Maçları Gör
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
+    
 
       {/* Sporyum 23 Ana Banner */}
       <Box 
@@ -435,62 +350,66 @@ function Feed() {
 
         {/* Sağ Sütun - Saha Sahiplerine Özel ve Müşteri Yorumları */}
           <Grid item xs={12} md={3}>
-          {/* Saha Sahiplerine Özel */}
-          <Card sx={{ 
-            borderRadius: 3, 
-            overflow: 'hidden',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            mb: 3,
-            backgroundImage: 'linear-gradient(to bottom right, #4CAF50, #2E7D32)',
-            color: 'white'
-          }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
-                Halı Saha Sahiplerine Özel
-              </Typography>
-              
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                FutbolX ile işletmenizi büyütün! Rezervasyon sistemimize kaydolun ve işinizi dijitalleştirin.
-              </Typography>
-              
-              {OWNER_BENEFITS.map((benefit, index) => (
-                <Box key={index} sx={{ 
-                  display: 'flex', 
-                  mb: 2,
-                  p: 1.5,
-              borderRadius: 2, 
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                }}>
-                  <Box sx={{ mr: 2 }}>
-                    {benefit.icon}
+          {/* Saha Sahiplerine Özel - sadece admin için göster */}
+          {isAdmin && (
+            <Card sx={{ 
+              borderRadius: 3, 
+              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              mb: 3,
+              backgroundImage: 'linear-gradient(to bottom right, #4CAF50, #2E7D32)',
+              color: 'white'
+            }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+                  Halı Saha Yönetimi (Admin)
+                </Typography>
+                
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Bu bölüm sadece size (talhaeren) özel olarak görüntülenmektedir. Burada halı saha işletmenizi yönetebilirsiniz.
+                </Typography>
+                
+                {OWNER_BENEFITS.map((benefit, index) => (
+                  <Box key={index} sx={{ 
+                    display: 'flex', 
+                    mb: 2,
+                    p: 1.5,
+                    borderRadius: 2, 
+                    bgcolor: 'rgba(255,255,255,0.1)',
+                  }}>
+                    <Box sx={{ mr: 2 }}>
+                      {benefit.icon}
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                        {benefit.title}
+                      </Typography>
+                      <Typography variant="caption">
+                        {benefit.description}
+                      </Typography>
+                    </Box>
                   </Box>
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                      {benefit.title}
-                    </Typography>
-                    <Typography variant="caption">
-                      {benefit.description}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-              
-              <Button 
-                variant="contained" 
-                fullWidth
-                sx={{ 
-                  mt: 1, 
-                  bgcolor: 'white', 
-                  color: '#4CAF50',
-                  '&:hover': {
-                    bgcolor: 'rgba(255,255,255,0.9)'
-                  }
-                }}
-              >
-                Ücretsiz Kaydolun
-              </Button>
-            </CardContent>
-          </Card>
+                ))}
+                
+                <Button 
+                  variant="contained" 
+                  fullWidth
+                  component={Link}
+                  to="/admin"
+                  sx={{ 
+                    mt: 1, 
+                    bgcolor: 'white', 
+                    color: '#4CAF50',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.9)'
+                    }
+                  }}
+                >
+                  Yönetim Paneline Git
+                </Button>
+              </CardContent>
+            </Card>
+          )}
           
           {/* Müşteri Yorumları */}
           <Card sx={{ 
@@ -533,7 +452,7 @@ function Feed() {
                   </Box>
                   {index < SPORYUM_23.testimonials.length - 1 && <Divider sx={{ my: 1 }} />}
                 </React.Fragment>
-              ))}
+            ))}
               
               <Box sx={{ mt: 2, textAlign: 'center' }}>
                 <Button 

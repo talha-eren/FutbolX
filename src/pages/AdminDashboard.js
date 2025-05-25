@@ -18,7 +18,9 @@ import {
   AttachMoney, 
   People, 
   Build,
-  Refresh
+  Refresh,
+  SportsSoccer,
+  Groups as GroupsIcon
 } from '@mui/icons-material';
 
 // Admin paneli bileşenleri
@@ -27,6 +29,8 @@ import AdminReservations from '../components/Admin/AdminReservations';
 import AdminFinancialReports from '../components/Admin/AdminFinancialReports';
 import AdminStaffManagement from '../components/Admin/AdminStaffManagement';
 import AdminMaintenance from '../components/Admin/AdminMaintenance';
+import AdminMatchManagement from '../components/Admin/AdminMatchManagement';
+import AdminTeamsManagement from '../components/Admin/AdminTeamsManagement';
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState(0);
@@ -107,6 +111,8 @@ function AdminDashboard() {
             }}
           >
             <Tab icon={<CalendarMonth />} label="Rezervasyonlar" iconPosition="start" />
+            <Tab icon={<SportsSoccer />} label="Son Maçlar" iconPosition="start" />
+            <Tab icon={<GroupsIcon />} label="Takım Yönetimi" iconPosition="start" />
             <Tab icon={<DashboardIcon />} label="Genel Bakış" iconPosition="start" />
             <Tab icon={<AttachMoney />} label="Finansal Raporlar" iconPosition="start" />
             <Tab icon={<People />} label="Personel Yönetimi" iconPosition="start" />
@@ -117,10 +123,12 @@ function AdminDashboard() {
           
           <Box sx={{ p: 3 }}>
             {activeTab === 0 && <AdminReservations />}
-            {activeTab === 1 && <AdminDashboardStats />}
-            {activeTab === 2 && <AdminFinancialReports />}
-            {activeTab === 3 && <AdminStaffManagement />}
-            {activeTab === 4 && <AdminMaintenance />}
+            {activeTab === 1 && <AdminMatchManagement />}
+            {activeTab === 2 && <AdminTeamsManagement />}
+            {activeTab === 3 && <AdminDashboardStats />}
+            {activeTab === 4 && <AdminFinancialReports />}
+            {activeTab === 5 && <AdminStaffManagement />}
+            {activeTab === 6 && <AdminMaintenance />}
           </Box>
         </Paper>
       </Box>

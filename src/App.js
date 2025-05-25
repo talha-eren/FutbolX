@@ -21,6 +21,7 @@ import Stats from './pages/Stats';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
 import AboutPage from './pages/About';
+import CreateTeamPage from './pages/CreateTeamPage';
 
 // Video Bileşenleri
 import VideoList from './components/Video/VideoList';
@@ -122,6 +123,11 @@ function App() {
                   <Route path="/teams" element={
                     <ProtectedRoute>
                       <Teams />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/teams/create" element={
+                    <ProtectedRoute>
+                      <CreateTeamPage />
                     </ProtectedRoute>
                   } />
                   <Route path="/reservations" element={

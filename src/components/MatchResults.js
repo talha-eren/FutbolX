@@ -3,7 +3,8 @@ import axios from 'axios';
 import {
   Container, Box, Typography, Card, CardContent,
   Avatar, Chip, Grid, IconButton, Button, Divider,
-  Rating, Alert, CircularProgress, Paper, Tabs, Tab, Tooltip
+  Rating, Alert, CircularProgress, Paper, Tabs, Tab, Tooltip,
+  List, ListItem, ListItemText
 } from '@mui/material';
 import {
   SportsSoccer, EmojiEvents, Star, Place,
@@ -35,53 +36,15 @@ const getConfig = () => {
   };
 };
 
-const generateRandomMatches = () => {
-  const teams = [
-    { name: 'Yıldızlar', color: '#1976d2' },
-    { name: 'Kartallar', color: '#d32f2f' },
-    { name: 'Aslanlar', color: '#ff9800' },
-    { name: 'Şimşekler', color: '#9c27b0' },
-    { name: 'Boğalar', color: '#2e7d32' },
-    { name: 'Atmacalar', color: '#795548' }
-  ];
-
-  return Array.from({ length: 6 }, () => {
-    const homeTeam = teams[Math.floor(Math.random() * teams.length)];
-    let awayTeam;
-    do {
-      awayTeam = teams[Math.floor(Math.random() * teams.length)];
-    } while (awayTeam === homeTeam);
-
-    const homeScore = Math.floor(Math.random() * 6);
-    const awayScore = Math.floor(Math.random() * 6);
-    const totalGoals = homeScore + awayScore;
-    const manOfTheMatch = ['Ahmet', 'Mehmet', 'Ali', 'Can', 'Burak'][Math.floor(Math.random() * 5)];
-    const venue = ['Yıldız Halı Saha', 'Gol Park', 'Futbol Arena', 'Sporyum 23'][Math.floor(Math.random() * 4)];
-    const highlights = Math.floor(Math.random() * 8) + 2;
-    const likes = Math.floor(Math.random() * 50) + 10;
-    const comments = Math.floor(Math.random() * 20) + 5;
-
-    return {
-      id: Math.random().toString(36).substr(2, 9),
-      homeTeam,
-      awayTeam,
-      homeScore,
-      awayScore,
-      manOfTheMatch,
-      venue,
-      totalGoals,
-      highlights,
-      likes,
-      comments,
-      date: new Date(Date.now() - Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR'),
-      time: `${Math.floor(Math.random() * 12 + 10)}:00`
-    };
-  });
-};
+// Projenin yeşil rengi
+const primaryGreen = '#4caf50';
+const secondaryGreen = '#81c784';
+const lightGreen = '#e8f5e9';
 
 function MatchResults() {
-  const [tabValue, setTabValue] = useState(0);
+  const [selectedVenue, setSelectedVenue] = useState('all');
   const [matches, setMatches] = useState([]);
+  const [venues, setVenues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userData, setUserData] = useState(null);
@@ -135,21 +98,95 @@ function MatchResults() {
     fetchUserData();
   }, []);
 
-  // Veri yükleme simülasyonu
+  // Veri yükleme
   useEffect(() => {
     const loadData = async () => {
       try {
-        // API çağrısı burada yapılacak
-        // const response = await fetch('api/matches/yesilVadi');
-        // const data = await response.json();
+        setLoading(true);
         
-        // Şimdilik mock veri kullanıyoruz
-        setTimeout(() => {
-          setMatches(generateRandomMatches());
+        const config = getConfig();
+        if (!config) {
+          setError('Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.');
           setLoading(false);
-        }, 500);
+          return;
+        }
+        
+        // API'den maçları çek
+        const matchesResponse = await axios.get(`${API_URL}/matches`, config);
+        console.log('Maçlar yanıtı:', matchesResponse.data);
+        
+        // API'den halı sahaları çek
+        const venuesResponse = await axios.get(`${API_URL}/venues`, config);
+        console.log('Halı sahalar yanıtı:', venuesResponse.data);
+        
+        if (matchesResponse.data && matchesResponse.data.matches) {
+          // API'den gelen maçları formatlayarak state'e kaydet
+          const formattedMatches = matchesResponse.data.matches.map(match => {
+            // Takım bilgilerini oluştur ve goals değerini doğru şekilde al
+            const teamA = {
+              name: match.score?.teamA?.name || 'Formalı Takım',
+              score: match.score?.teamA?.goals || 0
+            };
+            
+            const teamB = {
+              name: match.score?.teamB?.name || 'Formasız Takım',
+              score: match.score?.teamB?.goals || 0
+            };
+            
+            // Maç tarihini formatla
+            const matchDate = new Date(match.date);
+            const formattedDate = matchDate.toLocaleDateString('tr-TR');
+            
+            return {
+              id: match._id,
+              title: match.title || `${teamA.name} vs ${teamB.name}`,
+              teamA: teamA,
+              teamB: teamB,
+              venue: match.venue || {},
+              venueName: match.venue?.name || 'Sporyum 23',
+              venueId: match.venue?._id || '',
+              date: formattedDate,
+              time: `${match.startTime} - ${match.endTime}`,
+              status: match.status,
+              rawDate: new Date(match.date) // Sıralama için ham tarih
+            };
+          });
+          
+          // Maçları tarihe göre sırala (en yeni maçlar önce)
+          formattedMatches.sort((a, b) => b.rawDate - a.rawDate);
+          
+          setMatches(formattedMatches);
+        } else {
+          // API'den veri gelmezse boş dizi kullan
+          setMatches([]);
+        }
+        
+        // Halı sahaları kaydet
+        if (venuesResponse.data) {
+          setVenues(venuesResponse.data);
+        } else {
+          setVenues([]);
+        }
+        
+        setLoading(false);
       } catch (error) {
         console.error('Veri yükleme hatası:', error);
+        
+        if (error.response && error.response.status === 401) {
+          setError('Oturumunuz sonlanmış görünüyor. Lütfen tekrar giriş yapın.');
+          // Token'ı temizle ve kullanıcıyı login sayfasına yönlendir
+          localStorage.removeItem('userToken');
+          localStorage.removeItem('isLoggedIn');
+          localStorage.removeItem('userInfo');
+          
+          // 2 saniye sonra login sayfasına yönlendir
+          setTimeout(() => {
+            window.location.href = '/login?redirect=/matches';
+          }, 2000);
+        } else {
+          setError('Maç verileri yüklenirken bir hata oluştu.');
+        }
+        
         setLoading(false);
       }
     };
@@ -157,89 +194,25 @@ function MatchResults() {
     loadData();
   }, []);
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
-
-  // Filtreleme fonksiyonları
+  // Filtreleme fonksiyonu
   const filterMatches = () => {
-    switch (tabValue) {
-      case 0: // Tümü
-        return matches;
-      case 1: // Gollü Maçlar (3+ gol)
-        return matches.filter(match => match.totalGoals >= 3);
-      case 2: // Son Maçlar (son 3 maç)
-        return matches.slice(0, 3);
-      default:
-        return matches;
+    if (selectedVenue === 'all') {
+      return matches;
+    } else {
+      return matches.filter(match => match.venueId === selectedVenue);
     }
   };
 
-  const getTeamBgColor = (color) => {
-    switch (color) {
-      case 'red': return '#e53935';
-      case 'blue': return '#1e88e5';
-      case 'green': return '#43a047';
-      case 'orange': return '#fb8c00';
-      case 'purple': return '#8e24aa';
-      default: return '#757575';
-    }
-  };
-
-  // Profil güncellemesi işlemi
-  const handleSaveProfile = async (profileData) => {
-    try {
-      setLoading(true);
-      const config = getConfig();
-      
-      if (!config) {
-        setError('Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.');
-        setLoading(false);
-        return;
-      }
-      
-      console.log('Gönderilen profil verileri:', profileData);
-      
-      // API'ye gönder
-      const response = await axios.put(
-        `${API_URL}/auth/profile`,
-        profileData,
-        config
-      );
-      
-      console.log('Profil güncelleme yanıtı:', response.data);
-      setUserData(response.data);
-      setLoading(false);
-      
-      return true;
-    } catch (error) {
-      console.error('Profil güncellenirken hata oluştu:', error);
-      
-      if (error.response && error.response.status === 401) {
-        setError('Oturumunuz sonlanmış. Lütfen tekrar giriş yapın.');
-        
-        // Token'ı temizle ve kullanıcıyı login sayfasına yönlendir
-        localStorage.removeItem('userToken');
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('userInfo');
-        
-        // 2 saniye sonra login sayfasına yönlendir
-        setTimeout(() => {
-          window.location.href = '/login?redirect=/matches';
-        }, 2000);
-      } else {
-        setError('Profil güncellenirken bir hata oluştu.');
-      }
-      
-      setLoading(false);
-      return false;
-    }
+  // Takım avatar harfini belirle
+  const getAvatarLetter = (teamName) => {
+    if (!teamName) return 'T';
+    return teamName.charAt(0).toUpperCase();
   };
 
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 10, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress />
+        <CircularProgress sx={{ color: primaryGreen }} />
       </Container>
     );
   }
@@ -254,202 +227,224 @@ function MatchResults() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      {/* Başlık Kısmı */}
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <SportsSoccer sx={{ color: 'primary.main', mr: 1, fontSize: 28 }} />
-          <Typography variant="h4" component="h1" fontWeight="bold" color="primary.main">
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          mb: 1, 
+          backgroundColor: primaryGreen,
+          p: 2,
+          borderRadius: 1,
+          color: 'white'
+        }}>
+          <SportsSoccer sx={{ mr: 1, fontSize: 28 }} />
+          <Typography variant="h4" component="h1" fontWeight="bold">
             Sporyum 23
           </Typography>
         </Box>
-        <Typography variant="h5" color="text.secondary" sx={{ mb: 3 }}>
+        <Typography variant="h5" color="text.secondary" sx={{ mb: 3, pl: 1 }}>
           Son Oynanan Maçlar
         </Typography>
+      </Box>
+      
+      {/* Halı Saha Filtreleme */}
+      <Box sx={{ mb: 3, pl: 1 }}>
+        <Button 
+          variant={selectedVenue === 'all' ? "contained" : "outlined"} 
+          color="success"
+          onClick={() => setSelectedVenue('all')}
+          sx={{ 
+            borderRadius: 4,
+            mr: 1,
+            bgcolor: selectedVenue === 'all' ? primaryGreen : 'transparent',
+            '&:hover': {
+              bgcolor: selectedVenue === 'all' ? primaryGreen : lightGreen
+            }
+          }}
+          startIcon={<SportsSoccer />}
+        >
+          Tüm Halı Sahalar
+        </Button>
         
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={handleTabChange} 
-            textColor="primary"
-            indicatorColor="primary"
-            variant="scrollable"
-            scrollButtons="auto"
+        {venues.map((venue, index) => (
+          <Button 
+            key={venue._id}
+            variant={selectedVenue === venue._id ? "contained" : "outlined"} 
+            color="success"
+            onClick={() => setSelectedVenue(venue._id)}
+            sx={{ 
+              borderRadius: 4,
+              mr: 1,
+              mb: 1,
+              bgcolor: selectedVenue === venue._id ? primaryGreen : 'transparent',
+              '&:hover': {
+                bgcolor: selectedVenue === venue._id ? primaryGreen : lightGreen
+              }
+            }}
+            startIcon={<Place />}
           >
-            <Tab 
-              label="Tümü" 
-              icon={<SportsSoccer />} 
-              iconPosition="start" 
-              sx={{ 
-                minHeight: 48, 
-                textTransform: 'none',
-                fontWeight: 'medium'
-              }} 
-            />
-            <Tab 
-              label="Gollü Maçlar" 
-              icon={<SportsSoccer />} 
-              iconPosition="start" 
-              sx={{ 
-                minHeight: 48, 
-                textTransform: 'none',
-                fontWeight: 'medium'
-              }} 
-            />
-            <Tab 
-              label="Son Maçlar" 
-              icon={<Today />} 
-              iconPosition="start" 
-              sx={{ 
-                minHeight: 48, 
-                textTransform: 'none',
-                fontWeight: 'medium'
-              }} 
-            />
-          </Tabs>
-        </Box>
+            {index === 0 ? "Halı Saha 1" : 
+             index === 1 ? "Halı Saha 2" : 
+             index === 2 ? "Halı Saha 3" : venue.name}
+          </Button>
+        ))}
       </Box>
 
       {loading ? (
         <Typography>Yükleniyor...</Typography>
       ) : (
-        <Grid container spacing={3}>
+        <Box>
           {filterMatches().map((match) => (
-            <Grid item xs={12} md={6} key={match.id}>
-              <Paper 
-                elevation={0} 
-                sx={{ 
-                  p: 3, 
-                  borderRadius: 4, 
-                  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-                  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 6px 15px rgba(0,0,0,0.1)'
-                  }
-                }}
-              >
-                {/* Tarih ve Yer Bilgisi */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, color: 'text.secondary' }}>
+            <Paper 
+              key={match.id}
+              elevation={1} 
+              sx={{ 
+                borderRadius: 0, 
+                overflow: 'hidden',
+                mb: 2,
+                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-3px)',
+                  boxShadow: '0 6px 15px rgba(0,0,0,0.15)'
+                }
+              }}
+            >
+              {/* Maç Başlığı */}
+              <Box sx={{ 
+                bgcolor: primaryGreen, 
+                color: 'white', 
+                p: 1.5,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <Typography variant="subtitle1" fontWeight="medium">
+                  {match.title}
+                </Typography>
+              </Box>
+              
+              {/* Maç Detayları */}
+              <Box sx={{ p: 2 }}>
+                {/* Tarih, Saat ve Yer */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  mb: 2,
+                  flexWrap: 'wrap',
+                  gap: 1
+                }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <CalendarMonth fontSize="small" sx={{ mr: 0.5 }} />
-                    <Typography variant="body2" sx={{ mr: 1 }}>{match.date}</Typography>
-                    <AccessTime fontSize="small" sx={{ mr: 0.5 }} />
-                    <Typography variant="body2">{match.time}</Typography>
+                    <CalendarMonth fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {match.date}
+                    </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Place fontSize="small" sx={{ mr: 0.5 }} />
-                    <Typography variant="body2">Sporyum 23</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                    <AccessTime fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {match.time}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                    <Place fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {match.venueName}
+                    </Typography>
                   </Box>
                 </Box>
                 
                 {/* Takımlar ve Skor */}
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  bgcolor: lightGreen,
+                  p: 2,
+                  borderRadius: 0
+                }}>
                   {/* Takım A */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                  <Box sx={{ textAlign: 'center', width: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Avatar 
                       sx={{ 
-                        bgcolor: getTeamBgColor(match.homeTeam.color),
-                        color: 'white',
-                        fontWeight: 'bold',
-                        width: 40,
-                        height: 40,
-                        mr: 1
+                        bgcolor: primaryGreen, 
+                        width: 45, 
+                        height: 45, 
+                        fontSize: 20,
+                        mr: 2,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}
                     >
-                      {match.homeTeam.name[0]}
+                      {getAvatarLetter(match.teamA.name)}
                     </Avatar>
-                    <Typography variant="body1" fontWeight="medium">{match.homeTeam.name}</Typography>
+                    <Typography variant="body1" fontWeight="bold">
+                      {match.teamA.name}
+                    </Typography>
                   </Box>
                   
                   {/* Skor */}
                   <Box sx={{ 
                     display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    px: 2,
-                    py: 1,
-                    borderRadius: 2,
-                    bgcolor: 'rgba(0,0,0,0.04)',
-                    minWidth: 80
+                    flexDirection: 'column',
+                    alignItems: 'center'
                   }}>
-                    <Typography variant="h5" fontWeight="bold" color="text.primary">
-                      {match.homeScore} - {match.awayScore}
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Maç Skoru
                     </Typography>
+                    <Box sx={{ 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      bgcolor: 'white',
+                      border: `2px solid ${primaryGreen}`,
+                      borderRadius: 1,
+                      px: 3,
+                      py: 1,
+                      minWidth: 100,
+                      textAlign: 'center',
+                      boxShadow: '0 3px 5px rgba(0,0,0,0.1)'
+                    }}>
+                      <Typography 
+                        variant="h4" 
+                        fontWeight="bold" 
+                        color={primaryGreen}
+                        sx={{ letterSpacing: 1 }}
+                      >
+                        {match.teamA.score} - {match.teamB.score}
+                      </Typography>
+                    </Box>
                   </Box>
                   
                   {/* Takım B */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
-                    <Typography variant="body1" fontWeight="medium" sx={{ mr: 1 }}>{match.awayTeam.name}</Typography>
+                  <Box sx={{ textAlign: 'center', width: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography variant="body1" fontWeight="bold" sx={{ mr: 2 }}>
+                      {match.teamB.name}
+                    </Typography>
                     <Avatar 
                       sx={{ 
-                        bgcolor: getTeamBgColor(match.awayTeam.color),
-                        color: 'white',
-                        fontWeight: 'bold',
-                        width: 40,
-                        height: 40
+                        bgcolor: '#d32f2f', 
+                        width: 45, 
+                        height: 45, 
+                        fontSize: 20,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}
                     >
-                      {match.awayTeam.name[0]}
+                      {getAvatarLetter(match.teamB.name)}
                     </Avatar>
                   </Box>
                 </Box>
-                
-                <Divider sx={{ my: 2 }} />
-                
-                {/* Maç Bilgileri */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Tooltip title="Maçın Yıldızı">
-                      <EmojiEvents fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                    </Tooltip>
-                    <Typography variant="body2">
-                      <strong>MVP:</strong> {match.manOfTheMatch}
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Tooltip title="Toplam Gol">
-                      <SportsSoccer fontSize="small" color="primary" sx={{ mr: 0.5 }} />
-                    </Tooltip>
-                    <Typography variant="body2">
-                      <strong>Toplam Gol:</strong> {match.totalGoals}
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                {/* Etkileşim Düğmeleri */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button 
-                      size="small" 
-                      startIcon={<ThumbUp />} 
-                      variant="text" 
-                      color="primary"
-                    >
-                      {match.likes}
-                    </Button>
-                    <Button 
-                      size="small" 
-                      startIcon={<Comment />} 
-                      variant="text" 
-                      color="primary"
-                    >
-                      {match.comments}
-                    </Button>
-                  </Box>
-                  
-                  <Button 
-                    size="small" 
-                    endIcon={<ArrowForward />} 
-                    color="primary"
-                    variant="text"
-                  >
-                    Detaylar
-                  </Button>
-                </Box>
-              </Paper>
-            </Grid>
+              </Box>
+            </Paper>
           ))}
-        </Grid>
+        </Box>
+      )}
+      
+      {filterMatches().length === 0 && !loading && (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography variant="h6" color="text.secondary">
+            Bu halı sahada henüz maç bulunmuyor.
+          </Typography>
+        </Box>
       )}
     </Container>
   );

@@ -113,16 +113,16 @@ function Profile() {
         createdAt: response.data.createdAt || new Date().toISOString()
       });
       
-      // İstatistikleri ayarla
+      // İstatistikleri ayarla - verilerini doğru şekilde al
       setUserStats({
         matches: response.data.matchesPlayed || 0,
         goals: response.data.goalsScored || 0,
         assists: response.data.assists || 0,
-        rating: response.data.rating || 0,
+        rating: response.data.rating || 3.5, // Örnek rating
         position: response.data.position || '',
         preferredFoot: response.data.preferredFoot || 'Sağ',
-        height: response.data.height || 0,
-        weight: response.data.weight || 0,
+        height: response.data.height || 175,
+        weight: response.data.weight || 70,
         teams: response.data.teams || [],
         achievements: response.data.achievements || [],
         favoriteTeam: response.data.favoriteTeam || '',

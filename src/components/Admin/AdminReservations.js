@@ -75,12 +75,12 @@ function AdminReservations() {
       console.log('MongoDB veritabanından rezervasyonlar getiriliyor...');
       
       // Önce direk veritabanı içeriğini kontrol et
-      const dbResponse = await axios.get('/api/reservations/direct-mongodb');
+      const dbResponse = await axios.get('http://localhost:5000/api/reservations/direct-mongodb');
       console.log('Tüm MongoDB içeriği:', dbResponse.data);
       console.log(`MongoDB'de toplam ${dbResponse.data.length} rezervasyon var`);
       
       // Şimdi normal API ile dene
-      const response = await axios.get('/api/reservations/venue/sporyum23');
+      const response = await axios.get('http://localhost:5000/api/reservations/venue/sporyum23');
       console.log('API yanıtı:', response.data);
       
       if (response.data && response.data.reservations && response.data.reservations.length > 0) {
@@ -198,7 +198,7 @@ function AdminReservations() {
       setLoading(true);
       
       // API'ye rezervasyon güncelleme isteği gönder
-      await axios.patch(`/api/reservations/${selectedReservation.id}/status`, {
+      await axios.patch(`http://localhost:5000/api/reservations/${selectedReservation.id}/status`, {
         status: selectedReservation.status
       });
       
@@ -231,10 +231,14 @@ function AdminReservations() {
     try {
       setLoading(true);
       
+      console.log(`Rezervasyon durumu güncelleniyor: ID=${selectedReservation.id}, yeni durum=${newStatus}`);
+      
       // API isteği ile rezervasyon durumunu güncelle
-      await axios.patch(`/api/reservations/${selectedReservation.id}/status`, {
+      const response = await axios.patch(`http://localhost:5000/api/reservations/${selectedReservation.id}/status`, {
         status: newStatus
       });
+      
+      console.log('Başarılı yanıt:', response.data);
       
       // State'deki rezervasyon listesini güncelle
     const updatedReservations = reservations.map(r => 
@@ -251,7 +255,23 @@ function AdminReservations() {
       
     } catch (error) {
       console.error('Durum güncelleme hatası:', error);
-      setError('Rezervasyon durumu güncellenirken bir hata oluştu.');
+      
+      // Hata detaylarını daha ayrıntılı görüntüle
+      if (error.response) {
+        // Sunucudan gelen hata yanıtı
+        console.error('Hata yanıtı verisi:', error.response.data);
+        console.error('Hata durum kodu:', error.response.status);
+        console.error('Hata başlıkları:', error.response.headers);
+        setError(`Rezervasyon durumu güncellenirken bir hata oluştu: ${error.response.data.message || error.response.statusText}`);
+      } else if (error.request) {
+        // Yanıt alınamadı
+        console.error('Yanıt alınamadı (request):', error.request);
+        setError('Sunucudan yanıt alınamadı. Bağlantınızı kontrol edin.');
+      } else {
+        // İstek oluşturulurken hata
+        console.error('İstek hatası:', error.message);
+        setError(`İstek oluşturulurken hata: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }

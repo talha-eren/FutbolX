@@ -8,7 +8,7 @@ import {
 import {
   SportsSoccer, People, EventNote, Home,
   Notifications, Add, Search, AccountCircle,
-  Person, VideoLibrary, CloudUpload
+  Person, VideoLibrary, CloudUpload, BarChart, Settings
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -115,6 +115,20 @@ function Navbar() {
       return userInfo.username.charAt(0).toUpperCase();
     }
     return 'K';
+  };
+
+  // Check if the current user is talhaeren (admin)
+  const isAdmin = () => {
+    const userInfo = localStorage.getItem('userInfo');
+    if (!userInfo) return false;
+    
+    try {
+      const user = JSON.parse(userInfo);
+      return user.username === 'talhaeren';
+    } catch (error) {
+      console.error('Error parsing user info:', error);
+      return false;
+    }
   };
 
   return (
@@ -231,29 +245,6 @@ function Navbar() {
             >
               Hakkımızda
             </Button>
-            {isLoggedIn && (
-              <Button
-                component={Link}
-                to="/upload-post"
-                startIcon={<CloudUpload />}
-                onClick={() => handleButtonClick('/upload-post', true)}
-                sx={{
-                  ...getButtonStyle('/upload-post'),
-                  border: activeButton === '/upload-post' ? 'none' : '1px solid #4CAF50',
-                  backgroundColor: activeButton === '/upload-post' ? '#4CAF50' : 'rgba(76, 175, 80, 0.08)',
-                  color: activeButton === '/upload-post' ? '#fff' : '#388e3c',
-                  fontWeight: 600,
-                  '&:hover': {
-                    backgroundColor: activeButton === '/upload-post' ? '#43a047' : 'rgba(76, 175, 80, 0.15)',
-                    color: activeButton === '/upload-post' ? '#fff' : '#388e3c',
-                    transform: 'translateY(-3px)',
-                    boxShadow: '0 6px 20px rgba(76,175,80,0.15)'
-                  }
-                }}
-              >
-                {t('navbar.postShare')}
-              </Button>
-            )}
           </Box>
 
           {/* Sağ Bölüm */}
@@ -416,35 +407,35 @@ function Navbar() {
             </Box>
             
             <Box sx={{ py: 1 }}>
-              <MenuItem component={Link} to="/profile" sx={{ mt: 0.5 }}>
+              <MenuItem onClick={() => setProfileAnchor(null)} component={Link} to="/profile">
                 <ListItemIcon>
-                  <AccountCircle sx={{ color: '#666' }} /> 
+                  <Person fontSize="small" />
                 </ListItemIcon>
-                <Typography variant="body1">Profilim</Typography>
+                Profilim
               </MenuItem>
               
-              <MenuItem component={Link} to="/stats" sx={{ my: 0.5 }}>
+              <MenuItem onClick={() => setProfileAnchor(null)} component={Link} to="/stats">
                 <ListItemIcon>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#666">
-                    <path d="M3 3v17a1 1 0 0 0 1 1h17v-2H5V3H3z"/>
-                    <path d="M15.293 14.707a.999.999 0 0 0 1.414 0l5-5-1.414-1.414L16 12.586l-2.293-2.293a.999.999 0 0 0-1.414 0l-5 5 1.414 1.414L13 12.414l2.293 2.293z"/>
-                  </svg>
+                  <BarChart fontSize="small" />
                 </ListItemIcon>
-                <Typography variant="body1">İstatistiklerim</Typography>
+                İstatistiklerim
               </MenuItem>
 
-              <MenuItem component={Link} to="/admin" sx={{ my: 0.5 }}>
-                <ListItemIcon>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#666">
-                    <path d="M13 21V11h8v10h-8zm-10 0V11h8v10H3zm5-4h2v2H8v-2zm0-4h2v2H8v-2zm10 4h2v2h-2v-2zm0-4h2v2h-2v-2zM3 9V3h18v6H3zm14-2h2v2h-2V7zM5 7h8v2H5V7z"/>
-                  </svg>
-                </ListItemIcon>
-                <Typography variant="body1">Halı Saha Yönetimi</Typography>
-              </MenuItem>
+              {isAdmin() && (
+                <MenuItem onClick={() => setProfileAnchor(null)} component={Link} to="/admin">
+                  <ListItemIcon>
+                    <Settings fontSize="small" />
+                  </ListItemIcon>
+                  Halı Saha Yönetimi
+                  <Typography variant="caption" color="primary" sx={{ ml: 1 }}>
+                    (Admin)
+                  </Typography>
+                </MenuItem>
+              )}
 
               <Divider sx={{ my: 1, opacity: 0.6 }} />
               
-              <MenuItem component={Link} to="/settings" sx={{ my: 0.5 }}>
+              <MenuItem onClick={() => setProfileAnchor(null)} component={Link} to="/settings">
                 <ListItemIcon>
                   <Person sx={{ color: '#666' }} /> 
                 </ListItemIcon>

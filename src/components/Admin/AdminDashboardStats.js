@@ -16,7 +16,8 @@ import {
   LinearProgress,
   Stack,
   IconButton,
-  Tooltip
+  Tooltip,
+  Alert
 } from '@mui/material';
 import {
   TrendingUp,
@@ -30,6 +31,7 @@ import {
   CalendarMonth,
   Star
 } from '@mui/icons-material';
+import axios from 'axios';
 
 // Grafik bileşenleri için (isteğe bağlı)
 import { 
@@ -50,6 +52,7 @@ import {
 function AdminDashboardStats() {
   // State tanımlamaları
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     totalReservations: 0,
     todayReservations: 0,
@@ -67,13 +70,33 @@ function AdminDashboardStats() {
 
   // Verileri yükle
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Burada API'den istatistik verileri çekilecek
-        // Şimdilik örnek veriler kullanalım
-        
-        // Gerçek uygulamada, bu veriler API'den alınacaktır
-        const mockStats = {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Admin token'ını localStorage'dan al
+      const token = localStorage.getItem('userToken');
+      
+      if (!token) {
+        throw new Error('Oturum bilgisi bulunamadı');
+      }
+      
+      // API'den istatistikleri çek
+      const response = await axios.get('http://localhost:5000/api/admin/dashboard-stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data) {
+        setStats(response.data);
+      } else {
+        // API yanıt vermezse örnek verilerle devam et
+        setStats({
           totalReservations: 248,
           todayReservations: 8,
           weeklyReservations: 42,
@@ -109,27 +132,59 @@ function AdminDashboardStats() {
             { name: 'May', reservations: 165, revenue: 16500 },
             { name: 'Haz', reservations: 180, revenue: 18000 },
           ]
-        };
-        
-        setStats(mockStats);
-        setLoading(false);
-      } catch (error) {
-        console.error('İstatistikler yüklenirken hata oluştu:', error);
-        setLoading(false);
+        });
+        console.log('API yanıt vermediği için örnek veriler gösteriliyor');
       }
-    };
-
-    fetchStats();
-  }, []);
+    } catch (error) {
+      console.error('İstatistikler yüklenirken hata oluştu:', error);
+      setError('Veriler yüklenirken bir sorun oluştu: ' + (error.response?.data?.message || error.message));
+      
+      // Hata durumunda örnek verilerle devam et
+      setStats({
+        totalReservations: 248,
+        todayReservations: 8,
+        weeklyReservations: 42,
+        monthlyReservations: 165,
+        totalIncome: 24800,
+        weeklyIncome: 4200,
+        customerCount: 156,
+        occupancyRate: 78,
+        popularTimes: [
+          { time: '18:00', count: 42, percentage: 90 },
+          { time: '19:00', count: 38, percentage: 85 },
+          { time: '20:00', count: 35, percentage: 80 },
+          { time: '21:00', count: 30, percentage: 70 },
+          { time: '17:00', count: 25, percentage: 60 },
+        ],
+        recentBookings: [
+          { id: 1, customer: 'Ahmet Yılmaz', field: 'Saha 1', time: '18:00 - 19:00', date: '18.05.2023', amount: 350 },
+          { id: 2, customer: 'Mehmet Demir', field: 'Saha 2', time: '19:00 - 20:00', date: '18.05.2023', amount: 350 },
+          { id: 3, customer: 'Ali Kaya', field: 'Saha 1', time: '20:00 - 21:00', date: '18.05.2023', amount: 400 },
+          { id: 4, customer: 'Kerem Yıldız', field: 'Saha 3', time: '18:00 - 19:00', date: '19.05.2023', amount: 350 },
+          { id: 5, customer: 'Ozan Şimşek', field: 'Saha 2', time: '21:00 - 22:00', date: '19.05.2023', amount: 300 },
+        ],
+        fieldUtilization: [
+          { name: 'Saha 1', value: 85 },
+          { name: 'Saha 2', value: 75 },
+          { name: 'Saha 3', value: 60 },
+        ],
+        monthlyTrend: [
+          { name: 'Oca', reservations: 120, revenue: 12000 },
+          { name: 'Şub', reservations: 130, revenue: 13000 },
+          { name: 'Mar', reservations: 140, revenue: 14000 },
+          { name: 'Nis', reservations: 150, revenue: 15000 },
+          { name: 'May', reservations: 165, revenue: 16500 },
+          { name: 'Haz', reservations: 180, revenue: 18000 },
+        ]
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Verileri yenile
   const handleRefresh = () => {
-    setLoading(true);
-    // API'den verileri yeniden çek
-    setTimeout(() => {
-      // Gerçek uygulamada bu kısım API çağrısı ile değiştirilecek
-      setLoading(false);
-    }, 1000);
+    fetchDashboardData();
   };
 
   // Grafik renkleri
@@ -151,6 +206,12 @@ function AdminDashboardStats() {
           </IconButton>
         </Tooltip>
       </Box>
+
+      {error && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          {error} Veritabanı bağlantısı olmadığı için örnek veriler gösteriliyor.
+        </Alert>
+      )}
 
       {/* Ana metrikler */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

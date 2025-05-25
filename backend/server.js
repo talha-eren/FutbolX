@@ -21,6 +21,10 @@ const Venue = require('./models/Venue');
 const authRoutes = require('./routes/authRoutes');
 const videoRoutes = require('./routes/videoRoutes');
 const reservationRoutes = require('./routes/reservationRoutes');
+const matchRoutes = require('./routes/matchRoutes');
+const playerRoutes = require('./routes/playerRoutes');
+const venueRoutes = require('./routes/venueRoutes');
+const teamRoutes = require('./routes/teamRoutes');
 const { protect } = require('./middleware/authMiddleware');
 
 console.log('Modüller yüklendi');
@@ -77,6 +81,9 @@ mongoose.connect(mongoURI)
     // Index'leri kontrol et ve düzelt
     fixReservationIndexes();
     
+    // Veritabanı durumunu logla
+    checkDatabaseStatus();
+    
     // Örnek verileri ekle
     initSampleData();
   })
@@ -128,6 +135,35 @@ const fixReservationIndexes = async () => {
     
   } catch (error) {
     console.error('Index düzeltme hatası:', error);
+  }
+};
+
+// Veritabanı durumunu kontrol et ve logla
+const checkDatabaseStatus = async () => {
+  try {
+    const User = require('./models/User');
+    const Team = require('./models/Team');
+    
+    const userCount = await User.countDocuments();
+    const teamCount = await Team.countDocuments();
+    const adminCount = await User.countDocuments({ role: 'admin' });
+    
+    console.log('=== Veritabanı Durumu ===');
+    console.log(`Toplam Kullanıcı Sayısı: ${userCount}`);
+    console.log(`Admin Kullanıcı Sayısı: ${adminCount}`);
+    console.log(`Toplam Takım Sayısı: ${teamCount}`);
+    
+    if (teamCount > 0) {
+      const teams = await Team.find().sort({ createdAt: -1 });
+      console.log('Mevcut Takımlar:');
+      teams.forEach((team, index) => {
+        console.log(`${index + 1}. ${team.name} (${team.isApproved ? 'Onaylı' : 'Onay Bekliyor'})`);
+      });
+    }
+    
+    console.log('=======================');
+  } catch (error) {
+    console.error('Veritabanı durum kontrolü sırasında hata:', error);
   }
 };
 
@@ -228,6 +264,18 @@ app.use('/api/videos', videoRoutes);
 // Rezervasyon rotalarını kullan - ÖNEMLİ: Bu rotaları doğru şekilde tanımla
 app.use('/api/reservations', reservationRoutes);
 
+// Maç rotalarını kullan
+app.use('/api/matches', matchRoutes);
+
+// Oyuncu rotalarını kullan
+app.use('/api/players', playerRoutes);
+
+// Halı saha rotalarını kullan
+app.use('/api/venues', venueRoutes);
+
+// Takım rotalarını kullan
+app.use('/api/teams', teamRoutes);
+
 // Static dosyaları servis et
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
@@ -289,8 +337,135 @@ const initSampleData = async () => {
       await Venue.insertMany(sampleVenues);
       console.log(`${sampleVenues.length} halı saha kaydı eklendi.`);
     }
-  } catch (err) {
-    console.error('Örnek veri eklenirken hata oluştu:', err);
+
+    // Örnek takım ekle
+    const Team = require('./models/Team');
+    const User = require('./models/User');
+    
+    // Admin kullanıcısını bul (User modelinden)
+    const adminUser = await User.findOne({ username: 'talhaeren' });
+    
+    if (adminUser) {
+      console.log('Admin kullanıcısı bulundu:', adminUser.username);
+      
+      // Örnek takımlar var mı kontrol et
+      const teamCount = await Team.countDocuments();
+      
+      if (teamCount === 0) {
+        console.log('Örnek takımlar ekleniyor...');
+        
+        const sampleTeams = [
+          {
+            name: 'Şimşekler',
+            level: 'İyi',
+            neededPlayers: 2,
+            preferredTime: '20:00',
+            contactNumber: '05551234567',
+            description: 'Sporyum 23\'ün yıldız takımı, hızlı hücum oyunuyla rakiplerini açık ara geçiyor.',
+            regularPlayDays: ['Salı', 'Perşembe'],
+            location: {
+              city: 'İstanbul',
+              district: 'Kadıköy'
+            },
+            isApproved: true,
+            stats: {
+              attack: 92,
+              defense: 85,
+              speed: 90,
+              teamwork: 94
+            },
+            createdBy: adminUser._id,
+            players: [{
+              player: adminUser._id,
+              isAdmin: true
+            }]
+          },
+          {
+            name: 'Aslanlar SK',
+            level: 'Pro',
+            neededPlayers: 0,
+            preferredTime: '19:00',
+            contactNumber: '05551234568',
+            description: 'Disiplinli defans anlayışı ve kontra atak oyunuyla tanınan tecrübeli ekip.',
+            regularPlayDays: ['Pazartesi', 'Çarşamba'],
+            location: {
+              city: 'İstanbul',
+              district: 'Üsküdar'
+            },
+            isApproved: true,
+            stats: {
+              attack: 88,
+              defense: 92,
+              speed: 82,
+              teamwork: 90
+            },
+            createdBy: adminUser._id,
+            players: [{
+              player: adminUser._id,
+              isAdmin: true
+            }]
+          }
+        ];
+        
+        await Team.insertMany(sampleTeams);
+        console.log('Örnek takımlar başarıyla eklendi');
+      } else {
+        console.log(`Veritabanında zaten ${teamCount} takım bulunuyor, örnek takımlar eklenmedi.`);
+      }
+    } else {
+      console.log('Admin kullanıcısı bulunamadı, örnek takımlar eklenemiyor.');
+      
+      // Admin kullanıcısını oluştur
+      const newAdmin = new User({
+        username: 'admin',
+        email: 'admin@futbolx.com',
+        password: await bcrypt.hash('admin123', 10),
+        firstName: 'Admin',
+        lastName: 'User',
+        role: 'admin'
+      });
+      
+      try {
+        const savedAdmin = await newAdmin.save();
+        console.log('Yeni admin kullanıcısı oluşturuldu:', savedAdmin.username);
+        
+        // Yeni admin kullanıcısı ile örnek takımlar oluştur
+        const sampleTeams = [
+          {
+            name: 'Şimşekler',
+            level: 'İyi',
+            neededPlayers: 2,
+            preferredTime: '20:00',
+            contactNumber: '05551234567',
+            description: 'Sporyum 23\'ün yıldız takımı, hızlı hücum oyunuyla rakiplerini açık ara geçiyor.',
+            regularPlayDays: ['Salı', 'Perşembe'],
+            location: {
+              city: 'İstanbul',
+              district: 'Kadıköy'
+            },
+            isApproved: true,
+            stats: {
+              attack: 92,
+              defense: 85,
+              speed: 90,
+              teamwork: 94
+            },
+            createdBy: savedAdmin._id,
+            players: [{
+              player: savedAdmin._id,
+              isAdmin: true
+            }]
+          }
+        ];
+        
+        await Team.insertMany(sampleTeams);
+        console.log('Yeni admin ile örnek takımlar başarıyla eklendi');
+      } catch (error) {
+        console.error('Admin kullanıcısı oluşturulurken hata:', error.message);
+      }
+    }
+  } catch (error) {
+    console.error('Örnek veri ekleme hatası:', error);
   }
 };
 

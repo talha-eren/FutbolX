@@ -1,35 +1,89 @@
-import React, { useState } from 'react';
-import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, Card, CardContent, Avatar, Chip, Grid, IconButton } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Button, Dialog, DialogTitle, DialogContent, Card, CardContent, Avatar, Chip, Grid, IconButton, CircularProgress, Alert } from '@mui/material';
 import { Group, WhatsApp, PersonAdd, Star, SportsScore, AccessTime } from '@mui/icons-material';
+import axios from 'axios';
+
+// API URL
+const API_URL = 'http://localhost:5000/api';
+
+// Token'ı localStorage'dan al
+const getToken = () => {
+  return localStorage.getItem('userToken');
+};
+
+// API isteği için config oluştur
+const getConfig = () => {
+  const token = getToken();
+  if (!token) {
+    console.error('Token bulunamadı');
+    return null;
+  }
+  
+  return {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  };
+};
 
 function TeamFinder() {
   const [open, setOpen] = useState(false);
-  const [teams] = useState([
-    {
-      id: 1,
-      name: 'Yıldızlar FC',
-      level: 'Orta',
-      players: 4,
-      neededPlayers: 2,
-      time: '20:00',
-      venue: 'Yıldız Halı Saha',
-      rating: 4.5,
-      contact: '0532xxxxxxx',
-      matchHistory: '7G 2B 1M'
-    },
-    {
-      id: 2,
-      name: 'Kartallar Spor',
-      level: 'İyi',
-      players: 5,
-      neededPlayers: 1,
-      time: '21:00',
-      venue: 'Sporyum 23',
-      rating: 4.8,
-      contact: '0535xxxxxxx',
-      matchHistory: '8G 1B 1M'
+  const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Takımları getir
+  const fetchTeams = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await axios.get(`${API_URL}/teams`);
+      console.log('Takımlar yüklendi:', response.data);
+      
+      setTeams(response.data);
+    } catch (error) {
+      console.error('Takımlar yüklenirken hata:', error);
+      setError('Takımlar yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  // Dialog açıldığında takımları getir
+  useEffect(() => {
+    if (open) {
+      fetchTeams();
+    }
+  }, [open]);
+
+  // Takıma katıl
+  const joinTeam = async (teamId) => {
+    try {
+      const config = getConfig();
+      
+      if (!config) {
+        alert('Bu işlemi gerçekleştirmek için giriş yapmalısınız.');
+        return;
+      }
+      
+      // API'ye katılma isteği gönder
+      await axios.post(
+        `${API_URL}/teams/${teamId}/players`, 
+        { playerId: JSON.parse(localStorage.getItem('userInfo'))._id },
+        config
+      );
+      
+      // Takım listesini güncelle
+      fetchTeams();
+      
+      alert('Takıma katılma isteğiniz gönderildi!');
+    } catch (error) {
+      console.error('Takıma katılırken hata:', error);
+      alert('Takıma katılırken bir hata oluştu.');
+    }
+  };
 
   const getLevelColor = (level) => {
     switch (level) {
@@ -61,9 +115,18 @@ function TeamFinder() {
           </Box>
         </DialogTitle>
         <DialogContent>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Alert severity="error" sx={{ my: 2 }}>{error}</Alert>
+          ) : teams.length === 0 ? (
+            <Alert severity="info" sx={{ my: 2 }}>Şu an aktif takım bulunmuyor.</Alert>
+          ) : (
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {teams.map(team => (
-              <Grid item xs={12} key={team.id}>
+                <Grid item xs={12} key={team._id}>
                 <Card sx={{ 
                   '&:hover': { 
                     transform: 'translateY(-2px)',
@@ -82,11 +145,13 @@ function TeamFinder() {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <AccessTime fontSize="small" color="action" />
                             <Typography variant="body2" color="text.secondary">
-                              {team.time}
+                                {team.preferredTime}
                             </Typography>
+                              {team.venue && (
                             <Typography variant="body2" color="text.secondary">
-                              • {team.venue}
+                                  • {team.venue.name}
                             </Typography>
+                              )}
                           </Box>
                         </Box>
                       </Box>
@@ -116,17 +181,24 @@ function TeamFinder() {
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Typography variant="body2" color="text.secondary">
-                        Mevcut: {team.players} Oyuncu
+                          Mevcut: {team.currentPlayerCount} Oyuncu
                       </Typography>
                       <Box>
-                        <IconButton color="success" href={`https://wa.me/${team.contact}`} target="_blank">
+                          {team.contactNumber && (
+                            <IconButton 
+                              color="success" 
+                              href={`https://wa.me/${team.contactNumber.replace(/\D/g, '')}`} 
+                              target="_blank"
+                            >
                           <WhatsApp />
                         </IconButton>
+                          )}
                         <Button
                           variant="contained"
                           startIcon={<PersonAdd />}
                           size="small"
                           sx={{ ml: 1 }}
+                            onClick={() => joinTeam(team._id)}
                         >
                           Katıl
                         </Button>
@@ -137,6 +209,7 @@ function TeamFinder() {
               </Grid>
             ))}
           </Grid>
+          )}
         </DialogContent>
       </Dialog>
     </>

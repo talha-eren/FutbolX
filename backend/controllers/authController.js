@@ -326,3 +326,122 @@ exports.changePassword = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Kullanıcı bilgisi alma
+exports.getUserInfo = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Yetkilendirme başarısız. Lütfen tekrar giriş yapın.' });
+    }
+    
+    const user = await User.findById(req.user.id).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Kullanıcı bilgisi getirme hatası:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Kullanıcı çıkış yapma
+exports.logout = async (req, res) => {
+  try {
+    // JWT tokenlar stateless olduğu için, client tarafında token'ı silmek yeterli
+    // Ancak gelecekte token'ı blacklist'e eklemek için bir işlem yapılabilir
+    res.json({ message: 'Başarıyla çıkış yapıldı' });
+  } catch (error) {
+    console.error('Çıkış yapma hatası:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Şifre sıfırlama isteği
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Email ile kullanıcıyı bul
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Bu email ile kayıtlı kullanıcı bulunamadı' });
+    }
+    
+    // Şifre sıfırlama token'ı oluştur
+    const resetToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    
+    // Gerçek uygulamada bu token e-posta ile kullanıcıya gönderilirdi
+    // Ancak şimdilik token'ı doğrudan döndürelim
+    res.json({ 
+      message: 'Şifre sıfırlama talebi oluşturuldu', 
+      resetToken 
+    });
+  } catch (error) {
+    console.error('Şifre sıfırlama isteği hatası:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Token doğrulama
+exports.verifyToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    // Token'ı doğrula
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    if (!decoded || !decoded.id) {
+      return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş token' });
+    }
+    
+    // Kullanıcıyı kontrol et
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    res.json({ valid: true, userId: decoded.id });
+  } catch (error) {
+    console.error('Token doğrulama hatası:', error);
+    res.status(400).json({ message: 'Geçersiz veya süresi dolmuş token', valid: false });
+  }
+};
+
+// Şifre sıfırlama
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token ve yeni şifre gerekli' });
+    }
+    
+    // Token'ı doğrula
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    if (!decoded || !decoded.id) {
+      return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş token' });
+    }
+    
+    // Kullanıcıyı bul
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanıcı bulunamadı' });
+    }
+    
+    // Yeni şifreyi ayarla
+    user.password = newPassword;
+    await user.save();
+    
+    res.json({ message: 'Şifre başarıyla sıfırlandı' });
+  } catch (error) {
+    console.error('Şifre sıfırlama hatası:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

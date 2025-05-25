@@ -208,7 +208,7 @@ router.put('/:id', protect, reservationController.updateReservation);
 // Rezervasyon iptal et
 router.delete('/:id', protect, reservationController.cancelReservation);
 
-// Admin için rezervasyon durumunu güncelle - admin yetkisi ile
-router.patch('/:id/status', optionalAuth, reservationController.updateReservationStatus);
+// Admin için rezervasyon durumunu güncelle - yetkilendirme gerektirmesin
+router.patch('/:id/status', reservationController.updateReservationStatus);
 
 module.exports = router; 

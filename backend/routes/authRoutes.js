@@ -1,35 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  register, 
-  login, 
-  getProfile, 
-  updateProfile,
-  updateMatches,
-  addMatch,
-  updateHighlights,
-  addHighlight,
-  changePassword
-} = require('../controllers/authController');
-const { protect } = require('../middleware/authMiddleware');
+const { register, login, logout, getUserInfo, forgotPassword, resetPassword, verifyToken, changePassword, getProfile } = require('../controllers/authController');
+const { protect, adminMiddleware } = require('../middleware/authMiddleware');
+const adminController = require('../controllers/adminController');
 
 // Kullanıcı kaydı ve girişi
 router.post('/register', register);
 router.post('/login', login);
+router.post('/logout', logout);
 
-// Korumalı rotalar - Profil
+// Kullanıcı bilgisi alma
+router.get('/me', protect, getUserInfo);
+
+// Profile endpoint - getProfile fonksiyonunu kullanarak
 router.get('/profile', protect, getProfile);
-router.put('/profile', protect, updateProfile);
 
-// Korumalı rotalar - Maçlar
-router.put('/profile/matches', protect, updateMatches);
-router.post('/profile/matches', protect, addMatch);
-
-// Korumalı rotalar - Öne Çıkanlar
-router.put('/profile/highlights', protect, updateHighlights);
-router.post('/profile/highlights', protect, addHighlight);
+// Şifre sıfırlama
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+router.post('/verify-token', verifyToken);
 
 // Şifre değiştirme
 router.put('/change-password', protect, changePassword);
+
+// Admin rotaları
+router.post('/admin/login', adminController.login);
+router.post('/admin/register', protect, adminMiddleware, adminController.register);
+router.get('/admin/dashboard-stats', protect, adminMiddleware, adminController.getDashboardStats);
+router.get('/admin/reservations', protect, adminMiddleware, adminController.getAllReservations);
+router.patch('/admin/reservations/:id/status', protect, adminMiddleware, adminController.updateReservationStatus);
+router.patch('/admin/reservations/:id/reschedule', protect, adminMiddleware, adminController.rescheduleReservation);
 
 module.exports = router;
