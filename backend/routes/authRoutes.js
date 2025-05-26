@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, logout, getUserInfo, forgotPassword, resetPassword, verifyToken, changePassword, getProfile } = require('../controllers/authController');
+const { register, login, logout, getUserInfo, forgotPassword, resetPassword, verifyToken, changePassword, getProfile, updateProfile } = require('../controllers/authController');
 const { protect, adminMiddleware } = require('../middleware/authMiddleware');
 const adminController = require('../controllers/adminController');
 
@@ -14,6 +14,7 @@ router.get('/me', protect, getUserInfo);
 
 // Profile endpoint - getProfile fonksiyonunu kullanarak
 router.get('/profile', protect, getProfile);
+router.put('/profile', protect, updateProfile);
 
 // Şifre sıfırlama
 router.post('/forgot-password', forgotPassword);

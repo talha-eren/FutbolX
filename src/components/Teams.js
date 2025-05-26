@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, Box, Typography, Card, CardContent,
-  Avatar, Chip, Grid, Button, Rating, Divider,
-  IconButton, LinearProgress, Tooltip, CircularProgress, Alert
+  Avatar, Chip, Grid, Button, Divider,
+  IconButton, LinearProgress, Tooltip, CircularProgress, Alert,
+  Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
 import {
-  SportsSoccer, EmojiEvents, Star, Group,
+  SportsSoccer, EmojiEvents, Group,
   Timeline, Speed, FitnessCenter, Psychology,
   Bolt, Shield, Public, LocalFireDepartment,
-  WhatsApp, Add
+  WhatsApp, FilterList
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -40,7 +41,8 @@ function Teams() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [sortBy, setSortBy] = useState('rating');
+  const [filterBy, setFilterBy] = useState('all');
+  const [level, setLevel] = useState('all');
 
   // Takımları API'den çek
   useEffect(() => {
@@ -68,7 +70,7 @@ function Teams() {
         } else {
           console.log('API\'den takım bulunamadı veya boş dizi döndü');
           setTeams([]);
-          setError('Henüz takım bulunmuyor. Takım ekle butonuna tıklayarak yeni bir takım oluşturabilirsiniz.');
+          setError('Henüz takım bulunmuyor.');
         }
         
         setLoading(false);
@@ -110,20 +112,19 @@ function Teams() {
     fetchTeams();
   }, []);
 
-  // Takımları sırala
-  const sortedTeams = [...teams].sort((a, b) => {
-    if (sortBy === 'rating') return b.rating - a.rating;
-    if (sortBy === 'matches') {
-      const aMatches = a.matches?.length || 0;
-      const bMatches = b.matches?.length || 0;
-      return bMatches - aMatches;
+  // Takımları filtrele
+  const filteredTeams = teams.filter(team => {
+    if (level !== 'all' && team.level !== level) {
+      return false;
     }
-    if (sortBy === 'goals') {
-      const aGoals = (a.matchStats?.goalsFor || 0) - (a.matchStats?.goalsAgainst || 0);
-      const bGoals = (b.matchStats?.goalsFor || 0) - (b.matchStats?.goalsAgainst || 0);
-      return bGoals - aGoals;
+    
+    if (filterBy === 'neededPlayers') {
+      return team.neededPlayers > 0;
+    } else if (filterBy === 'active') {
+      return team.regularPlayDays?.length > 0;
     }
-    return 0;
+    
+    return true;
   });
 
   // Takım rengi için varsayılan renk belirle
@@ -198,67 +199,46 @@ function Teams() {
           Yeni rakipler arıyor veya takıma katılmak istiyorsanız iletişime geçebilirsiniz.
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant={sortBy === 'rating' ? 'contained' : 'outlined'}
-              onClick={() => setSortBy('rating')}
-              sx={{ 
-                borderRadius: '20px',
-                textTransform: 'none',
-                bgcolor: sortBy === 'rating' ? '#4CAF50' : 'transparent',
-                '&:hover': { bgcolor: sortBy === 'rating' ? '#388E3C' : 'rgba(76, 175, 80, 0.08)' }
-              }}
-            >
-              Rating'e Göre
-            </Button>
-            <Button
-              variant={sortBy === 'matches' ? 'contained' : 'outlined'}
-              onClick={() => setSortBy('matches')}
-              sx={{ 
-                borderRadius: '20px',
-                textTransform: 'none',
-                bgcolor: sortBy === 'matches' ? '#4CAF50' : 'transparent',
-                '&:hover': { bgcolor: sortBy === 'matches' ? '#388E3C' : 'rgba(76, 175, 80, 0.08)' }
-              }}
-            >
-              Maç Sayısına Göre
-            </Button>
-            <Button
-              variant={sortBy === 'goals' ? 'contained' : 'outlined'}
-              onClick={() => setSortBy('goals')}
-              sx={{ 
-                borderRadius: '20px',
-                textTransform: 'none',
-                bgcolor: sortBy === 'goals' ? '#4CAF50' : 'transparent',
-                '&:hover': { bgcolor: sortBy === 'goals' ? '#388E3C' : 'rgba(76, 175, 80, 0.08)' }
-              }}
-            >
-              Gol Averajına Göre
-            </Button>
-          </Box>
-          
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Add />}
-            onClick={() => window.location.href = '/teams/create'}
-            sx={{ 
-              borderRadius: '20px',
-              textTransform: 'none',
-              bgcolor: '#4CAF50',
-              '&:hover': { bgcolor: '#388E3C' }
-            }}
-          >
-            Takım Ekle
-          </Button>
-        </Box>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel id="filter-label">Filtreleme</InputLabel>
+              <Select
+                labelId="filter-label"
+                value={filterBy}
+                label="Filtreleme"
+                onChange={(e) => setFilterBy(e.target.value)}
+              >
+                <MenuItem value="all">Tüm Takımlar</MenuItem>
+                <MenuItem value="neededPlayers">Oyuncu Arayanlar</MenuItem>
+                <MenuItem value="active">Aktif Takımlar</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel id="level-label">Seviye</InputLabel>
+              <Select
+                labelId="level-label"
+                value={level}
+                label="Seviye"
+                onChange={(e) => setLevel(e.target.value)}
+              >
+                <MenuItem value="all">Tüm Seviyeler</MenuItem>
+                <MenuItem value="Başlangıç">Başlangıç</MenuItem>
+                <MenuItem value="Orta">Orta</MenuItem>
+                <MenuItem value="İyi">İyi</MenuItem>
+                <MenuItem value="Pro">Pro</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
       </Box>
 
       {/* Takım Kartları */}
       <Grid container spacing={3}>
-        {sortedTeams.length > 0 ? (
-          sortedTeams.map(team => {
+        {filteredTeams.length > 0 ? (
+          filteredTeams.map(team => {
             const teamColor = getTeamColor(team);
             const stats = formatTeamStats(team);
             
@@ -299,18 +279,15 @@ function Teams() {
                       </Typography>
                     </Box>
                     
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Rating 
-                        value={team.rating || 4.5} 
-                        readOnly 
-                        precision={0.1}
-                        size="small"
-                        sx={{ mr: 1 }}
-                      />
-                      <Typography variant="body2">
-                        {team.rating?.toFixed(1) || '4.5'}
-                      </Typography>
-                    </Box>
+                    <Chip 
+                      label={team.level || "Orta"} 
+                      size="small"
+                      sx={{ 
+                        bgcolor: 'rgba(255,255,255,0.2)',
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}
+                    />
                   </Box>
                   
                   <CardContent>
@@ -318,15 +295,6 @@ function Teams() {
                     <Grid container spacing={2}>
                       {/* Sol Sütun */}
                       <Grid item xs={6}>
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="subtitle2" color="text.secondary">
-                            Seviye
-                          </Typography>
-                          <Typography variant="body1" fontWeight="medium">
-                            {team.level || 'Orta'}
-                          </Typography>
-                        </Box>
-                        
                         <Box sx={{ mb: 2 }}>
                           <Typography variant="subtitle2" color="text.secondary">
                             Oyuncu Sayısı
@@ -365,77 +333,8 @@ function Teams() {
                             {team.preferredTime || '20:00'}
                           </Typography>
                         </Box>
-                        
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="subtitle2" color="text.secondary">
-                            Konum
-                          </Typography>
-                          <Typography variant="body1" fontWeight="medium">
-                            {team.location?.district || 'İstanbul'}
-                          </Typography>
-                        </Box>
                       </Grid>
                     </Grid>
-                    
-                    <Divider sx={{ my: 2 }} />
-                    
-                    {/* Maç İstatistikleri */}
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-                        <EmojiEvents sx={{ mr: 1, color: teamColor }} />
-                        Maç İstatistikleri
-                      </Typography>
-                      
-                      <Grid container spacing={1}>
-                        <Grid item xs={4}>
-                          <Box sx={{ textAlign: 'center', p: 1 }}>
-                            <Typography variant="h5" fontWeight="bold" color={teamColor}>
-                              {stats.matches}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Maç
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={4}>
-                          <Box sx={{ textAlign: 'center', p: 1 }}>
-                            <Typography variant="h5" fontWeight="bold" color="success.main">
-                              {stats.wins}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Galibiyet
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={4}>
-                          <Box sx={{ textAlign: 'center', p: 1 }}>
-                            <Typography variant="h5" fontWeight="bold" color="error.main">
-                              {stats.losses}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Mağlubiyet
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      </Grid>
-                      
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Gol Atılan:</span>
-                          <span>{stats.goalsScored}</span>
-                        </Typography>
-                        <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Gol Yenilen:</span>
-                          <span>{stats.goalsConceded}</span>
-                        </Typography>
-                        <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                          <span>Averaj:</span>
-                          <span>{stats.goalsScored - stats.goalsConceded}</span>
-                        </Typography>
-                      </Box>
-                    </Box>
                     
                     <Divider sx={{ my: 2 }} />
                     
@@ -589,7 +488,7 @@ function Teams() {
         ) : (
           <Box sx={{ width: '100%', textAlign: 'center', py: 5 }}>
             <Typography variant="h6" color="text.secondary">
-              Henüz takım bulunmuyor.
+              Filtrelemeye uygun takım bulunmuyor.
             </Typography>
           </Box>
         )}

@@ -229,15 +229,6 @@ function Navbar() {
             </Button>
             <Button
               component={Link}
-              to="/videos"
-              startIcon={<VideoLibrary />}
-              onClick={() => handleButtonClick('/videos')}
-              sx={getButtonStyle('/videos')}
-            >
-              {t('common.videos')}
-            </Button>
-            <Button
-              component={Link}
               to="/about"
               startIcon={<People />}
               onClick={() => handleButtonClick('/about')}

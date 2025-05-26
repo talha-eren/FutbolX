@@ -425,9 +425,9 @@ function AdminTeamsManagement() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
-          <Typography variant="h5" component="h2" fontWeight="bold">
-            Takım Yönetimi
-          </Typography>
+        <Typography variant="h5" component="h2" fontWeight="bold">
+          Takım Yönetimi
+        </Typography>
           <Typography variant="body2" color="text.secondary">
             Halı sahanızda oynayan takımları ekleyin, düzenleyin veya silin.
           </Typography>
@@ -498,7 +498,7 @@ function AdminTeamsManagement() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {teams.map((team) => (
+              {teams.map((team) => (
                     <TableRow key={team._id}>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -545,39 +545,39 @@ function AdminTeamsManagement() {
                         {team.regularPlayDays && team.regularPlayDays.length > 0 ? (
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                             {team.regularPlayDays.map((day) => (
-                              <Chip 
-                                key={day} 
-                                label={day} 
-                                size="small" 
-                                variant="outlined" 
+                          <Chip 
+                            key={day} 
+                            label={day} 
+                            size="small" 
+                            variant="outlined" 
                                 sx={{ fontSize: '0.7rem' }}
-                              />
-                            ))}
-                          </Box>
+                          />
+                        ))}
+                      </Box>
                         ) : (
                           'Belirtilmemiş'
                         )}
                       </TableCell>
                       <TableCell>
-                        <IconButton 
-                          color="primary" 
-                          size="small"
-                          onClick={() => handleEditTeam(team)}
+                      <IconButton 
+                        color="primary" 
+                        size="small"
+                        onClick={() => handleEditTeam(team)}
                           title="Düzenle"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton 
-                          color="error" 
-                          size="small"
-                          onClick={() => handleDeleteTeam(team._id)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton 
+                        color="error" 
+                        size="small"
+                        onClick={() => handleDeleteTeam(team._id)}
                           title="Sil"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
+                      >
+                        <DeleteIcon />
+                      </IconButton>
                       </TableCell>
                     </TableRow>
-                  ))}
+              ))}
                 </TableBody>
               </Table>
             </TableContainer>

@@ -118,16 +118,16 @@ exports.createTeam = async (req, res) => {
     console.log('Oluşturulacak takım:', newTeam);
     
     try {
-      const savedTeam = await newTeam.save();
-      console.log('Takım kaydedildi:', savedTeam);
-      
-      // Oluşturulan takımı getir
-      const populatedTeam = await Team.findById(savedTeam._id)
-        .populate('venue', 'name location')
-        .populate('createdBy', 'name')
-        .populate('players.player', 'name email');
-      
-      res.status(201).json(populatedTeam);
+    const savedTeam = await newTeam.save();
+    console.log('Takım kaydedildi:', savedTeam);
+    
+    // Oluşturulan takımı getir
+    const populatedTeam = await Team.findById(savedTeam._id)
+      .populate('venue', 'name location')
+      .populate('createdBy', 'name')
+      .populate('players.player', 'name email');
+    
+    res.status(201).json(populatedTeam);
     } catch (saveError) {
       console.error('Takım kaydedilirken veritabanı hatası:', saveError);
       return res.status(500).json({ 

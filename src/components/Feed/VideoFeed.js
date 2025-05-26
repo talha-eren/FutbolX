@@ -37,7 +37,6 @@ import {
   Delete,
   Edit
 } from '@mui/icons-material';
-import ReactPlayer from 'react-player';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
@@ -245,12 +244,42 @@ function VideoFeed() {
     }
   };
   
-  // Video oynatma kontrolü
+  // Video oynatmayı başlat/durdur
   const togglePlay = (videoId) => {
-    setIsPlaying(prev => ({
-      ...prev,
-      [videoId]: !prev[videoId]
-    }));
+    const videoElement = playerRefs.current[videoId];
+    
+    if (!videoElement) {
+      console.error("Video elementi bulunamadı:", videoId);
+      return;
+    }
+    
+    console.log("Video durumu:", videoElement.paused ? "Duraklatılmış" : "Oynatılıyor");
+    
+    try {
+      if (videoElement.paused) {
+        // Video duraklatılmışsa oynat
+        const playPromise = videoElement.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log("Video başarıyla oynatılmaya başlandı");
+              setIsPlaying(prev => ({ ...prev, [videoId]: true }));
+            })
+            .catch(error => {
+              console.error("Video oynatma hatası:", error);
+              // Otoplay politikası hatası olabilir, kullanıcı etkileşimi gerekebilir
+              alert("Video otomatik olarak oynatılamıyor. Lütfen sayfayı yenileyin veya video üzerine tekrar tıklayın.");
+            });
+        }
+      } else {
+        // Video oynatılıyorsa duraklat
+        videoElement.pause();
+        setIsPlaying(prev => ({ ...prev, [videoId]: false }));
+      }
+    } catch (error) {
+      console.error("Video kontrol hatası:", error);
+    }
   };
   
   // Videonun ilerlemesini izle
@@ -271,39 +300,54 @@ function VideoFeed() {
     }));
   };
   
-  // Sliderı sürüklerken
+  // İleri sarma
+  const handleSeekForward = (videoId) => {
+    const videoElement = playerRefs.current[videoId];
+    if (!videoElement) return;
+    
+    try {
+      const newTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
+      videoElement.currentTime = newTime;
+      setPlayedSeconds(prev => ({ ...prev, [videoId]: newTime }));
+    } catch (error) {
+      console.error("İleri sarma hatası:", error);
+    }
+  };
+  
+  // Geri sarma
+  const handleSeekBackward = (videoId) => {
+    const videoElement = playerRefs.current[videoId];
+    if (!videoElement) return;
+    
+    try {
+      const newTime = Math.max(0, videoElement.currentTime - 10);
+      videoElement.currentTime = newTime;
+      setPlayedSeconds(prev => ({ ...prev, [videoId]: newTime }));
+    } catch (error) {
+      console.error("Geri sarma hatası:", error);
+    }
+  };
+  
+  // Slider işlemleri
   const handleSeekMouseDown = () => {
     setSeeking(true);
   };
   
-  // Sliderı hareket ettirirken
   const handleSeekChange = (videoId, value) => {
-    setPlayedSeconds(prev => ({
-      ...prev,
-      [videoId]: value
-    }));
+    setPlayedSeconds(prev => ({ ...prev, [videoId]: value }));
   };
   
-  // Sliderı bıraktığımızda
   const handleSeekMouseUp = (videoId, value) => {
     setSeeking(false);
-    if (playerRefs.current[videoId]) {
-      playerRefs.current[videoId].seekTo(value);
-    }
-  };
-  
-  // İleri/geri sarma
-  const handleSeekForward = (videoId) => {
-    const newPosition = Math.min((playedSeconds[videoId] || 0) + 10, (duration[videoId] || 0));
-    if (playerRefs.current[videoId]) {
-      playerRefs.current[videoId].seekTo(newPosition);
-    }
-  };
-  
-  const handleSeekBackward = (videoId) => {
-    const newPosition = Math.max((playedSeconds[videoId] || 0) - 10, 0);
-    if (playerRefs.current[videoId]) {
-      playerRefs.current[videoId].seekTo(newPosition);
+    
+    const videoElement = playerRefs.current[videoId];
+    if (!videoElement) return;
+    
+    try {
+      videoElement.currentTime = value;
+      setPlayedSeconds(prev => ({ ...prev, [videoId]: value }));
+    } catch (error) {
+      console.error("Seek hatası:", error);
     }
   };
   
@@ -499,44 +543,73 @@ function VideoFeed() {
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  backgroundColor: '#000'
+                  backgroundColor: '#000',
+                  cursor: 'pointer'
                 }}
+                onClick={() => togglePlay(video._id)}
               >
-                <ReactPlayer
+                <video
+                  key={`video-${video._id}`}
                   ref={(player) => {
                     playerRefs.current[video._id] = player;
                   }}
-                  url={video.filePath ? 
+                  src={video.filePath ? 
                     (video.filePath.startsWith('http') 
                       ? video.filePath 
                       : video.filePath.startsWith('/') 
                         ? `http://localhost:5000${video.filePath}` 
                         : `http://localhost:5000/${video.filePath}`) 
                     : '/videos/gol1.mp4'}
-                  width="100%"
-                  height="100%"
-                  playing={isPlaying[video._id] && (index === activeVideoIndex && inView)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain'
+                  }}
+                  playsInline
                   muted={muted}
                   loop
-                  controls={false}
-                  playsinline
-                  onProgress={(state) => handleProgress(video._id, state)}
-                  onDuration={(duration) => handleDuration(video._id, duration)}
+                  onPlay={() => {
+                    console.log(`Video ${video._id} playing`);
+                    setIsPlaying(prev => ({...prev, [video._id]: true}));
+                  }}
+                  onPause={() => {
+                    console.log(`Video ${video._id} paused`);
+                    setIsPlaying(prev => ({...prev, [video._id]: false}));
+                  }}
+                  onTimeUpdate={(e) => {
+                    const seconds = e.target.currentTime;
+                    setPlayedSeconds(prev => ({...prev, [video._id]: seconds}));
+                  }}
+                  onLoadedMetadata={(e) => {
+                    const videoDuration = e.target.duration;
+                    setDuration(prev => ({...prev, [video._id]: videoDuration}));
+                  }}
                   onError={(e) => {
                     console.error('Video yüklenirken hata:', e);
-                  }}
-                  config={{
-                    file: {
-                      attributes: {
-                        crossOrigin: 'anonymous',
-                        controlsList: 'nodownload',
-                        playsInline: true,
-                        preload: 'auto'
-                      },
-                      forceVideo: true
-                    }
+                    console.error('Video src:', e.target.src);
                   }}
                 />
+                
+                {/* Play/Pause Overlay */}
+                {!isPlaying[video._id] && (
+                  <Box 
+                    sx={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                      borderRadius: '50%',
+                      padding: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 10
+                    }}
+                  >
+                    <PlayArrow sx={{ fontSize: 40, color: 'white' }} />
+                  </Box>
+                )}
               </Box>
               )}
               

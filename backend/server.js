@@ -216,7 +216,73 @@ app.post('/api/posts/:id/comment', async (req, res) => {
   }
 });
 
-// Oyuncu ve Halı Saha rotaları
+// Auth rotalarını kullan
+app.use('/api/auth', authRoutes);
+app.use('/api/videos', videoRoutes);
+
+// Test endpoint - backend'in çalışıp çalışmadığını kontrol etmek için
+app.get('/api/test', (req, res) => {
+  console.log('Test endpoint çağrıldı');
+  res.json({ 
+    message: 'Backend çalışıyor!', 
+    timestamp: new Date().toISOString(),
+    routes: {
+      teams: '/api/teams',
+      matches: '/api/matches',
+      venues: '/api/venues'
+    }
+  });
+});
+
+// Debug endpoint - route'ların yüklenip yüklenmediğini kontrol et
+app.get('/api/debug/routes', (req, res) => {
+  console.log('Debug routes endpoint çağrıldı');
+  
+  // Express app'in route'larını listele
+  const routes = [];
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      routes.push({
+        path: middleware.route.path,
+        methods: Object.keys(middleware.route.methods)
+      });
+    } else if (middleware.name === 'router') {
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          routes.push({
+            path: handler.route.path,
+            methods: Object.keys(handler.route.methods)
+          });
+        }
+      });
+    }
+  });
+  
+  res.json({
+    message: 'Route debug bilgileri',
+    totalRoutes: routes.length,
+    routes: routes,
+    teamRoutesLoaded: typeof teamRoutes !== 'undefined',
+    venueRoutesLoaded: typeof venueRoutes !== 'undefined'
+  });
+});
+
+// Rezervasyon rotalarını kullan - ÖNEMLİ: Bu rotaları doğru şekilde tanımla
+app.use('/api/reservations', reservationRoutes);
+
+// Maç rotalarını kullan
+app.use('/api/matches', matchRoutes);
+
+// Oyuncu rotalarını kullan
+app.use('/api/players', playerRoutes);
+
+// Halı saha rotalarını kullan
+app.use('/api/venues', venueRoutes);
+
+// Takım rotalarını kullan
+app.use('/api/teams', teamRoutes);
+
+// Oyuncu ve Halı Saha rotaları (fallback - sadece route'lar tanımlanmamışsa)
 app.get('/api/players', async (req, res) => {
   try {
     const players = await Player.find().limit(10);
@@ -237,44 +303,6 @@ app.post('/api/players', async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 });
-
-app.get('/api/venues', async (req, res) => {
-  try {
-    const venues = await Venue.find().limit(10);
-    res.json(venues);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.post('/api/venues', async (req, res) => {
-  try {
-    const venue = new Venue(req.body);
-    const savedVenue = await venue.save();
-    res.status(201).json(savedVenue);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
-// Auth rotalarını kullan
-app.use('/api/auth', authRoutes);
-app.use('/api/videos', videoRoutes);
-
-// Rezervasyon rotalarını kullan - ÖNEMLİ: Bu rotaları doğru şekilde tanımla
-app.use('/api/reservations', reservationRoutes);
-
-// Maç rotalarını kullan
-app.use('/api/matches', matchRoutes);
-
-// Oyuncu rotalarını kullan
-app.use('/api/players', playerRoutes);
-
-// Halı saha rotalarını kullan
-app.use('/api/venues', venueRoutes);
-
-// Takım rotalarını kullan
-app.use('/api/teams', teamRoutes);
 
 // Static dosyaları servis et
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));

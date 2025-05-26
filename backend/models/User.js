@@ -40,21 +40,52 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'default-profile.png'
   },
-  // Futbol özellikleri
+  
+  // Futbol Profil Bilgileri
+  footballExperience: {
+    type: String,
+    enum: ['Başlangıç', 'Orta', 'İleri'],
+    default: 'Başlangıç'
+  },
+  preferredFoot: {
+    type: String,
+    enum: ['Sağ', 'Sol', 'Her İkisi'],
+    default: 'Sağ'
+  },
   position: {
     type: String,
     enum: ['Kaleci', 'Defans', 'Orta Saha', 'Forvet', ''],
     default: ''
   },
+  
+  // İletişim ve Kişisel Bilgiler
+  location: {
+    type: String,
+    default: ''
+  },
+  phone: {
+    type: String,
+    default: ''
+  },
+  bio: {
+    type: String,
+    default: ''
+  },
+  height: {
+    type: Number,
+    default: 0
+  },
+  weight: {
+    type: Number,
+    default: 0
+  },
+  
+  // Eski alanlar (geriye uyumluluk için)
   level: {
     type: String,
     default: '-'
   },
-  preferredFoot: {
-    type: String,
-    enum: ['Sağ', 'Sol', 'Her İkisi'],
-    default: '-'
-  },
+  
   // İstatistikler
   matchesPlayed: {
     type: Number,
@@ -72,6 +103,28 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  
+  // Ek bilgiler
+  favoriteTeam: {
+    type: String,
+    default: ''
+  },
+  achievements: [{
+    type: String
+  }],
+  teams: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team'
+  }],
+  matches: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Match'
+  }],
+  highlights: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Video'
+  }],
+  
   createdAt: {
     type: Date,
     default: Date.now

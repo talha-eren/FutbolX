@@ -252,36 +252,49 @@ exports.addComment = async (req, res) => {
 // Videoya beğeni ekle/kaldır
 exports.toggleLike = async (req, res) => {
   try {
+    console.log('toggleLike fonksiyonu çağrıldı');
+    console.log('Kullanıcı:', req.user ? req.user._id : 'Kullanıcı bilgisi yok');
+    console.log('Video ID:', req.params.id);
+    console.log('Request body:', req.body);
+    
     const video = await Video.findById(req.params.id);
     
     if (!video) {
+      console.log('Video bulunamadı:', req.params.id);
       return res.status(404).json({ message: 'Video bulunamadı' });
     }
     
     const userId = req.user._id.toString();
+    console.log('İşlem yapılacak kullanıcı ID:', userId);
     
-    // Kullanıcının video beğeni durumunu kontrol et
+    // Mevcut beğeni durumunu kontrol et
     const userLikedIndex = video.likedBy.findIndex(id => id.toString() === userId);
+    console.log('Beğeni durumu kontrolü:', userLikedIndex !== -1 ? 'Beğenilmiş' : 'Beğenilmemiş');
     
     if (userLikedIndex === -1) {
       // Kullanıcı henüz videoyu beğenmemiş, beğeniyi ekle
+      console.log('Beğeni ekleniyor...');
       video.likedBy.push(userId);
-    video.likes += 1;
+      video.likes += 1;
     } else {
       // Kullanıcı önceden beğenmiş, beğeniyi kaldır
+      console.log('Beğeni kaldırılıyor...');
       video.likedBy.splice(userLikedIndex, 1);
       video.likes = Math.max(0, video.likes - 1); // Beğeni sayısı negatif olmasın
     }
     
     await video.save();
+    console.log('Video güncellendi - Yeni beğeni sayısı:', video.likes);
+    console.log('Beğenen kullanıcılar:', video.likedBy);
     
     res.status(200).json({
       success: true,
       likes: video.likes,
+      likedBy: video.likedBy,
       isLiked: userLikedIndex === -1 // Eğer -1 ise yeni beğeni eklendi, değilse kaldırıldı
     });
   } catch (error) {
-    console.error('Beğeni hatası:', error);
+    console.error('Beğeni işlemi hatası:', error);
     res.status(500).json({ message: error.message });
   }
 };

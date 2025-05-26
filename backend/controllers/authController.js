@@ -20,9 +20,21 @@ exports.register = async (req, res) => {
       firstName, 
       lastName,
       position,
-      level,
-      preferredFoot
+      footballExperience,
+      preferredFoot,
+      location,
+      phone,
+      bio,
+      height,
+      weight,
+      favoriteTeam
     } = req.body;
+
+    console.log('Çıkarılan veriler:', {
+      username, email, firstName, lastName, position, 
+      footballExperience, preferredFoot, location, phone, 
+      bio, height, weight, favoriteTeam
+    });
 
     // Kullanıcı adı veya email zaten kullanılıyor mu kontrol et
     const existingUser = await User.findOne({ 
@@ -36,20 +48,45 @@ exports.register = async (req, res) => {
     }
 
     // Yeni kullanıcı oluştur
-    const newUser = new User({
+    const userData = {
       username,
       email,
       password,
       firstName,
       lastName,
-      position,
-      level,
-      preferredFoot
-    });
+      position: position || '',
+      footballExperience: footballExperience || 'Başlangıç',
+      preferredFoot: preferredFoot || 'Sağ',
+      location: location || '',
+      phone: phone || '',
+      bio: bio || '',
+      height: height && height !== null && height !== '' ? Number(height) : 0,
+      weight: weight && weight !== null && weight !== '' ? Number(weight) : 0,
+      favoriteTeam: favoriteTeam || ''
+    };
+
+    console.log('Kaydedilecek kullanıcı verisi:', userData);
+
+    const newUser = new User(userData);
 
     // Kullanıcıyı kaydet
     await newUser.save();
-    console.log('Yeni kullanıcı oluşturuldu:', newUser);
+    console.log('Yeni kullanıcı oluşturuldu:', {
+      id: newUser._id,
+      username: newUser.username,
+      email: newUser.email,
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+      position: newUser.position,
+      footballExperience: newUser.footballExperience,
+      preferredFoot: newUser.preferredFoot,
+      location: newUser.location,
+      phone: newUser.phone,
+      bio: newUser.bio,
+      height: newUser.height,
+      weight: newUser.weight,
+      favoriteTeam: newUser.favoriteTeam
+    });
 
     // Token oluştur
     const token = generateToken(newUser._id);
@@ -63,8 +100,14 @@ exports.register = async (req, res) => {
       lastName: newUser.lastName,
       profilePicture: newUser.profilePicture,
       position: newUser.position,
-      level: newUser.level,
+      footballExperience: newUser.footballExperience,
       preferredFoot: newUser.preferredFoot,
+      location: newUser.location,
+      phone: newUser.phone,
+      bio: newUser.bio,
+      height: newUser.height,
+      weight: newUser.weight,
+      favoriteTeam: newUser.favoriteTeam,
       matchesPlayed: newUser.matchesPlayed,
       goalsScored: newUser.goalsScored,
       assists: newUser.assists,
@@ -108,8 +151,14 @@ exports.login = async (req, res) => {
       lastName: user.lastName,
       profilePicture: user.profilePicture,
       position: user.position,
-      level: user.level,
+      footballExperience: user.footballExperience,
       preferredFoot: user.preferredFoot,
+      location: user.location,
+      phone: user.phone,
+      bio: user.bio,
+      height: user.height,
+      weight: user.weight,
+      favoriteTeam: user.favoriteTeam,
       matchesPlayed: user.matchesPlayed,
       goalsScored: user.goalsScored,
       assists: user.assists,
@@ -137,6 +186,14 @@ exports.getProfile = async (req, res) => {
     }
     
     console.log('Kullanıcı bulundu:', user.username);
+    console.log('Kullanıcı verileri:', {
+      location: user.location,
+      phone: user.phone,
+      bio: user.bio,
+      height: user.height,
+      weight: user.weight,
+      favoriteTeam: user.favoriteTeam
+    });
     
     res.json(user);
   } catch (error) {
@@ -154,8 +211,14 @@ exports.updateProfile = async (req, res) => {
       firstName,
       lastName,
       position,
-      level,
+      footballExperience,
       preferredFoot,
+      location,
+      phone,
+      bio,
+      height,
+      weight,
+      favoriteTeam,
       matchesPlayed,
       goalsScored,
       assists,
@@ -171,12 +234,19 @@ exports.updateProfile = async (req, res) => {
         firstName,
         lastName,
         position,
-        level,
+        footballExperience,
         preferredFoot,
+        location,
+        phone,
+        bio,
+        height: height ? Number(height) : 0,
+        weight: weight ? Number(weight) : 0,
+        favoriteTeam,
         matchesPlayed,
         goalsScored,
         assists,
-        hoursPlayed
+        hoursPlayed,
+        updatedAt: Date.now()
       },
       { new: true, runValidators: true }
     ).select('-password');

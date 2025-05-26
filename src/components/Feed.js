@@ -11,13 +11,13 @@ import { Link } from 'react-router-dom';
 const SPORYUM_23 = {
   id: 'sporyum23',
   name: 'Sporyum 23',
-  location: 'Ümraniye, İstanbul',
-  address: 'Saray Mah. Ahmet Tevfik İleri Cad. No:23, 34768 Ümraniye/İstanbul',
-  description: 'Sporyum 23, İstanbul\'un en modern halı saha tesislerinden biridir. 3 adet profesyonel halı saha, duş ve soyunma odaları, kafeterya ve ücretsiz otopark imkanı sunmaktadır.',
+  location: 'Elazığ Merkez',
+  address: 'Cumhuriyet Mah. F. Ahmet Baba Bulvarı No:110, Tedaş Kavşağı Türk Telekom Arkası, Elazığ',
+  description: 'Sporyum 23, Elazığ\'ın en modern halı saha tesislerinden biridir. 3 adet profesyonel halı saha, duş ve soyunma odaları, kafeterya ve ücretsiz otopark imkanı sunmaktadır.',
   rating: 4.8,
   price: 450,
   openingHours: '09:00 - 23:00',
-  contactPhone: '0555 123 4567',
+  contactPhone: '0424 247 7701',
   contactEmail: 'info@sporyum23.com',
   website: 'www.sporyum23.com',
   fields: [
@@ -32,9 +32,10 @@ const SPORYUM_23 = {
     'https://images.unsplash.com/photo-1518604666860-9ed391f76460?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80'
   ],
   testimonials: [
-    { id: 1, name: 'Ahmet Y.', comment: 'Harika bir tesis, sahalar çok bakımlı ve personel çok ilgili.', rating: 5 },
-    { id: 2, name: 'Mehmet K.', comment: 'Düzenli olarak haftada 2 kez maç yapıyoruz. Saha kalitesi mükemmel.', rating: 5 },
-    { id: 3, name: 'Ali D.', comment: 'Rezervasyon sistemi çok pratik, online ödeme imkanı harika.', rating: 4 }
+    { id: 1, name: 'Ahmet Yılmaz', comment: 'Saha zemini çok iyi durumda, tesisler temiz ve bakımlı. Fiyat/performans açısından da oldukça uygun. Kesinlikle tavsiye ederim.', rating: 5 },
+    { id: 2, name: 'Mehmet Kaya', comment: 'Harika bir deneyimdi! Personel çok ilgili, saha bakımlı ve ekipmanlar yeni.', rating: 5 },
+    { id: 3, name: 'Ayşe Demir', comment: 'Gece aydınlatması mükemmel, hiç görüş sorunu yaşamadık.', rating: 4 },
+    { id: 4, name: 'Fatma Şahin', comment: 'Rezervasyon sistemi çok pratik. Uygulama üzerinden kolayca yer ayırtabildik.', rating: 5 }
   ]
 };
 
@@ -157,6 +158,57 @@ function Feed() {
         </Box>
                       </Box>
                       
+      <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 3, fontWeight: 'bold', color: '#4CAF50' }}>
+        Son Oynanan Maçlar
+      </Typography>
+      
+      <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        <Button 
+          variant="outlined" 
+          color="success"
+          href="/matches?venue=halisaha1"
+          sx={{ 
+            borderRadius: 4,
+            borderColor: '#4CAF50',
+            color: '#4CAF50',
+            '&:hover': { bgcolor: 'rgba(76, 175, 80, 0.08)' }
+          }}
+          startIcon={<SportsSoccer />}
+        >
+          Halı Saha 1
+        </Button>
+        
+        <Button 
+          variant="outlined" 
+          color="success"
+          href="/matches?venue=halisaha2"
+          sx={{ 
+            borderRadius: 4,
+            borderColor: '#4CAF50',
+            color: '#4CAF50',
+            '&:hover': { bgcolor: 'rgba(76, 175, 80, 0.08)' }
+          }}
+          startIcon={<SportsSoccer />}
+        >
+          Halı Saha 2
+        </Button>
+        
+        <Button 
+          variant="outlined" 
+          color="success"
+          href="/matches?venue=halisaha3"
+          sx={{ 
+            borderRadius: 4,
+            borderColor: '#4CAF50',
+            color: '#4CAF50',
+            '&:hover': { bgcolor: 'rgba(76, 175, 80, 0.08)' }
+          }}
+          startIcon={<SportsSoccer />}
+        >
+          Halı Saha 3
+        </Button>
+      </Box>
+      
       <Grid container spacing={4}>
         {/* Sol Sütun - Halı Saha Bilgileri ve İstatistikler */}
         <Grid item xs={12} md={4}>
@@ -226,11 +278,23 @@ function Feed() {
                       {field.size} • {field.surface} • {field.indoor ? 'Kapalı' : 'Açık'}
                     </Typography>
                   </Box>
-                  <Chip 
-                    label={field.light ? 'Aydınlatmalı' : 'Gündüz'} 
-                    size="small"
-                    color={field.light ? 'success' : 'default'}
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip 
+                      label={field.light ? 'Aydınlatmalı' : 'Gündüz'} 
+                      size="small"
+                      color={field.light ? 'success' : 'default'}
+                    />
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      color="primary"
+                      component={Link}
+                      to={`/reviews/saha${field.id}`}
+                      sx={{ ml: 1, fontSize: '0.75rem' }}
+                    >
+                      Yorumlar
+                    </Button>
+                  </Box>
                 </Box>
               ))}
               
@@ -458,8 +522,10 @@ function Feed() {
                 <Button 
                   variant="text" 
                   color="primary"
+                  component={Link}
+                  to="/reviews/sporium23"
                 >
-                  Yorum Ekle
+                  Yorumları Gör
                 </Button>
                 </Box>
             </CardContent>

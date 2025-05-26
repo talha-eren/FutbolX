@@ -166,23 +166,37 @@ function VideoDetail() {
       setLikeLoading(true);
       
       const token = localStorage.getItem('userToken');
-      if (!token) {
+      const userId = localStorage.getItem('userId');
+      
+      if (!token || !userId) {
         setSnackbarMessage('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
         setSnackbarOpen(true);
         setLikeLoading(false);
         return;
       }
       
-      const response = await axios.post(`http://localhost:5000/api/videos/${id}/like`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      console.log('Beğeni işlemi başlatılıyor...');
+      console.log('Video ID:', id);
+      console.log('Kullanıcı ID:', userId);
+      console.log('Mevcut beğeni durumu:', isLiked);
+      
+      const response = await axios.post(`http://localhost:5000/api/videos/${id}/like`, 
+        { userId }, 
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
         }
-      });
+      );
+      
+      console.log('Beğeni işlemi yanıtı:', response.data);
       
       // Beğeni sayısını ve durumunu güncelle
       setVideo({
         ...video,
-        likes: response.data.likes
+        likes: response.data.likes,
+        likedBy: response.data.likedBy || video.likedBy
       });
       
       setIsLiked(!isLiked);
@@ -191,6 +205,7 @@ function VideoDetail() {
       setSnackbarOpen(true);
     } catch (err) {
       console.error('Beğeni hatası:', err);
+      console.error('Hata detayları:', err.response?.data);
       setSnackbarMessage('Beğeni işlemi sırasında bir hata oluştu');
       setSnackbarOpen(true);
     } finally {
@@ -350,48 +365,65 @@ function VideoDetail() {
                     }}
                   />
                 ) : (
-                <ReactPlayer
-                    url={getVideoUrl(video.filePath)}
-                  width="100%"
-                  height="100%"
-                  controls
-                    playing
-                    playsinline
-                  style={{ position: 'absolute', top: 0, left: 0 }}
-                    config={{
-                      file: {
-                        attributes: {
-                          controlsList: 'nodownload',
-                          crossOrigin: 'anonymous',
-                          preload: 'auto'
-                        },
-                        forceVideo: true
-                      }
+                  <Box 
+                    sx={{ 
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      bgcolor: '#000'
                     }}
-                    onReady={() => console.log("Video ready to play")}
-                    fallback={
-                      <Box 
-                        sx={{ 
-                          width: '100%', 
-                          height: '100%', 
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          bgcolor: '#1c1c1c',
-                          color: 'white'
-                        }}
-                      >
-                        <Typography>Video yüklenemiyor...</Typography>
-                      </Box>
-                    }
-                    onError={(e) => {
-                      console.error("Video oynatma hatası:", e);
-                      console.error("Video URL:", getVideoUrl(video.filePath));
-                    }}
-                                    />
+                  >
+                    <video
+                      id="videoPlayer"
+                      src={getVideoUrl(video.filePath)}
+                      controls
+                      autoPlay
+                      playsInline
+                      controlsList="nodownload"
+                      onClick={(e) => {
+                        // Tıklandığında oynat/duraklat
+                        if (e.target.paused) {
+                          e.target.play().catch(err => {
+                            console.error("Video oynatma hatası:", err);
+                            alert("Video oynatılamıyor. Lütfen sayfayı yenileyin veya daha sonra tekrar deneyin.");
+                          });
+                        } else {
+                          e.target.pause();
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        maxHeight: '100%',
+                        cursor: 'pointer'
+                      }}
+                      onError={(e) => {
+                        console.error("Video oynatma hatası:", e);
+                        console.error("Video URL:", getVideoUrl(video.filePath));
+                        console.error("Error details:", e.target.error);
+                        
+                        // Hata durumunda kaynak değiştirmeyi dene
+                        const videoUrl = getVideoUrl(video.filePath);
+                        setTimeout(() => {
+                          const videoElement = document.getElementById('videoPlayer');
+                          if (videoElement) {
+                            videoElement.src = videoUrl + '?t=' + new Date().getTime();
+                            videoElement.load();
+                            videoElement.play().catch(err => console.error("Yeniden oynatma hatası:", err));
+                          }
+                        }, 1000);
+                      }}
+                      onPlay={() => console.log("Video oynatılmaya başlandı")}
+                      onLoadedData={() => console.log("Video verileri yüklendi")}
+                      preload="auto"
+                    />
+                  </Box>
                 )}
               </Box>
               

@@ -198,7 +198,30 @@ function MatchResults() {
   const filterMatches = () => {
     if (selectedVenue === 'all') {
       return matches;
+    } else if (selectedVenue === 'halisaha1') {
+      // Halı Saha 1 için filtreleme - API'den gelen sahalardan birincisini göster
+      // veya isim olarak "Halı Saha 1" geçenleri göster
+      return matches.filter(match => 
+        (match.venueId && venues.length > 0 && match.venueId === venues[0]._id) || 
+        match.venueName?.includes('Halı Saha 1') ||
+        match.venueName?.includes('Saha 1')
+      );
+    } else if (selectedVenue === 'halisaha2') {
+      // Halı Saha 2 için filtreleme
+      return matches.filter(match => 
+        (match.venueId && venues.length > 1 && match.venueId === venues[1]._id) || 
+        match.venueName?.includes('Halı Saha 2') ||
+        match.venueName?.includes('Saha 2')
+      );
+    } else if (selectedVenue === 'halisaha3') {
+      // Halı Saha 3 için filtreleme
+      return matches.filter(match => 
+        (match.venueId && venues.length > 2 && match.venueId === venues[2]._id) || 
+        match.venueName?.includes('Halı Saha 3') ||
+        match.venueName?.includes('Saha 3')
+      );
     } else {
+      // Diğer venue ID'leri için filtreleme (eski mantık)
       return matches.filter(match => match.venueId === selectedVenue);
     }
   };
@@ -267,28 +290,60 @@ function MatchResults() {
           Tüm Halı Sahalar
         </Button>
         
-        {venues.map((venue, index) => (
-          <Button 
-            key={venue._id}
-            variant={selectedVenue === venue._id ? "contained" : "outlined"} 
-            color="success"
-            onClick={() => setSelectedVenue(venue._id)}
-            sx={{ 
-              borderRadius: 4,
-              mr: 1,
-              mb: 1,
-              bgcolor: selectedVenue === venue._id ? primaryGreen : 'transparent',
-              '&:hover': {
-                bgcolor: selectedVenue === venue._id ? primaryGreen : lightGreen
-              }
-            }}
-            startIcon={<Place />}
-          >
-            {index === 0 ? "Halı Saha 1" : 
-             index === 1 ? "Halı Saha 2" : 
-             index === 2 ? "Halı Saha 3" : venue.name}
-          </Button>
-        ))}
+        {/* Sabit halı saha seçenekleri */}
+        <Button 
+          variant={selectedVenue === 'halisaha1' ? "contained" : "outlined"} 
+          color="success"
+          onClick={() => setSelectedVenue('halisaha1')}
+          sx={{ 
+            borderRadius: 4,
+            mr: 1,
+            mb: 1,
+            bgcolor: selectedVenue === 'halisaha1' ? primaryGreen : 'transparent',
+            '&:hover': {
+              bgcolor: selectedVenue === 'halisaha1' ? primaryGreen : lightGreen
+            }
+          }}
+          startIcon={<Place />}
+        >
+          Halı Saha 1
+        </Button>
+        
+        <Button 
+          variant={selectedVenue === 'halisaha2' ? "contained" : "outlined"} 
+          color="success"
+          onClick={() => setSelectedVenue('halisaha2')}
+          sx={{ 
+            borderRadius: 4,
+            mr: 1,
+            mb: 1,
+            bgcolor: selectedVenue === 'halisaha2' ? primaryGreen : 'transparent',
+            '&:hover': {
+              bgcolor: selectedVenue === 'halisaha2' ? primaryGreen : lightGreen
+            }
+          }}
+          startIcon={<Place />}
+        >
+          Halı Saha 2
+        </Button>
+        
+        <Button 
+          variant={selectedVenue === 'halisaha3' ? "contained" : "outlined"} 
+          color="success"
+          onClick={() => setSelectedVenue('halisaha3')}
+          sx={{ 
+            borderRadius: 4,
+            mr: 1,
+            mb: 1,
+            bgcolor: selectedVenue === 'halisaha3' ? primaryGreen : 'transparent',
+            '&:hover': {
+              bgcolor: selectedVenue === 'halisaha3' ? primaryGreen : lightGreen
+            }
+          }}
+          startIcon={<Place />}
+        >
+          Halı Saha 3
+        </Button>
       </Box>
 
       {loading ? (

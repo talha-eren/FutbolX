@@ -22,6 +22,7 @@ import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
 import AboutPage from './pages/About';
 import CreateTeamPage from './pages/CreateTeamPage';
+import ReviewsPage from './pages/ReviewsPage';
 
 // Video Bileşenleri
 import VideoList from './components/Video/VideoList';
@@ -155,6 +156,7 @@ function App() {
                       <AdminDashboard />
                     </ProtectedRoute>
                   } />
+                  <Route path="/reviews/:facilityId" element={<ReviewsPage />} />
                   
                   {/* Video Rotaları */}
                   <Route path="/videos" element={<VideoList />} />
