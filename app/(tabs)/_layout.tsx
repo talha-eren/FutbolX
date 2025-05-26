@@ -15,7 +15,7 @@ import { Link } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 
 // Sekme tipini tanımla
-type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'admin' | 'reservation';
+type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'teams' | 'admin' | 'reservation';
 
 // Hover props tipini tanımla
 type HoverableProps = {
@@ -134,6 +134,9 @@ export default function TabLayout() {
       case 'matches':
         router.push('/(tabs)/matches' as any);
         break;
+      case 'teams':
+        router.push('/(tabs)/teams' as any);
+        break;
       case 'admin':
         router.push('/(tabs)/admin' as any);
         break;
@@ -176,6 +179,7 @@ export default function TabLayout() {
           }}
         />
         <Stack.Screen name="matches" />
+        <Stack.Screen name="teams" options={{ title: 'Takımlar' }} />
         <Stack.Screen name="find-match" options={{ title: 'Maç Bul' }} />
         <Stack.Screen name="create-match" options={{ presentation: 'modal', title: 'Yeni Maç Oluştur' }} />
         <Stack.Screen name="profile" />
@@ -296,6 +300,27 @@ export default function TabLayout() {
               opacity: activeTab === 'matches' ? 1 : 0.7
             }
           ]}>Maçlar</ThemedText>
+        </HoverableTouchable>
+
+        <HoverableTouchable 
+          style={styles.footerTab}
+          onPress={() => changeTab('teams')}
+          onHoverIn={() => setHoveredTab('teams')}
+          onHoverOut={() => setHoveredTab(null)}
+        >
+          <View style={[
+            styles.iconWrapper, 
+            { backgroundColor: hoveredTab === 'teams' ? accentColor : (activeTab === 'teams' ? primaryColor : '#777') }
+          ]}>
+            <IconSymbol name="person.3" size={22} color="#FFFFFF" />
+          </View>
+          <ThemedText style={[
+            styles.footerTabText, 
+            { 
+              color: activeTab === 'teams' ? primaryColor : textColor,
+              opacity: activeTab === 'teams' ? 1 : 0.7
+            }
+          ]}>Takımlar</ThemedText>
         </HoverableTouchable>
 
         <HoverableTouchable 

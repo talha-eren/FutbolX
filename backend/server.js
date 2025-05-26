@@ -40,6 +40,8 @@ const postRoutes = require('./routes/post');
 const matchRoutes = require('./routes/match');
 const commentRoutes = require('./routes/comment');
 const reservationRoutes = require('./routes/reservation');
+const teamRoutes = require('./routes/team');
+const venueRoutes = require('./routes/venue');
 
 const app = express();
 
@@ -147,6 +149,8 @@ app.use('/api/posts', postRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/reservations', reservationRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/venues', venueRoutes);
 
 // Basit bir test endpoint'i
 app.get('/api/test', (req, res) => {
