@@ -15,6 +15,8 @@ const BACKEND_PORT = 5000;
 
 // Alternatif IP adresleri (bağlantı sorunları için)
 const ALTERNATIVE_IPS = [
+  '192.168.1.73',    // Otomatik algılanan IP
+
   'localhost',       // Localhost (Öncelikli)
   '127.0.0.1',       // Localhost alternatifi
   '10.192.90.94',    // Otomatik algılanan IP
@@ -26,7 +28,7 @@ const ALTERNATIVE_IPS = [
 try {
   // Önce Expo Metro sunucusunun IP'sini almaya çalış - bu genellikle en iyi çözümdür
   // Bu IP, telefonun ve bilgisayarın aynı ağda olduğunu varsayar
-  const METRO_IP = '10.192.90.94'; // Değiştirildi
+  const METRO_IP = '192.168.1.73'; // Değiştirildi
   
   if (Platform.OS === 'android') {
     // Android emülatör için özel IP kullan
@@ -188,7 +190,7 @@ const testApiConnection = async () => {
   }
   
   // Metro IP'sini önce dene
-  const METRO_IP = '10.192.90.94'; // Değiştirildi
+  const METRO_IP = '192.168.1.73'; // Değiştirildi
   console.log(`Önce güncel backend IP adresi deneniyor: ${METRO_IP}`);
   try {
     const controller = new AbortController();

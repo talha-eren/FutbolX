@@ -43,14 +43,32 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    console.log('Dosya kontrol ediliyor:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      fieldname: file.fieldname
+    });
     
-    if (extname && mimetype) {
+    // Desteklenen dosya uzantıları
+    const allowedExtensions = /\.(jpeg|jpg|png|gif|mp4|mov|avi|webm|mkv)$/i;
+    // Desteklenen MIME türleri
+    const allowedMimeTypes = /^(image\/(jpeg|jpg|png|gif)|video\/(mp4|quicktime|x-msvideo|webm|x-matroska))$/i;
+    
+    const extname = allowedExtensions.test(file.originalname);
+    const mimetype = allowedMimeTypes.test(file.mimetype);
+    
+    console.log('Dosya kontrol sonucu:', {
+      extname,
+      mimetype,
+      originalMimetype: file.mimetype
+    });
+    
+    if (extname || mimetype) {
+      console.log('✅ Dosya kabul edildi');
       return cb(null, true);
     } else {
-      cb('Hata: Sadece resim ve video dosyaları yüklenebilir!');
+      console.log('❌ Dosya reddedildi');
+      cb(new Error('Sadece resim (JPEG, PNG, GIF) ve video (MP4, MOV, AVI, WebM) dosyaları yüklenebilir!'));
     }
   }
 });
@@ -58,10 +76,14 @@ const upload = multer({
 // Tüm gönderileri getir
 router.get('/', async (req, res) => {
   try {
+    console.log('📡 Tüm gönderiler isteniyor...');
+    
     // Populate ile kullanıcı bilgilerini de getir
     const posts = await Post.find()
       .sort({ createdAt: -1 })
       .populate('author', 'username name profilePicture');
+    
+    console.log(`📊 Veritabanından ${posts.length} gönderi bulundu`);
     
     // Kullanıcı bilgilerini ve içeriği içeren tam yanıt
     const enhancedPosts = posts.map(post => {
@@ -79,11 +101,26 @@ router.get('/', async (req, res) => {
         timestamp: post.createdAt, // timestamp alanını ekle
         username: post.author ? post.author.username : 'Bilinmeyen Kullanıcı',
         userImage: post.author ? post.author.profilePicture : '',
-        user: post.author,
+        user: post.author ? {
+          _id: post.author._id,
+          username: post.author.username,
+          profilePicture: post.author.profilePicture || ''
+        } : null,
         likes: post.likes || 0,
-        post_type: post.post_type
+        comments: post.comments || 0, // Yorum sayısını ekle
+        post_type: post.post_type,
+        contentType: post.contentType || post.post_type
       };
     });
+    
+    console.log(`✅ ${enhancedPosts.length} gönderi frontend'e gönderiliyor`);
+    console.log('📝 İlk 3 gönderi örneği:', enhancedPosts.slice(0, 3).map(p => ({
+      id: p._id,
+      title: p.title,
+      hasImage: !!p.image,
+      hasVideo: !!p.video,
+      username: p.username
+    })));
     
     res.json(enhancedPosts);
   } catch (error) {
@@ -150,7 +187,14 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
     if (req.file) {
       // Mimetype'a göre video mu image mi kontrol et
       const isVideo = req.file.mimetype.includes('video') || 
-                       /mp4|mov|avi/i.test(path.extname(req.file.filename));
+                       req.file.mimetype === 'video/quicktime' ||
+                       /\.(mp4|mov|avi|webm|mkv)$/i.test(req.file.originalname);
+      
+      console.log('Dosya türü analizi:', {
+        mimetype: req.file.mimetype,
+        originalname: req.file.originalname,
+        isVideo: isVideo
+      });
       
       // Dosya yolu oluştur - burada /public/ ile başlayan yolu kullanıyoruz
       const fileDir = isVideo ? '/public/uploads/videos/' : '/public/uploads/images/';

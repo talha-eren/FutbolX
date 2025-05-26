@@ -262,29 +262,35 @@ const SharePostScreen = () => {
         console.log('- x-auth-token:', rawToken.substring(0, 20) + '...');
         
         xhr.onload = function() {
-        clearInterval(progressInterval);
-        
+          clearInterval(progressInterval);
+          
           if (xhr.status >= 200 && xhr.status < 300) {
             console.log('Gönderi başarıyla paylaşıldı:', xhr.responseText);
-          
-          setUploadProgress(100);
-          setUploadSuccess(true);
-          Alert.alert('Başarılı', 'Gönderiniz başarıyla paylaşıldı!');
-          
-          setTitle('');
-          setDescription('');
-          setCategory('');
-          setTags('');
-          clearMedia();
-          fetchPosts();
-          
-          setTimeout(() => {
-            setUploadSuccess(false);
-            router.push('/(tabs)');
-          }, 1500);
-        } else {
+            
+            setUploadProgress(100);
+            setUploadSuccess(true);
+            
+            // Formu temizle
+            setTitle('');
+            setDescription('');
+            setCategory('');
+            setTags('');
+            clearMedia();
+            
+            // Gönderileri yenile
+            fetchPosts();
+            
+            // 2 saniye sonra modalı kapat ve ana sayfaya yönlendir
+            setTimeout(() => {
+              setUploading(false);
+              setUploadSuccess(false);
+              setUploadProgress(0);
+              router.push('/(tabs)/explore');
+            }, 2000);
+            
+          } else {
             console.error(`API Hatası (${xhr.status}):`, xhr.responseText);
-        
+            
             // Hata mesajını analiz et
             let errorMessage = 'Gönderi paylaşılırken bir hata oluştu';
             try {
@@ -294,7 +300,7 @@ const SharePostScreen = () => {
                 
                 // Token hatası ise yeniden login olmasını öner
                 if (errorMessage.includes('token') || errorMessage.includes('Token') || xhr.status === 401) {
-              Alert.alert(
+                  Alert.alert(
                     'Oturum Hatası', 
                     'Oturumunuz sona ermiş olabilir. Tekrar giriş yapmak ister misiniz?',
                     [
@@ -323,24 +329,24 @@ const SharePostScreen = () => {
             Alert.alert('Hata', errorMessage);
             setUploading(false);
             setUploadProgress(0);
-              }
-            };
-            
-            xhr.onerror = function() {
+          }
+        };
+        
+        xhr.onerror = function() {
           clearInterval(progressInterval);
           console.error('XHR Hatası');
           Alert.alert('Bağlantı Hatası', 'Sunucuya bağlanırken bir hata oluştu.');
           setUploading(false);
           setUploadProgress(0);
-            };
-            
-            xhr.upload.onprogress = function(event) {
-              if (event.lengthComputable) {
-                const percentComplete = Math.round((event.loaded / event.total) * 100);
+        };
+        
+        xhr.upload.onprogress = function(event) {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
             setUploadProgress(percentComplete > 90 ? 90 : percentComplete);
-              }
-            };
-            
+          }
+        };
+        
         xhr.send(formData);
       } catch (error) {
         clearInterval(progressInterval);
@@ -709,6 +715,7 @@ const SharePostScreen = () => {
                   onPress={() => {
                     setUploading(false);
                     setUploadSuccess(false);
+                    setUploadProgress(0);
                     // Formu temizle
                     setTitle('');
                     setDescription('');
@@ -718,8 +725,8 @@ const SharePostScreen = () => {
                     setMediaType(null);
                     // Gönderileri yenile
                     fetchPosts();
-                    // Ana sayfaya yönlendir
-                    router.push('/(tabs)');
+                    // Explore sayfasına yönlendir
+                    router.push('/(tabs)/explore');
                   }}
                 >
                   <ThemedText style={styles.successButtonText}>Tamam</ThemedText>

@@ -165,6 +165,30 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/public', express.static(path.join(__dirname, 'public')));
 
+// Video dosyaları için özel static serving
+app.use('/public/uploads/videos', express.static(path.join(__dirname, 'public/uploads/videos'), {
+  setHeaders: (res, path) => {
+    // Video dosyaları için uygun MIME type'ları ayarla
+    if (path.endsWith('.mp4')) {
+      res.setHeader('Content-Type', 'video/mp4');
+    } else if (path.endsWith('.mov') || path.endsWith('.MOV')) {
+      res.setHeader('Content-Type', 'video/quicktime');
+    } else if (path.endsWith('.avi')) {
+      res.setHeader('Content-Type', 'video/x-msvideo');
+    } else if (path.endsWith('.webm')) {
+      res.setHeader('Content-Type', 'video/webm');
+    }
+    
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Cache headers
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+  }
+}));
+
 // Resim dosyaları için özel route
 app.get('/api/images/:filename', (req, res) => {
   const filename = req.params.filename;
@@ -184,23 +208,63 @@ app.get('/api/images/:filename', (req, res) => {
   }
 });
 
-// Video dosyalarını servis et
-app.get('/api/uploads/videos/:filename', (req, res) => {
+// Video dosyalarını servis et - geliştirilmiş versiyon
+app.get('/public/uploads/videos/:filename', (req, res) => {
   const filename = req.params.filename;
-  const filePath = path.join(__dirname, 'uploads/videos', filename);
+  const filePath = path.join(__dirname, 'public/uploads/videos', filename);
   
-  console.log(`Video dosyası isteği: ${filename}`);
+  console.log(`📹 Video dosyası isteği: ${filename}`);
+  console.log(`📁 Dosya yolu: ${filePath}`);
   
   if (fs.existsSync(filePath)) {
-    console.log(`Video dosyası bulundu: ${filePath}`);
-    // Video dosyasını gönderirken CORS başlıklarını ayarla
+    console.log(`✅ Video dosyası bulundu: ${filePath}`);
+    
+    // Dosya boyutunu al
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+    
+    // CORS başlıklarını ayarla
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    res.header('Content-Type', 'video/mp4');
-    res.sendFile(filePath);
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Range');
+    res.header('Accept-Ranges', 'bytes');
+    
+    // MIME type'ı ayarla
+    if (filename.toLowerCase().endsWith('.mp4')) {
+      res.header('Content-Type', 'video/mp4');
+    } else if (filename.toLowerCase().endsWith('.mov')) {
+      res.header('Content-Type', 'video/quicktime');
+    } else if (filename.toLowerCase().endsWith('.avi')) {
+      res.header('Content-Type', 'video/x-msvideo');
+    } else if (filename.toLowerCase().endsWith('.webm')) {
+      res.header('Content-Type', 'video/webm');
+    } else {
+      res.header('Content-Type', 'video/mp4'); // Default
+    }
+    
+    if (range) {
+      // Range request - video streaming için gerekli
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      
+      const file = fs.createReadStream(filePath, { start, end });
+      
+      res.status(206);
+      res.header('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+      res.header('Content-Length', chunksize.toString());
+      
+      file.pipe(res);
+    } else {
+      // Normal request
+      res.header('Content-Length', fileSize.toString());
+      const file = fs.createReadStream(filePath);
+      file.pipe(res);
+    }
   } else {
-    console.log(`Video dosyası bulunamadı: ${filePath}`);
+    console.log(`❌ Video dosyası bulunamadı: ${filePath}`);
     res.status(404).json({ message: 'Video bulunamadı' });
   }
 });

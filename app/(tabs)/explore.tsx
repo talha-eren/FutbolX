@@ -8,7 +8,10 @@ import {
   TextInput, 
   FlatList, 
   ActivityIndicator,
-  Dimensions
+  Dimensions,
+  Alert,
+  Modal,
+  RefreshControl
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { ThemedView } from '@/components/ThemedView';
@@ -16,379 +19,511 @@ import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/context/AuthContext';
+import { getApiUrl } from '@/services/networkConfig';
+import { Video, ResizeMode } from 'expo-av';
 
 const { width } = Dimensions.get('window');
 
-// Halı saha tipi tanımı
-interface Field {
-  id: string;
-  name: string;
-  image: string;
-  location: string;
-  city: string;
-  district: string;
-  rating: number;
-  priceRange: string;
-  features: string[];
-  openHours: string;
+// Gönderi tipi tanımı
+interface Post {
+  _id: string;
+  title: string;
+  description: string;
+  content: string;
+  image?: string;
+  video?: string;
+  post_type: 'text' | 'image' | 'video';
+  contentType: 'text' | 'image' | 'video';
+  likes: number;
+  comments: number;
+  username: string;
+  userImage?: string;
+  user?: {
+    _id: string;
+    username: string;
+    profilePicture?: string;
+  };
+  createdAt: string;
+  isPublic: boolean;
 }
 
-// Örnek veri
-const sampleFields: Field[] = [
-  {
-    id: '1',
-    name: 'Futbol Arena',
-    image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80',
-    location: 'Kadıköy, İstanbul',
-    city: 'İstanbul',
-    district: 'Kadıköy',
-    rating: 4.5,
-    priceRange: '₺350-450/saat',
-    features: ['Kapalı', 'Duş', 'Otopark'],
-    openHours: '09:00 - 23:00'
-  },
-  {
-    id: '2',
-    name: 'Yeşil Vadi Spor Tesisleri',
-    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1593&q=80',
-    location: 'Beşiktaş, İstanbul',
-    city: 'İstanbul',
-    district: 'Beşiktaş',
-    rating: 4.2,
-    priceRange: '₺400-500/saat',
-    features: ['Açık', 'Soyunma Odası', 'Kafeterya'],
-    openHours: '10:00 - 22:00'
-  },
-  {
-    id: '3',
-    name: 'Gol Akademi',
-    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80',
-    location: 'Ümraniye, İstanbul',
-    city: 'İstanbul',
-    district: 'Ümraniye',
-    rating: 4.8,
-    priceRange: '₺300-400/saat',
-    features: ['Kapalı', 'Duş', 'Otopark', 'Kafeterya'],
-    openHours: '08:00 - 24:00'
-  }
-];
-
-// Örnek bölgeler ve özellikler
-const sampleDistricts = ['Tüm Bölgeler', 'Kadıköy', 'Beşiktaş', 'Ümraniye', 'Şişli', 'Maltepe'];
-const sampleFeatures = ['Tüm Özellikler', 'Kapalı', 'Açık', 'Duş', 'Otopark', 'Kafeterya', 'Soyunma Odası'];
+// Yorum tipi tanımı
+interface Comment {
+  _id: string;
+  contentId: string;
+  contentType: 'post' | 'video';
+  user: string;
+  username: string;
+  userImage?: string;
+  text: string;
+  likes: number;
+  createdAt: string;
+}
 
 export default function ExploreScreen() {
-  const [searchText, setSearchText] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('Tüm Bölgeler');
-  const [selectedFeature, setSelectedFeature] = useState('Tüm Özellikler');
-  const [activeTab, setActiveTab] = useState('districts'); // 'districts' veya 'features'
-  
-  // Halı saha verilerini ve filtre seçeneklerini API'den çek
-  const [fields, setFields] = useState<Field[]>(sampleFields);
-  const [districts, setDistricts] = useState(sampleDistricts);
-  const [features, setFeatures] = useState(sampleFeatures);
-  const [loading, setLoading] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
-  const primaryColor = '#1976D2'; // Ana mavi renk
-  const secondaryColor = '#0D47A1'; // Koyu mavi
-  const accentColor = '#42A5F5'; // Açık mavi
-  const borderColor = '#E0E0E0';
+  const primaryColor = '#4CAF50'; // Yeşil tema
+  const cardBgColor = useThemeColor({}, 'card');
+  const borderColor = useThemeColor({}, 'border');
 
   const router = useRouter();
+  const { token, user } = useAuth();
 
-  // Verileri API'den çek
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Verileri çekme fonksiyonu
-  const fetchData = async () => {
-    setLoading(true);
+  // Gönderileri API'den çek
+  const fetchPosts = async () => {
     try {
-      // API'den veri çekme simülasyonu
-      setTimeout(() => {
-        setFields(sampleFields);
-        setLoading(false);
-      }, 500);
-    } catch (err) {
-      console.error('Veri çekme hatası:', err);
-      setError('Veriler yüklenirken bir hata oluştu');
+      setError(null);
+      
+      if (!token) {
+        setError('Oturum açmanız gerekiyor');
+        return;
+      }
+
+      const postsUrl = await getApiUrl('/posts');
+      console.log('🔗 Posts API URL:', postsUrl);
+
+      const response = await fetch(postsUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gönderiler yüklenirken hata oluştu: ${response.status}`);
+      }
+
+      const data: any = await response.json();
+      console.log('✅ Frontend\'e gelen gönderiler:', data.length);
+      console.log('📝 İlk 3 gönderi örneği:', data.slice(0, 3).map((p: any) => ({
+        id: p._id,
+        title: p.title,
+        hasImage: !!p.image,
+        hasVideo: !!p.video,
+        username: p.username,
+        contentType: p.contentType
+      })));
+      
+      // Video ve resim URL'lerini kontrol et
+      const mediaInfo = data.map((p: any) => ({
+        id: p._id,
+        imageUrl: p.image ? `http://192.168.1.73:5000${p.image}` : null,
+        videoUrl: p.video ? `http://192.168.1.73:5000${p.video}` : null
+      })).filter((p: any) => p.imageUrl || p.videoUrl);
+      
+      console.log('🎬 Medya URL\'leri:', mediaInfo.slice(0, 3));
+      
+      setPosts(data);
+      
+    } catch (error) {
+      console.error('❌ Gönderiler yüklenirken hata:', error);
+      setError('Gönderiler yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+      setPosts([]);
+    } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Arama ve filtreleme
-  const filteredFields = fields.filter(field => {
-    const matchesSearch = searchText === '' || 
-      field.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      field.location.toLowerCase().includes(searchText.toLowerCase());
-    
-    const matchesDistrict = selectedDistrict === 'Tüm Bölgeler' || 
-      field.district === selectedDistrict;
-    
-    const matchesFeature = selectedFeature === 'Tüm Özellikler' || 
-      field.features.includes(selectedFeature);
-    
-    return matchesSearch && matchesDistrict && matchesFeature;
-  });
+  // Sayfa yüklendiğinde gönderileri çek
+  useEffect(() => {
+    fetchPosts();
+  }, [token]);
 
-  // Yıldız derecelendirmesi gösterimi
-  const renderRating = (rating: number) => {
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating - fullStars >= 0.5;
-    const stars: React.ReactNode[] = [];
+  // Yenileme
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchPosts();
+  };
 
-    for (let i = 0; i < 5; i++) {
-      if (i < fullStars) {
-        stars.push(
-          <IconSymbol key={`star-${i}`} name="star.fill" size={14} color="#FFC107" />
-        );
-      } else if (i === fullStars && hasHalfStar) {
-        stars.push(
-          <IconSymbol key={`star-half-${i}`} name="star.leadinghalf.filled" size={14} color="#FFC107" />
-        );
-      } else {
-        stars.push(
-          <IconSymbol key={`star-empty-${i}`} name="star" size={14} color="#FFC107" />
-        );
+  // Gönderiyi beğen/beğenmekten vazgeç
+  const toggleLike = async (postId: string, isLiked: boolean) => {
+    try {
+      if (!token) {
+        Alert.alert('Hata', 'Oturum açmanız gerekiyor');
+        return;
       }
+
+      const endpoint = isLiked ? 'unlike' : 'like';
+      const response = await fetch(await getApiUrl(`/posts/${postId}/${endpoint}`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Beğeni işlemi başarısız');
+      }
+
+      const data: any = await response.json();
+      
+      // Gönderileri güncelle
+      setPosts(prevPosts => 
+        prevPosts.map(post => 
+          post._id === postId 
+            ? { ...post, likes: data.likes }
+            : post
+        )
+      );
+
+    } catch (error) {
+      console.error('Beğeni hatası:', error);
+      Alert.alert('Hata', 'Beğeni işlemi sırasında bir hata oluştu');
     }
+  };
+
+  // Gönderiyi sil
+  const deletePost = async (postId: string) => {
+    try {
+      if (!token) {
+        Alert.alert('Hata', 'Oturum açmanız gerekiyor');
+        return;
+      }
+
+      Alert.alert(
+        'Gönderiyi Sil',
+        'Bu gönderiyi silmek istediğinizden emin misiniz?',
+        [
+          { text: 'İptal', style: 'cancel' },
+          {
+            text: 'Sil',
+            style: 'destructive',
+            onPress: async () => {
+              const response = await fetch(await getApiUrl(`/posts/${postId}`), {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+
+              if (!response.ok) {
+                throw new Error('Gönderi silinirken hata oluştu');
+              }
+
+              // Gönderiyi listeden kaldır
+              setPosts(prevPosts => prevPosts.filter(post => post._id !== postId));
+              Alert.alert('Başarılı', 'Gönderi başarıyla silindi');
+            }
+          }
+        ]
+      );
+
+    } catch (error) {
+      console.error('Gönderi silme hatası:', error);
+      Alert.alert('Hata', 'Gönderi silinirken bir hata oluştu');
+    }
+  };
+
+  // Tarih formatla
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+
+    if (diffInHours < 1) {
+      return 'Az önce';
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)} saat önce`;
+    } else if (diffInDays < 7) {
+      return `${Math.floor(diffInDays)} gün önce`;
+    } else {
+      return date.toLocaleDateString('tr-TR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+  };
+
+  // Gönderi kartı render
+  const renderPostCard = ({ item }: { item: Post }) => {
+    const getImageUrl = (imagePath: string) => {
+      if (imagePath.startsWith('http')) {
+        return imagePath;
+      }
+      // API base URL ile birleştir - networkConfig'den al
+      return `http://${process.env.EXPO_PUBLIC_BACKEND_IP || '192.168.1.73'}:${process.env.EXPO_PUBLIC_BACKEND_PORT || '5000'}${imagePath}`;
+    };
+
+    const getVideoUrl = (videoPath: string) => {
+      if (videoPath.startsWith('http')) {
+        return videoPath;
+      }
+      
+      // Veritabanında video path'ler /public/uploads/videos/ formatında
+      const baseUrl = `http://${process.env.EXPO_PUBLIC_BACKEND_IP || '192.168.1.73'}:${process.env.EXPO_PUBLIC_BACKEND_PORT || '5000'}`;
+
+      // Eğer path zaten / ile başlıyorsa direkt ekle, yoksa / ekle
+      const fullUrl = videoPath.startsWith('/') ? baseUrl + videoPath : baseUrl + '/' + videoPath;
+      
+      console.log('🎬 Video URL oluşturuluyor:');
+      console.log('📁 Video path:', videoPath);
+      console.log('🔗 Full URL:', fullUrl);
+      
+      return fullUrl;
+    };
 
     return (
-      <View style={styles.ratingContainer}>
-        <View style={styles.stars}>{stars}</View>
-        <ThemedText style={styles.ratingText}>{rating.toFixed(1)}</ThemedText>
+      <View style={[styles.postCard, { backgroundColor: cardBgColor, borderColor }]}>
+        {/* Kullanıcı Bilgileri */}
+        <View style={styles.postHeader}>
+          <View style={styles.userInfo}>
+            <View style={styles.userAvatar}>
+              {item.userImage ? (
+                <Image source={{ uri: item.userImage }} style={styles.avatarImage} />
+              ) : (
+                <ThemedText style={styles.avatarText}>
+                  {(item.username || 'U').charAt(0).toUpperCase()}
+                </ThemedText>
+              )}
+            </View>
+            <View style={styles.userDetails}>
+              <ThemedText style={styles.username}>{item.username || 'Kullanıcı'}</ThemedText>
+              <ThemedText style={styles.postDate}>{formatDate(item.createdAt)}</ThemedText>
+            </View>
+          </View>
+          
+          {/* Video Etiketi */}
+          {item.video && (
+            <View style={styles.videoTag}>
+              <ThemedText style={styles.videoTagText}>Video</ThemedText>
+            </View>
+          )}
+        
+          {/* Silme butonu (sadece kendi gönderileri için) */}
+          {user && item.user && item.user._id === user._id && (
+        <TouchableOpacity 
+              style={styles.deleteButton}
+              onPress={() => deletePost(item._id)}
+            >
+              <IconSymbol name="trash" size={20} color="#F44336" />
+            </TouchableOpacity>
+          )}
+      </View>
+
+        {/* Gönderi İçeriği */}
+        {item.title && (
+          <ThemedText style={styles.postTitle}>{item.title}</ThemedText>
+        )}
+        
+        {item.description && (
+          <ThemedText style={styles.postDescription}>{item.description}</ThemedText>
+        )}
+
+        {/* Medya İçeriği */}
+        {item.image && (
+          <Image 
+            source={{ uri: getImageUrl(item.image) }} 
+            style={styles.postImage}
+            resizeMode="cover"
+            onError={(error) => {
+              console.log('Resim yükleme hatası:', error.nativeEvent.error);
+            }}
+          />
+        )}
+
+        {/* Video İçeriği */}
+        {item.video && (
+          <View style={styles.videoContainer}>
+            {/* MOV dosyası uyarısı ve alternatif gösterim */}
+            {item.video.toLowerCase().includes('.mov') ? (
+              <View style={styles.movWarningContainer}>
+                <View style={styles.movWarningHeader}>
+                  <IconSymbol name="exclamationmark.triangle.fill" size={24} color="#FF9800" />
+                  <ThemedText style={styles.movWarningTitle}>MOV Video Dosyası</ThemedText>
+                </View>
+                <ThemedText style={styles.movWarningText}>
+                  Bu video MOV formatında olduğu için mobil cihazlarda oynatılamayabilir.
+                </ThemedText>
+                <ThemedText style={styles.videoPathText}>
+                  📁 Dosya: {item.video.split('/').pop() || 'video dosyası'}
+          </ThemedText>
+              <TouchableOpacity
+                  style={styles.downloadButton}
+                  onPress={() => {
+                    if (item.video) {
+                      const videoUrl = getVideoUrl(item.video);
+                      Alert.alert(
+                        'Video İndirme', 
+                        `Bu videoyu indirmek için aşağıdaki URL'yi kullanabilirsiniz:\n\n${videoUrl}`,
+                        [
+                          { text: 'Tamam', style: 'default' },
+                          { 
+                            text: 'URL Kopyala', 
+                            onPress: () => {
+                              // URL'yi clipboard'a kopyalama burada yapılabilir
+                              console.log('Video URL kopyalandı:', videoUrl);
+                            }
+                          }
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <IconSymbol name="arrow.down.circle" size={20} color="white" />
+                  <ThemedText style={styles.downloadButtonText}>Video URL'si Al</ThemedText>
+              </TouchableOpacity>
+        </View>
+      ) : (
+              /* Normal video oynatıcı - MP4 ve diğer desteklenen formatlar için */
+              <View style={styles.videoPlayerContainer}>
+                <Video
+                  source={{ uri: getVideoUrl(item.video) }}
+                  style={styles.postVideo}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay={false}
+                  isLooping={false}
+                  onError={(error) => {
+                    console.log('❌ Video yükleme hatası:', error);
+                    if (item.video) {
+                      const videoUrl = getVideoUrl(item.video);
+                      console.log('🔗 Hatalı video URL:', videoUrl);
+                      Alert.alert('Video Hatası', `Video oynatılamadı!\n\nDosya: ${item.video.split('/').pop() || 'video dosyası'}\n\nHata: Video formatı desteklenmiyor olabilir.`);
+                    }
+                  }}
+                  onLoad={(status: any) => {
+                    console.log('✅ Video yüklendi:', status);
+                  }}
+                  onLoadStart={() => {
+                    console.log('🔄 Video yüklenmeye başladı:', item.video);
+                  }}
+                  onPlaybackStatusUpdate={(status: any) => {
+                    if (status.isLoaded && status.error) {
+                      console.log('📹 Video playback error:', status.error);
+                    }
+                  }}
+                />
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Alt Bilgiler */}
+        <View style={styles.postFooter}>
+          {/* Görüntülenme, Beğeni, Yorum Sayıları */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <IconSymbol name="eye" size={16} color="#666" />
+              <ThemedText style={styles.statText}>2</ThemedText>
+            </View>
+            
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => toggleLike(item._id, false)}
+            >
+              <IconSymbol name="heart" size={16} color="#666" />
+              <ThemedText style={styles.statText}>{item.likes}</ThemedText>
+            </TouchableOpacity>
+            
+              <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => router.push(`/comments/${item._id}` as any)}
+            >
+              <IconSymbol name="bubble.left" size={16} color="#666" />
+              <ThemedText style={styles.statText}>{item.comments}</ThemedText>
+              </TouchableOpacity>
+          </View>
+        </View>
       </View>
     );
   };
 
-  // Halı saha kartı
-  const renderFieldCard = ({ item }: { item: Field }) => (
-    <TouchableOpacity 
-      style={[styles.fieldCard, { backgroundColor }]}
-      activeOpacity={0.9}
-    >
-      <View style={styles.fieldImageContainer}>
-        <Image source={{ uri: item.image }} style={styles.fieldImage} />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.7)']}
-          style={styles.imageGradient}
-        />
-        <View style={styles.priceTag}>
-          <ThemedText style={styles.priceText}>{item.priceRange}</ThemedText>
-        </View>
-      </View>
-      
-      <View style={styles.fieldContent}>
-        <ThemedText style={styles.fieldName}>{item.name}</ThemedText>
-        
-        <View style={styles.fieldInfo}>
-          <View style={styles.locationRow}>
-            <IconSymbol name="mappin.and.ellipse" size={16} color={primaryColor} />
-            <ThemedText style={styles.locationText}>{item.location}</ThemedText>
-          </View>
-          
-          {renderRating(item.rating)}
-        </View>
-        
-        <View style={styles.hoursRow}>
-          <IconSymbol name="clock" size={16} color={textColor} />
-          <ThemedText style={styles.hoursText}>{item.openHours}</ThemedText>
-        </View>
-        
-        <View style={styles.featuresContainer}>
-          {item.features.map((feature, index) => (
-            <View 
-              key={index} 
-              style={[styles.featureTag, { backgroundColor: accentColor }]}
-            >
-              <ThemedText style={styles.featureText}>{feature}</ThemedText>
-            </View>
-          ))}
-        </View>
-        
-        <TouchableOpacity 
-          style={[styles.bookButton, { backgroundColor: primaryColor }]}
-          onPress={() => handleBooking(item.id)}
-        >
-          <ThemedText style={styles.bookButtonText}>Rezervasyon Yap</ThemedText>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const handleBooking = (fieldId) => {
-    router.push(`/reservations?fieldId=${fieldId}`);
-  };
-
-  return (
-    <ThemedView style={styles.container}>
-      <LinearGradient
-        colors={['#E1F5FE', '#B3E5FC', '#E3F2FD']}
-        style={styles.headerGradient}
-      >
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>Halı Saha Keşfet</ThemedText>
-          <View style={[styles.searchContainer, { borderColor }]}>
-            <IconSymbol name="magnifyingglass" size={20} color={primaryColor} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Saha adı veya konum ara..."
-            placeholderTextColor="#999"
-            value={searchText}
-            onChangeText={setSearchText}
-          />
-          {searchText !== '' && (
-            <TouchableOpacity onPress={() => setSearchText('')}>
-              <IconSymbol name="xmark.circle.fill" size={20} color="#999" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-              activeTab === 'districts' && { borderBottomColor: primaryColor, borderBottomWidth: 3 }
-          ]}
-          onPress={() => setActiveTab('districts')}
-        >
-          <ThemedText 
-            style={[
-              styles.tabText, 
-                activeTab === 'districts' && { color: primaryColor, fontWeight: 'bold' }
-            ]}
-          >
-            Bölgeler
-          </ThemedText>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.tab,
-              activeTab === 'features' && { borderBottomColor: primaryColor, borderBottomWidth: 3 }
-          ]}
-          onPress={() => setActiveTab('features')}
-        >
-          <ThemedText 
-            style={[
-              styles.tabText, 
-                activeTab === 'features' && { color: primaryColor, fontWeight: 'bold' }
-            ]}
-          >
-            Özellikler
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
-
-      {activeTab === 'districts' ? (
-        <View style={styles.categoriesSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesContainer}
-          >
-            {districts.map((district, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.categoryButton,
-                  { 
-                      backgroundColor: selectedDistrict === district ? primaryColor : 'white',
-                      borderColor
-                  }
-                ]}
-                onPress={() => setSelectedDistrict(district)}
-              >
-                <ThemedText
-                  style={[
-                    styles.categoryText,
-                    { color: selectedDistrict === district ? '#fff' : textColor }
-                  ]}
-                >
-                  {district}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      ) : (
-        <View style={styles.categoriesSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesContainer}
-          >
-            {features.map((feature, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.categoryButton,
-                  { 
-                      backgroundColor: selectedFeature === feature ? primaryColor : 'white',
-                      borderColor
-                  }
-                ]}
-                onPress={() => setSelectedFeature(feature)}
-              >
-                <ThemedText
-                  style={[
-                    styles.categoryText,
-                    { color: selectedFeature === feature ? '#fff' : textColor }
-                  ]}
-                >
-                  {feature}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-      </LinearGradient>
-
-      <View style={styles.resultsContainer}>
-        <ThemedText style={styles.resultsText}>
-          {filteredFields.length} sonuç bulundu
-        </ThemedText>
-      </View>
-
-      {loading ? (
+  if (loading) {
+    return (
+      <ThemedView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={primaryColor} />
-          <ThemedText style={styles.loadingText}>Halı sahalar yükleniyor...</ThemedText>
+          <ThemedText style={styles.loadingText}>Gönderiler yükleniyor...</ThemedText>
         </View>
-      ) : error ? (
+      </ThemedView>
+    );
+  }
+
+  if (error) {
+    return (
+      <ThemedView style={styles.container}>
         <View style={styles.errorContainer}>
-          <IconSymbol name="exclamationmark.triangle" size={40} color="#FF5252" />
+          <IconSymbol name="exclamationmark.triangle" size={48} color="#F44336" />
           <ThemedText style={styles.errorText}>{error}</ThemedText>
           <TouchableOpacity 
             style={[styles.retryButton, { backgroundColor: primaryColor }]}
-            onPress={fetchData}
+            onPress={fetchPosts}
           >
             <ThemedText style={styles.retryButtonText}>Tekrar Dene</ThemedText>
           </TouchableOpacity>
         </View>
-      ) : (
+      </ThemedView>
+    );
+  }
+
+  return (
+    <ThemedView style={styles.container}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#4CAF50', '#66BB6A']}
+        style={styles.header}
+      >
+        {/* Logo ve Başlık */}
+        <View style={styles.headerTop}>
+          <View style={styles.logoContainer}>
+            <ThemedText style={styles.logoIcon}>⚽</ThemedText>
+            <ThemedText style={styles.logoText}>FutbolX</ThemedText>
+          </View>
+        </View>
+        
+        {/* Keşfet Başlığı ve Gönderi Sayısı */}
+        <View style={styles.exploreHeader}>
+          <ThemedText style={styles.exploreTitle}>Keşfet</ThemedText>
+          <ThemedText style={styles.exploreSubtitle}>
+            Futbol topluluğundan son paylaşımlar ({posts.length} gönderi)
+          </ThemedText>
+        </View>
+        
+        {/* Gönderi Paylaş Butonu */}
+        <TouchableOpacity 
+          style={styles.shareButton}
+          onPress={() => router.push('/(tabs)/sharePost')}
+        >
+          <IconSymbol name="square.and.arrow.up" size={16} color="white" />
+          <ThemedText style={styles.shareButtonText}>Gönderi Paylaş</ThemedText>
+        </TouchableOpacity>
+      </LinearGradient>
+
+      {/* Gönderi Listesi */}
       <FlatList
-        data={filteredFields}
-        renderItem={renderFieldCard}
-        keyExtractor={item => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.fieldsContainer}
+        data={posts}
+        renderItem={renderPostCard}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.postsContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#4CAF50']}
+          />
+        }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <IconSymbol name="magnifyingglass" size={50} color="#BDBDBD" />
+            <IconSymbol name="photo.on.rectangle" size={64} color={textColor + '40'} />
               <ThemedText style={styles.emptyText}>
-                Aradığınız kriterlere uygun halı saha bulunamadı.
+              Henüz gönderi bulunmuyor
               </ThemedText>
             </View>
           }
       />
-      )}
     </ThemedView>
   );
 }
@@ -397,94 +532,67 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerGradient: {
-    paddingTop: 50,
-    paddingBottom: 10,
-  },
   header: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 30,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  searchContainer: {
+  headerTop: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    paddingHorizontal: 16,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  categoriesSection: {
-    marginBottom: 16,
-  },
-  categoriesContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  categoryButton: {
-    borderWidth: 1,
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    marginBottom: 20,
   },
-  categoryText: {
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoIcon: {
+    fontSize: 28,
+    marginRight: 8,
+  },
+  logoText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  exploreHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  exploreTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  exploreSubtitle: {
+    fontSize: 16,
+    color: 'white',
+    opacity: 0.9,
+    textAlign: 'center',
+  },
+  shareButton: {
+    padding: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginLeft: 8,
+    color: 'white',
   },
-  resultsContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  resultsText: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  fieldsContainer: {
+  postsContainer: {
     padding: 16,
     paddingBottom: 100,
   },
-  fieldCard: {
+  postCard: {
     borderRadius: 16,
     marginBottom: 20,
     overflow: 'hidden',
@@ -493,116 +601,114 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+    borderWidth: 1,
   },
-  fieldImageContainer: {
-    position: 'relative',
-  },
-  fieldImage: {
-    width: '100%',
-    height: 180,
-  },
-  imageGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 80,
-  },
-  priceTag: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    backgroundColor: 'rgba(25, 118, 210, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  priceText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  fieldContent: {
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 16,
   },
-  fieldName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  fieldInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  locationRow: {
+  userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  locationText: {
-    fontSize: 14,
-    marginLeft: 6,
-    opacity: 0.8,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    marginRight: 12,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
     borderRadius: 20,
   },
-  stars: {
-    flexDirection: 'row',
-    marginRight: 6,
-  },
-  ratingText: {
-    fontSize: 14,
+  avatarText: {
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFC107',
+    color: 'white',
   },
-  hoursRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+  userDetails: {
+    flex: 1,
   },
-  hoursText: {
-    fontSize: 14,
-    marginLeft: 6,
-    opacity: 0.8,
+  username: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  featuresContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
+  postDate: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
   },
-  featureTag: {
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginRight: 8,
+  deleteButton: {
+    padding: 8,
+  },
+  postTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginHorizontal: 16,
     marginBottom: 8,
   },
-  featureText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#fff',
+  postDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
-  bookButton: {
-    paddingVertical: 12,
-    borderRadius: 10,
+  postImage: {
+    width: '100%',
+    height: 200,
+    marginBottom: 12,
+  },
+  videoContainer: {
+    width: '100%',
+    height: 250,
+    marginBottom: 12,
+    backgroundColor: '#000',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  postVideo: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  postFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  statsContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  bookButtonText: {
-    color: '#fff',
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 24,
+  },
+  statText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  videoTag: {
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  videoTagText: {
+    fontSize: 12,
     fontWeight: 'bold',
-    fontSize: 16,
+    color: '#4CAF50',
   },
   loadingContainer: {
     flex: 1,
@@ -610,7 +716,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
   },
   errorContainer: {
@@ -620,29 +726,103 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    marginTop: 12,
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 20,
+    marginVertical: 16,
   },
   retryButton: {
-    paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 10,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
+    paddingVertical: 60,
   },
   emptyText: {
-    marginTop: 16,
     fontSize: 16,
     textAlign: 'center',
+    marginTop: 16,
     opacity: 0.7,
-  }
+  },
+  movWarningContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    margin: 8,
+  },
+  movWarningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  movWarningTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    color: '#FF9800',
+  },
+  movWarningText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  videoPathText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 16,
+    opacity: 0.7,
+  },
+  downloadButton: {
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  videoPlayerContainer: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  videoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  videoInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  videoInfoText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+    marginLeft: 8,
+  },
 });

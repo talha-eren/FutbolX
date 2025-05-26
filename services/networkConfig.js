@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Manuel IP yapılandırması - Backend sunucunuzun IP'sini buraya girin
 // NOT: Eğer backend bağlantısı kurulamıyorsa burayı düzenleyin
-const MANUAL_BACKEND_IP = '10.192.90.94';
+const MANUAL_BACKEND_IP = '192.168.1.73';
 
 // Backend yapılandırması
 const BACKEND_PORT = 5000; // Backend port
@@ -15,9 +15,9 @@ const JWT_SECRET = 'futbolx_super_gizli_anahtar_2025';
 
 // IP adresi öncelik sıralaması (platform bazlı)
 const IP_PRIORITIES = {
-  ios: ["10.192.90.94", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
-  android: ["10.192.90.94", "192.168.1.59", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
-  default: ["10.192.90.94", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
+  ios: ["192.168.1.73", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
+  android: ["192.168.1.73", "192.168.1.59", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
+  default: ["192.168.1.73", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
 };
 
 // Manuel bağlantı kullanmak için anahtar - Aktif etmek için true yapın

@@ -1,62 +1,116 @@
 const mongoose = require('mongoose');
 
 const matchSchema = new mongoose.Schema({
-  fieldName: {
+  title: {
     type: String,
-    required: true,
     trim: true
   },
-  location: {
-    type: String,
-    required: true,
-    trim: true
+  venue: {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Field'
+    },
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    location: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    image: String
   },
   date: {
+    type: Date,
+    required: true
+  },
+  startTime: {
     type: String,
     required: true
   },
-  time: {
+  endTime: {
     type: String,
     required: true
   },
-  price: {
-    type: Number,
-    required: true
+  status: {
+    type: String,
+    enum: ['upcoming', 'live', 'completed'],
+    default: 'upcoming'
+  },
+  score: {
+    teamA: {
+      name: String,
+      goals: {
+        type: Number,
+        default: 0
+      }
+    },
+    teamB: {
+      name: String,
+      goals: {
+        type: Number,
+        default: 0
+      }
+    }
   },
   organizer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  playersJoined: {
+  participants: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  maxParticipants: {
     type: Number,
-    default: 1
+    default: 22
   },
-  totalPlayers: {
+  price: {
     type: Number,
-    required: true
+    default: 0
   },
   level: {
     type: String,
-    enum: ['Amatör', 'Orta', 'İleri'],
+    enum: ['Başlangıç', 'Orta', 'İyi', 'Pro'],
     default: 'Orta'
   },
-  image: {
+  description: {
     type: String,
-    required: true
+    trim: true
   },
   isPrivate: {
     type: Boolean,
     default: false
   },
-  players: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
+});
+
+// Güncelleme zamanını otomatik ayarla
+matchSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+// Eğer title yoksa otomatik oluştur
+matchSchema.pre('save', function(next) {
+  if (!this.title) {
+    if (this.score && this.score.teamA && this.score.teamB) {
+      this.title = `${this.score.teamA.name} vs ${this.score.teamB.name}`;
+    } else {
+      this.title = `Maç - ${this.venue.name}`;
+    }
+  }
+  next();
 });
 
 const Match = mongoose.model('Match', matchSchema);
