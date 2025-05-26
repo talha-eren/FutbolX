@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, CssBaseline, Box, Container, createTheme } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -8,6 +8,7 @@ import { tr } from 'date-fns/locale';
 // Temel Bileşenler
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AIAssistant from './components/AIAssistant';
 
 // Sayfa Bileşenleri
 import Feed from './components/Feed';
@@ -98,79 +99,133 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Ana uygulama içeriği bileşeni
+const AppContent = () => {
+  const [isAIOpen, setIsAIOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+  const location = useLocation();
+
+  // Kullanıcı profil bilgilerini yükle
+  useEffect(() => {
+    const loadUserProfile = () => {
+      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+      if (isLoggedIn) {
+        const userData = localStorage.getItem('userData');
+        if (userData) {
+          try {
+            setUserProfile(JSON.parse(userData));
+          } catch (error) {
+            console.error('Kullanıcı profili yüklenirken hata:', error);
+          }
+        }
+      }
+    };
+
+    loadUserProfile();
+  }, []);
+
+  // Mevcut sayfa adını belirle
+  const getCurrentPage = () => {
+    const path = location.pathname;
+    if (path.includes('/reservations')) return 'reservation';
+    if (path.includes('/profile')) return 'profile';
+    if (path.includes('/teams')) return 'teams';
+    if (path.includes('/matches')) return 'matches';
+    if (path.includes('/videos')) return 'videos';
+    if (path.includes('/stats')) return 'stats';
+    return 'home';
+  };
+
+  const toggleAI = () => {
+    setIsAIOpen(!isAIOpen);
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Navbar />
+      <Box component="main" sx={{ flexGrow: 1, py: 10 }}>
+        <Container maxWidth="lg">
+          <Routes>
+            {/* Herkese açık sayfalar */}
+            <Route path="/" element={<Feed />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/about" element={<AboutPage />} />
+            
+            {/* Sadece giriş yapmış kullanıcılara özel sayfalar */}
+            <Route path="/matches" element={
+              <ProtectedRoute>
+                <MatchResults />
+              </ProtectedRoute>
+            } />
+            <Route path="/teams" element={
+              <ProtectedRoute>
+                <Teams />
+              </ProtectedRoute>
+            } />
+            <Route path="/teams/create" element={
+              <ProtectedRoute>
+                <CreateTeamPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/reservations" element={
+              <ProtectedRoute>
+                <Reservation />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/stats" element={
+              <ProtectedRoute>
+                <Stats />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/reviews/:facilityId" element={<ReviewsPage />} />
+            
+            {/* Video Rotaları */}
+            <Route path="/videos" element={<VideoList />} />
+            <Route path="/videos/:id" element={<VideoDetail />} />
+            <Route path="/upload-post" element={
+              <ProtectedRoute>
+                <UploadPost />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </Container>
+      </Box>
+      <Footer />
+      
+      {/* AI Assistant - Tüm sayfalarda görünür */}
+      <AIAssistant
+        isOpen={isAIOpen}
+        onToggle={toggleAI}
+        userProfile={userProfile}
+        currentPage={getCurrentPage()}
+      />
+    </Box>
+  );
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
         <Router>
-          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
-            <Navbar />
-            <Box component="main" sx={{ flexGrow: 1, py: 10 }}>
-              <Container maxWidth="lg">
-                <Routes>
-                  {/* Herkese açık sayfalar */}
-                  <Route path="/" element={<Feed />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/about" element={<AboutPage />} />
-                  
-                  {/* Sadece giriş yapmış kullanıcılara özel sayfalar */}
-                  <Route path="/matches" element={
-                    <ProtectedRoute>
-                      <MatchResults />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/teams" element={
-                    <ProtectedRoute>
-                      <Teams />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/teams/create" element={
-                    <ProtectedRoute>
-                      <CreateTeamPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/reservations" element={
-                    <ProtectedRoute>
-                      <Reservation />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/profile" element={
-                    <ProtectedRoute>
-                      <Profile />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/stats" element={
-                    <ProtectedRoute>
-                      <Stats />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/settings" element={
-                    <ProtectedRoute>
-                      <Settings />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/admin" element={
-                    <ProtectedRoute>
-                      <AdminDashboard />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/reviews/:facilityId" element={<ReviewsPage />} />
-                  
-                  {/* Video Rotaları */}
-                  <Route path="/videos" element={<VideoList />} />
-                  <Route path="/videos/:id" element={<VideoDetail />} />
-                  <Route path="/upload-post" element={
-                    <ProtectedRoute>
-                      <UploadPost />
-                    </ProtectedRoute>
-                  } />
-                </Routes>
-              </Container>
-            </Box>
-            <Footer />
-          </Box>
+          <AppContent />
         </Router>
       </LocalizationProvider>
     </ThemeProvider>

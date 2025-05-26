@@ -14,8 +14,9 @@ import {
   SportsSoccer, Edit, EmojiEvents, Timeline,
   Group, Star, Place, CalendarToday, Save,
   PhotoCamera, Close, Info, Person, Add,
-  Delete, Videocam, Image, TextSnippet
+  Delete, Videocam, Image, TextSnippet, PersonSearch
 } from '@mui/icons-material';
+import PlayerMatcher from './PlayerMatcher';
 
 // API URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -33,6 +34,7 @@ function Profile() {
   const [dialogType, setDialogType] = useState(''); // 'match', 'highlight', 'profile'
   const [userVideos, setUserVideos] = useState([]); // Kullanıcının videoları
   const [confirmDeleteDialog, setConfirmDeleteDialog] = useState({ open: false, videoId: null });
+  const [playerMatcherOpen, setPlayerMatcherOpen] = useState(false); // Oyuncu eşleştirme dialog'u
   
   // Kullanıcı verileri
   const [userInfo, setUserInfo] = useState({
@@ -1151,6 +1153,43 @@ function Profile() {
               </Card>
             </Grid>
             
+            {/* Oyuncu Eşleştirme */}
+            <Grid item xs={12}>
+              <Card sx={{ bgcolor: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)', color: 'white' }}>
+                <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                  <PersonSearch sx={{ fontSize: 60, mb: 2, color: 'white' }} />
+                  <Typography variant="h5" gutterBottom fontWeight="bold">
+                    🤝 Takım Arkadaşı Bul
+                  </Typography>
+                  <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>
+                    Pozisyonunuza uygun ideal takım arkadaşlarını bulun ve iletişime geçin
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={() => setPlayerMatcherOpen(true)}
+                    sx={{
+                      bgcolor: 'white',
+                      color: '#4CAF50',
+                      fontWeight: 'bold',
+                      px: 4,
+                      py: 1.5,
+                      borderRadius: 3,
+                      '&:hover': {
+                        bgcolor: '#f5f5f5',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
+                      },
+                      transition: 'all 0.3s ease'
+                    }}
+                    startIcon={<PersonSearch />}
+                  >
+                    Oyuncu Eşleştir
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+            
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                 <Button 
@@ -1485,38 +1524,60 @@ function Profile() {
                     </Box>
                     
                 {/* Butonlar */}
-                <Box sx={{ display: 'flex', width: '100%', gap: 2 }}>
-                        <Button 
-                          variant="contained" 
-                          color="success"
-                          component={Link}
-                          to="/stats"
-                          fullWidth
-                          sx={{
-                            bgcolor: 'rgba(0,0,0,0.15)', 
-                            '&:hover': { bgcolor: 'rgba(0,0,0,0.25)' } 
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <span>İstatistiklerim</span>
-                          </Box>
-                        </Button>
-                        <Button 
-                    variant="outlined"
-                    color="inherit" 
+                <Box sx={{ display: 'flex', width: '100%', gap: 1, flexDirection: 'column' }}>
+                  {/* İlk satır - 2 buton */}
+                  <Box sx={{ display: 'flex', width: '100%', gap: 2 }}>
+                    <Button 
+                      variant="contained" 
+                      color="success"
+                      component={Link}
+                      to="/stats"
+                      fullWidth
+                      sx={{
+                        bgcolor: 'rgba(0,0,0,0.15)', 
+                        '&:hover': { bgcolor: 'rgba(0,0,0,0.25)' } 
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Timeline />
+                        <span>İstatistiklerim</span>
+                      </Box>
+                    </Button>
+                    <Button 
+                      variant="outlined"
+                      color="inherit" 
+                      fullWidth
+                      onClick={handleLogout}
+                      sx={{
+                        borderColor: 'white', 
+                        color: 'white',
+                        '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } 
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <span>Çıkış Yap</span>
+                      </Box>
+                    </Button>
+                  </Box>
+                  
+                  {/* İkinci satır - Oyuncu Eşleştir butonu */}
+                  <Button 
+                    variant="contained"
                     fullWidth
-                    onClick={handleLogout}
-                sx={{
-                      borderColor: 'white', 
+                    onClick={() => setPlayerMatcherOpen(true)}
+                    sx={{
+                      bgcolor: 'rgba(255,255,255,0.2)', 
                       color: 'white',
-                      '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } 
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
+                      mt: 1
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <span>Çıkış Yap</span>
+                      <PersonSearch />
+                      <span>Oyuncu Eşleştir</span>
                     </Box>
-                        </Button>
-            </Box>
+                  </Button>
+                </Box>
                   </Box>
             </CardContent>
           </Card>
@@ -1614,6 +1675,14 @@ function Profile() {
           {notification.message}
         </Alert>
       </Snackbar>
+
+      {/* Oyuncu Eşleştirme Dialog'u */}
+      <PlayerMatcher 
+        open={playerMatcherOpen}
+        onClose={() => setPlayerMatcherOpen(false)}
+        userPosition={userStats.position}
+        userLocation={userInfo.location}
+      />
     </Container>
   );
 }

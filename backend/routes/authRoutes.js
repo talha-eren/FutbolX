@@ -16,6 +16,23 @@ router.get('/me', protect, getUserInfo);
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
 
+// Oyuncu eşleştirme için tüm oyuncuları getir
+router.get('/players', protect, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    
+    // Sadece futbol bilgileri olan kullanıcıları getir
+    const players = await User.find({
+      position: { $exists: true, $ne: '' }
+    }).select('-password').sort({ createdAt: -1 });
+    
+    res.json(players);
+  } catch (error) {
+    console.error('Oyuncular getirme hatası:', error);
+    res.status(500).json({ message: 'Oyuncular getirilemedi' });
+  }
+});
+
 // Şifre sıfırlama
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);

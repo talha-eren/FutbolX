@@ -1,37 +1,41 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
+const {
+  getAllPlayers,
+  matchPlayer,
+  getPlayerById,
+  getPlayersByPosition,
+  updatePlayerStats
+} = require('../controllers/playerController');
 const Player = require('../models/Player');
 
 // Tüm oyuncuları getir
-router.get('/', async (req, res) => {
+router.get('/', getAllPlayers);
+
+// Oyuncu eşleştirme
+router.post('/match', matchPlayer);
+
+// Pozisyona göre oyuncuları getir
+router.get('/position/:position', getPlayersByPosition);
+
+// En iyi oyuncuları getir
+router.get('/top/players', async (req, res) => {
   try {
+    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
     const players = await Player.find({ isActive: true })
       .sort({ rating: -1 })
-      .limit(req.query.limit ? parseInt(req.query.limit) : 20);
+      .limit(limit);
     
     res.json(players);
   } catch (error) {
-    console.error('Oyuncuları getirme hatası:', error);
+    console.error('En iyi oyuncuları getirme hatası:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
 // Oyuncu detaylarını getir
-router.get('/:id', async (req, res) => {
-  try {
-    const player = await Player.findById(req.params.id);
-    
-    if (!player) {
-      return res.status(404).json({ message: 'Oyuncu bulunamadı' });
-    }
-    
-    res.json(player);
-  } catch (error) {
-    console.error('Oyuncu detayı getirme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
+router.get('/:id', getPlayerById);
 
 // Yeni oyuncu ekle
 router.post('/', protect, async (req, res) => {
@@ -130,35 +134,7 @@ router.post('/:id/rate', protect, async (req, res) => {
   }
 });
 
-// Pozisyona göre oyuncuları getir
-router.get('/position/:position', async (req, res) => {
-  try {
-    const position = req.params.position;
-    const players = await Player.find({
-      position: position,
-      isActive: true
-    }).sort({ rating: -1 });
-    
-    res.json(players);
-  } catch (error) {
-    console.error('Pozisyona göre oyuncu getirme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// En iyi oyuncuları getir
-router.get('/top/players', async (req, res) => {
-  try {
-    const limit = req.query.limit ? parseInt(req.query.limit) : 10;
-    const players = await Player.find({ isActive: true })
-      .sort({ rating: -1 })
-      .limit(limit);
-    
-    res.json(players);
-  } catch (error) {
-    console.error('En iyi oyuncuları getirme hatası:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
+// Oyuncu istatistiklerini güncelle
+router.put('/:id/stats', protect, updatePlayerStats);
 
 module.exports = router; 

@@ -13,8 +13,51 @@ const playerSchema = new mongoose.Schema({
   position: { 
     type: String, 
     required: true,
-    enum: ['Kaleci', 'Defans', 'Orta Saha', 'Forvet', '']
+    enum: ['Kaleci', 'Defans', 'Orta Saha', 'Forvet']
   },
+  level: {
+    type: String,
+    enum: ['başlangıç', 'orta', 'ileri'],
+    default: 'başlangıç'
+  },
+  preferredTime: {
+    type: String,
+    default: '20:00'
+  },
+  contactNumber: {
+    type: String,
+    trim: true
+  },
+  description: {
+    type: String,
+    trim: true
+  },
+  stats: {
+    attack: { type: Number, min: 0, max: 100, default: 50 },
+    defense: { type: Number, min: 0, max: 100, default: 50 },
+    speed: { type: Number, min: 0, max: 100, default: 50 },
+    teamwork: { type: Number, min: 0, max: 100, default: 50 }
+  },
+  location: {
+    city: { type: String, default: 'İstanbul' },
+    district: { type: String, default: 'Kadıköy' }
+  },
+  createdBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User' 
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  isApproved: {
+    type: Boolean,
+    default: true
+  },
+  regularPlayDays: [{
+    type: String,
+    enum: ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
+  }],
   age: {
     type: Number
   },
@@ -37,10 +80,10 @@ const playerSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  matches: { 
-    type: Number, 
-    default: 0 
-  },
+  matches: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Match' 
+  }],
   goals: { 
     type: Number, 
     default: 0 
@@ -76,10 +119,6 @@ const playerSchema = new mongoose.Schema({
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User' 
-  },
-  isActive: {
-    type: Boolean,
-    default: true
   },
   createdAt: {
     type: Date,
