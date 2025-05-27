@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Container, 
@@ -36,64 +37,41 @@ import {
   Shower,
   LocalCafe,
   DirectionsCar,
-  AccessTime
+  AccessTime,
+  WhatsApp
 } from '@mui/icons-material';
 
 const AboutPage = () => {
-  // Takım üyeleri
-  const teamMembers = [
-    {
-      name: 'Mustafa Yıldırım',
-      title: 'Kurucu ve Genel Müdür',
-      image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&w=400&q=80',
-      bio: 'Mustafa Bey, 2015 yılında Sporyum tesislerini Elazığ\'da kurdu. Futbol tutkusu ve işletmecilik deneyimi ile tesisimizi bölgenin en popüler spor komplekslerinden biri haline getirdi.'
-    },
-    {
-      name: 'Ahmet Koç',
-      title: 'İşletme Müdürü',
-      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&w=400&q=80',
-      bio: 'Ahmet Bey, 12 yıllık spor tesisi yönetimi deneyimi ile ekibimize 2017 yılında katıldı. Müşteri memnuniyeti ve kaliteli hizmet anlayışı ile tesislerimizin standardını sürekli yükseltiyor.'
-    },
-    {
-      name: 'Zeynep Çelik',
-      title: 'Pazarlama ve Etkinlik Koordinatörü',
-      image: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&w=400&q=80',
-      bio: 'Zeynep Hanım, dijital pazarlama alanındaki uzmanlığı ile 2019\'dan beri ekibimizde. Sosyal medya stratejileri ve yerel turnuva organizasyonları ile Elazığ\'daki futbol kültürünü canlandırıyor.'
-    },
-    {
-      name: 'Mehmet Şahin',
-      title: 'Antrenör ve Akademi Direktörü',
-      image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&w=400&q=80',
-      bio: 'Eski profesyonel futbolcu Mehmet Bey, Sporyum Futbol Akademisinin başında yer alıyor. Elazığ\'daki genç yeteneklerin keşfedilmesi ve geliştirilmesi konusunda uzmanlaşmıştır.'
-    }
-  ];
+  const navigate = useNavigate();
 
-  // Tesisler listesi
+  // Halı sahalar listesi
   const locations = [
     {
-      name: 'Sporium 23 Halı Saha',
+      name: 'Halı Saha 1',
       address: 'Cumhuriyet Mah. F. Ahmet Baba Bulvarı No:110, Tedaş Kavşağı Türk Telekom Arkası, Elazığ',
       phone: '0424 247 7701',
       mobile: '0555 732 6476',
-      image: 'https://images.unsplash.com/photo-1547366785-564103df7e13?auto=format&fit=crop&w=600&q=80',
+      image: '/images/hali-sahalar/3.jpg',
       maps: 'https://maps.app.goo.gl/wPQB4eqvV7bwWMDy9',
-      features: ['3 Adet Kapalı Halı Saha', 'Kafeterya', 'WiFi', 'Duş ve Soyunma Odaları', 'Otopark', 'Kredi Kartı İle Ödeme']
+      features: ['Kapalı Halı Saha', 'Modern Aydınlatma', 'Kaliteli Çim Dokusu', 'Profesyonel Standartlar', 'Duş ve Soyunma Odası', 'Otopark']
     },
     {
-      name: 'Yeni Elazığ Stadyumu',
-      address: 'Atatürk Bulvarı ve Zübeyde Hanım Caddesi arası, Elazığ',
-      phone: '',
-      image: 'https://images.unsplash.com/photo-1553627220-92f0446b6a1f?auto=format&fit=crop&w=600&q=80',
+      name: 'Halı Saha 2',
+      address: 'Cumhuriyet Mah. F. Ahmet Baba Bulvarı No:110, Tedaş Kavşağı Türk Telekom Arkası, Elazığ',
+      phone: '0424 247 7701',
+      mobile: '0555 732 6476',
+      image: '/images/hali-sahalar/kh2.jpg',
       maps: 'https://maps.app.goo.gl/wPQB4eqvV7bwWMDy9',
-      features: ['23.000 Kişilik Kapasite', 'Modern Tasarım', 'FIFA Standartlarında Futbol Sahası', 'Kapalı Tribünler']
+      features: ['Kapalı Halı Saha', 'LED Aydınlatma', 'Anti-Slip Zemin', 'Klima Sistemi', 'Ses Sistemi', 'WiFi']
     },
     {
-      name: 'Elazığ Halı Saha Kompleksi',
-      address: 'Çarşı Mah. Gazi Cad. No:45, Elazığ',
-      phone: '0424 238 9890',
-      image: 'https://images.unsplash.com/photo-1516983340650-a6a03c7e1532?auto=format&fit=crop&w=600&q=80',
+      name: 'Halı Saha 3',
+      address: 'Cumhuriyet Mah. F. Ahmet Baba Bulvarı No:110, Tedaş Kavşağı Türk Telekom Arkası, Elazığ',
+      phone: '0424 247 7701',
+      mobile: '0555 732 6476',
+      image: '/images/hali-sahalar/indir.jpg',
       maps: 'https://maps.app.goo.gl/wPQB4eqvV7bwWMDy9',
-      features: ['2 Adet Halı Saha', 'Hızlı Rezervasyon', 'Merkezi Konum', 'Amatör Turnuvalar']
+      features: ['Kapalı Halı Saha', 'Panoramik Cam', 'Yüksek Tavan', 'Havalandırma Sistemi', 'Tribün Alanı', 'Kafeterya Erişimi']
     }
   ];
 
@@ -141,7 +119,60 @@ const AboutPage = () => {
     }
   ];
 
-  return (    <Box sx={{ py: 5 }}>      <Container maxWidth="lg">        {/* Hero Bölümü */}        <Box           sx={{             position: 'relative',            height: {xs: '400px', md: '500px'},            borderRadius: 4,            overflow: 'hidden',            mb: 8,            boxShadow: '0 10px 30px rgba(0,0,0,0.2)'          }}        >          <Box             sx={{               position: 'absolute',              top: 0,              left: 0,              right: 0,              bottom: 0,              backgroundImage: 'url(https://images.unsplash.com/photo-1511426420268-4cfdd3763b77?auto=format&fit=crop&w=1200&q=80)',              backgroundSize: 'cover',              backgroundPosition: 'center',              '&:before': {                content: '""',                position: 'absolute',                top: 0,                left: 0,                right: 0,                bottom: 0,                background: 'linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.2) 100%)',                zIndex: 1              }            }}          />                    <Box             sx={{               position: 'relative',              zIndex: 2,              height: '100%',              display: 'flex',              flexDirection: 'column',              justifyContent: 'center',              p: { xs: 3, md: 6 }            }}          >            <Box sx={{ maxWidth: {xs: '100%', md: '60%'} }}>              <Typography                 variant="h2"                 component="h1"                 fontWeight="bold"                sx={{                   color: 'white',                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',                  mb: 2                }}              >                SPORIUM 23 HALI SAHA              </Typography>              <Typography                 variant="h5"                 sx={{                   color: 'white',                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',                  mb: 3                }}              >                Elazığ'ın En Modern Halı Saha ve Spor Tesisi              </Typography>              <Typography                 variant="body1"                 sx={{                   color: 'white',                  opacity: 0.9,                  mb: 4,                  maxWidth: '90%'                }}              >                2020 yılından bu yana Elazığ'da profesyonel halı saha ve spor tesisi olarak kaliteli sahalarımız, modern tesislerimiz ve profesyonel hizmet anlayışımız ile sporseverlere hizmet vermekteyiz.              </Typography>              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>                <Button                   variant="contained"                   color="primary"                   size="large"                  sx={{                     px: 4,                     py: 1.5,                     fontWeight: 'bold',                    fontSize: '1rem',                    borderRadius: 3,                    boxShadow: '0 4px 14px rgba(76,175,80,0.4)'                  }}                >                  Rezervasyon Yap                </Button>                <Button                   variant="outlined"                   sx={{                     px: 4,                     py: 1.5,                     fontWeight: 'bold',                    fontSize: '1rem',                    borderRadius: 3,                    borderColor: 'white',                    color: 'white',                    '&:hover': {                      borderColor: 'white',                      bgcolor: 'rgba(255,255,255,0.1)'                    }                  }}                >                  İletişime Geç                </Button>              </Box>            </Box>          </Box>        </Box>                {/* Başlık Bölümü */}        <Box sx={{
+  // Rezervasyon sayfasına yönlendirme fonksiyonu
+  const goToReservation = () => {
+    navigate('/reservations');
+  };
+
+  // WhatsApp mesajı gönderme fonksiyonu
+  const sendWhatsAppMessage = () => {
+    const phoneNumber = '905557326476'; // 0555 732 6476 numarasını uluslararası formata çevir
+    const message = `Merhaba Sporyum 23,\n\nHalı saha tesisleriniz hakkında bilgi almak istiyorum.\n\nTeşekkürler.`;
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  // Telefon arama fonksiyonu
+  const makePhoneCall = () => {
+    window.open('tel:+904242477701', '_self');
+  };
+
+  return (    <Box sx={{ py: 5 }}>      <Container maxWidth="lg">        {/* Hero Bölümü */}        <Box           sx={{             position: 'relative',            height: {xs: '400px', md: '500px'},            borderRadius: 4,            overflow: 'hidden',            mb: 8,            boxShadow: '0 10px 30px rgba(0,0,0,0.2)'          }}        >          <Box             sx={{               position: 'absolute',              top: 0,              left: 0,              right: 0,              bottom: 0,              backgroundImage: 'url(https://images.unsplash.com/photo-1511426420268-4cfdd3763b77?auto=format&fit=crop&w=1200&q=80)',              backgroundSize: 'cover',              backgroundPosition: 'center',              '&:before': {                content: '""',                position: 'absolute',                top: 0,                left: 0,                right: 0,                bottom: 0,                background: 'linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.2) 100%)',                zIndex: 1              }            }}          />                    <Box             sx={{               position: 'relative',              zIndex: 2,              height: '100%',              display: 'flex',              flexDirection: 'column',              justifyContent: 'center',              p: { xs: 3, md: 6 }            }}          >            <Box sx={{ maxWidth: {xs: '100%', md: '60%'} }}>              <Typography                 variant="h2"                 component="h1"                 fontWeight="bold"                sx={{                   color: 'white',                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',                  mb: 2                }}              >                SPORIUM 23 HALI SAHA              </Typography>              <Typography                 variant="h5"                 sx={{                   color: 'white',                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',                  mb: 3                }}              >                Elazığ'ın En Modern Halı Saha ve Spor Tesisi              </Typography>              <Typography                 variant="body1"                 sx={{                   color: 'white',                  opacity: 0.9,                  mb: 4,                  maxWidth: '90%'                }}              >                2020 yılından bu yana Elazığ'da profesyonel halı saha ve spor tesisi olarak kaliteli sahalarımız, modern tesislerimiz ve profesyonel hizmet anlayışımız ile sporseverlere hizmet vermekteyiz.              </Typography>              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  onClick={goToReservation}
+                  sx={{
+                    px: 4,
+                    py: 1.5,
+                    fontWeight: 'bold',
+                    fontSize: '1rem',
+                    borderRadius: 3,
+                    boxShadow: '0 4px 14px rgba(76,175,80,0.4)'
+                  }}
+                >
+                  Rezervasyon Yap
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={sendWhatsAppMessage}
+                  sx={{
+                    px: 4,
+                    py: 1.5,
+                    fontWeight: 'bold',
+                    fontSize: '1rem',
+                    borderRadius: 3,
+                    borderColor: 'white',
+                    color: 'white',
+                    '&:hover': {
+                      borderColor: 'white',
+                      bgcolor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  İletişime Geç
+                </Button>
+              </Box>            </Box>          </Box>        </Box>                {/* Başlık Bölümü */}        <Box sx={{
           mb: 8,
           position: 'relative',
           overflow: 'hidden'
@@ -262,6 +293,7 @@ const AboutPage = () => {
                     variant="contained" 
                     color="primary"
                     size="large"
+                    onClick={goToReservation}
                     sx={{ 
                       fontWeight: 'bold',
                       px: 4,
@@ -434,7 +466,7 @@ const AboutPage = () => {
           </Grid>
         </Grid>
 
-        {/* Tesis Özellikleri */}        <Box sx={{ mb: 8 }}>          <Typography             variant="h4"             component="h2"             gutterBottom             fontWeight="bold"             textAlign="center"            color="primary"            sx={{ mb: 4 }}          >            Tesis Özelliklerimiz          </Typography>                    <Grid container spacing={3}>            {facilities.map((facility, index) => (              <Grid item xs={12} sm={6} md={4} key={index}>                <Paper                   elevation={2}                   sx={{                     p: 3,                     height: '100%',                     borderRadius: 3,                    transition: 'transform 0.3s, box-shadow 0.3s',                    '&:hover': {                      transform: 'translateY(-10px)',                      boxShadow: '0 10px 30px rgba(0,0,0,0.15)'                    }                  }}                >                  <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', textAlign: 'center' }}>                    <Avatar                       sx={{                         width: 70,                         height: 70,                         mb: 2,                         bgcolor: 'primary.main',                        boxShadow: '0 4px 14px rgba(76,175,80,0.4)'                      }}                    >                      {facility.icon}                    </Avatar>                    <Typography variant="h6" component="h3" gutterBottom fontWeight="bold">                      {facility.title}                    </Typography>                    <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>                      {facility.description}                    </Typography>                  </Box>                </Paper>              </Grid>            ))}          </Grid>        </Box>                {/* Rakamlarla Sporyum */}        <Paper           elevation={2}           sx={{             p: 4,             mb: 8,             borderRadius: 3,            backgroundImage: 'linear-gradient(to right, rgba(76, 175, 80, 0.9), rgba(33, 150, 243, 0.9))',            color: 'white',            position: 'relative',            overflow: 'hidden'          }}        >          <Box             sx={{               position: 'absolute',               top: 0,               left: 0,               right: 0,               bottom: 0,              backgroundImage: 'url(https://images.unsplash.com/photo-1540379708242-14a809bef941?auto=format&w=1000&q=80)',              backgroundSize: 'cover',              backgroundPosition: 'center',              opacity: 0.2,              zIndex: 0            }}          />                    <Box sx={{ position: 'relative', zIndex: 1 }}>            <Typography               variant="h4"               component="h2"               gutterBottom               fontWeight="bold"               textAlign="center"              sx={{ mb: 4 }}            >              Rakamlarla Sporyum            </Typography>                        <Grid container spacing={3} justifyContent="center">              <Grid item xs={6} sm={3} textAlign="center">                <Box sx={{ mb: 1 }}>                  <SportsSoccer sx={{ fontSize: 50 }} />                </Box>                <Typography variant="h3" fontWeight="bold">10</Typography>                <Typography variant="body1">Halı Saha</Typography>              </Grid>                            <Grid item xs={6} sm={3} textAlign="center">                <Box sx={{ mb: 1 }}>                  <People sx={{ fontSize: 50 }} />                </Box>                <Typography variant="h3" fontWeight="bold">25.000+</Typography>                <Typography variant="body1">Mutlu Müşteri</Typography>              </Grid>                            <Grid item xs={6} sm={3} textAlign="center">                <Box sx={{ mb: 1 }}>                  <VerifiedUser sx={{ fontSize: 50 }} />                </Box>                <Typography variant="h3" fontWeight="bold">8</Typography>                <Typography variant="body1">Yıllık Deneyim</Typography>              </Grid>                            <Grid item xs={6} sm={3} textAlign="center">                <Box sx={{ mb: 1 }}>                  <EmojiEvents sx={{ fontSize: 50 }} />                </Box>                <Typography variant="h3" fontWeight="bold">150+</Typography>                <Typography variant="body1">Turnuva</Typography>              </Grid>            </Grid>          </Box>        </Paper>
+        {/* Tesis Özellikleri */}        <Box sx={{ mb: 8 }}>          <Typography             variant="h4"             component="h2"             gutterBottom             fontWeight="bold"             textAlign="center"            color="primary"            sx={{ mb: 4 }}          >            Tesis Özelliklerimiz          </Typography>                    <Grid container spacing={3}>            {facilities.map((facility, index) => (              <Grid item xs={12} sm={6} md={4} key={index}>                <Paper                   elevation={2}                   sx={{                     p: 3,                     height: '100%',                     borderRadius: 3,                    transition: 'transform 0.3s, box-shadow 0.3s',                    '&:hover': {                      transform: 'translateY(-10px)',                      boxShadow: '0 10px 30px rgba(0,0,0,0.15)'                    }                  }}                >                  <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', textAlign: 'center' }}>                    <Avatar                       sx={{                         width: 70,                         height: 70,                         mb: 2,                         bgcolor: 'primary.main',                        boxShadow: '0 4px 14px rgba(76,175,80,0.4)'                      }}                    >                      {facility.icon}                    </Avatar>                    <Typography variant="h6" component="h3" gutterBottom fontWeight="bold">                      {facility.title}                    </Typography>                    <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>                      {facility.description}                    </Typography>                  </Box>                </Paper>              </Grid>            ))}          </Grid>        </Box>                {/* Rakamlarla Sporyum */}        <Paper           elevation={2}           sx={{             p: 4,             mb: 8,             borderRadius: 3,            backgroundImage: 'linear-gradient(to right, rgba(76, 175, 80, 0.9), rgba(33, 150, 243, 0.9))',            color: 'white',            position: 'relative',            overflow: 'hidden'          }}        >          <Box             sx={{               position: 'absolute',               top: 0,               left: 0,               right: 0,               bottom: 0,              backgroundImage: 'url(https://images.unsplash.com/photo-1540379708242-14a809bef941?auto=format&w=1000&q=80)',              backgroundSize: 'cover',              backgroundPosition: 'center',              opacity: 0.2,              zIndex: 0            }}          />                    <Box sx={{ position: 'relative', zIndex: 1 }}>            <Typography               variant="h4"               component="h2"               gutterBottom               fontWeight="bold"               textAlign="center"              sx={{ mb: 4 }}            >              Rakamlarla Sporyum            </Typography>                        <Grid container spacing={3} justifyContent="center">              <Grid item xs={6} sm={3} textAlign="center">                <Box sx={{ mb: 1 }}>                  <SportsSoccer sx={{ fontSize: 50 }} />                </Box>                <Typography variant="h3" fontWeight="bold">3</Typography>                <Typography variant="body1">Halı Saha</Typography>              </Grid>                            <Grid item xs={6} sm={3} textAlign="center">                <Box sx={{ mb: 1 }}>                  <People sx={{ fontSize: 50 }} />                </Box>                <Typography variant="h3" fontWeight="bold">25.000+</Typography>                <Typography variant="body1">Mutlu Müşteri</Typography>              </Grid>                            <Grid item xs={6} sm={3} textAlign="center">                <Box sx={{ mb: 1 }}>                  <VerifiedUser sx={{ fontSize: 50 }} />                </Box>                <Typography variant="h3" fontWeight="bold">8</Typography>                <Typography variant="body1">Yıllık Deneyim</Typography>              </Grid>                            <Grid item xs={6} sm={3} textAlign="center">                <Box sx={{ mb: 1 }}>                  <EmojiEvents sx={{ fontSize: 50 }} />                </Box>                <Typography variant="h3" fontWeight="bold">150+</Typography>                <Typography variant="body1">Turnuva</Typography>              </Grid>            </Grid>          </Box>        </Paper>
 
         {/* Tarihçemiz */}
         <Box sx={{ mb: 8 }}>
@@ -507,7 +539,7 @@ const AboutPage = () => {
           </Paper>
         </Box>
 
-        {/* Ekibimiz */}
+        {/* Sporyum 23 Halı Sahalarımız */}
         <Box sx={{ mb: 8 }}>
           <Typography 
             variant="h4" 
@@ -518,43 +550,109 @@ const AboutPage = () => {
             color="primary"
             sx={{ mb: 4 }}
           >
-            Ekibimiz
+            Sporyum 23 Halı Sahalarımız
           </Typography>
           
-          <Grid container spacing={3}>
-            {teamMembers.map((member, index) => (
-              <Grid item xs={12} sm={6} md={3} key={index}>
-                <Card 
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
+          <Grid container spacing={4}>
+            {locations.map((location, index) => (
+              <Grid item xs={12} md={4} key={index}>
+                <Card
+                  sx={{
                     borderRadius: 3,
                     overflow: 'hidden',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    boxShadow: 3,
                     transition: 'transform 0.3s, box-shadow 0.3s',
                     '&:hover': {
                       transform: 'translateY(-10px)',
-                      boxShadow: '0 15px 30px rgba(0,0,0,0.1)'
+                      boxShadow: '0 15px 30px rgba(0,0,0,0.15)'
                     }
                   }}
                 >
                   <CardMedia
                     component="img"
-                    height="240"
-                    image={member.image}
-                    alt={member.name}
+                    height="200"
+                    image={location.image}
+                    alt={location.name}
                   />
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Typography variant="h6" component="h3" gutterBottom fontWeight="bold">
-                      {member.name}
+                      {location.name}
                     </Typography>
-                    <Typography variant="subtitle2" color="primary" gutterBottom>
-                      {member.title}
-                    </Typography>
+                    <List dense>
+                      <ListItem disableGutters>
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'rgba(76, 175, 80, 0.1)', color: 'primary.main' }}>
+                            <LocationOn />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={location.address}
+                        />
+                      </ListItem>
+                      <ListItem disableGutters>
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'rgba(76, 175, 80, 0.1)', color: 'primary.main' }}>
+                            <Phone />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText primary={location.phone} />
+                      </ListItem>
+                    </List>
+                    
                     <Divider sx={{ my: 1.5 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {member.bio}
+                    
+                    <Typography variant="subtitle2" color="primary" fontWeight="medium" gutterBottom>
+                      Özellikler:
                     </Typography>
+                    <Box sx={{ mb: 2 }}>
+                      {location.features.map((feature, idx) => (
+                        <Typography key={idx} variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                          <Box component="span" sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            bgcolor: 'primary.main',
+                            display: 'inline-block',
+                            mr: 1.5
+                          }} />
+                          {feature}
+                        </Typography>
+                      ))}
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={goToReservation}
+                        sx={{ flexGrow: 1 }}
+                        endIcon={<ArrowForward />}
+                      >
+                        Rezervasyon
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="success"
+                        onClick={sendWhatsAppMessage}
+                        startIcon={<WhatsApp />}
+                      >
+                        İletişim
+                      </Button>
+                      <Button
+                        component={Link}
+                        href={location.maps}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<LocationOn />}
+                      >
+                        Harita
+                      </Button>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -562,7 +660,8 @@ const AboutPage = () => {
           </Grid>
         </Box>
 
-                {/* Tesislerimiz */}        <Box sx={{ mb: 8 }}>          <Typography             variant="h4"             component="h2"             gutterBottom             fontWeight="bold"             textAlign="center"            color="primary"            sx={{ mb: 4 }}          >            Tesislerimiz          </Typography>                    <Grid container spacing={4}>            {locations.map((location, index) => (              <Grid item xs={12} md={4} key={index}>                <Card                   sx={{                     borderRadius: 3,                    overflow: 'hidden',                    height: '100%',                    display: 'flex',                    flexDirection: 'column',                    boxShadow: 3,                    transition: 'transform 0.3s, box-shadow 0.3s',                    '&:hover': {                      transform: 'translateY(-10px)',                      boxShadow: '0 15px 30px rgba(0,0,0,0.15)'                    }                  }}                >                  <CardMedia                    component="img"                    height="200"                    image={location.image}                    alt={location.name}                  />                  <CardContent sx={{ flexGrow: 1 }}>                    <Typography variant="h6" component="h3" gutterBottom fontWeight="bold">                      {location.name}                    </Typography>                    <List dense>                      <ListItem disableGutters>                        <ListItemAvatar>                          <Avatar sx={{ bgcolor: 'rgba(76, 175, 80, 0.1)', color: 'primary.main' }}>                            <LocationOn />                          </Avatar>                        </ListItemAvatar>                        <ListItemText                           primary={location.address}                         />                      </ListItem>                      <ListItem disableGutters>                        <ListItemAvatar>                          <Avatar sx={{ bgcolor: 'rgba(76, 175, 80, 0.1)', color: 'primary.main' }}>                            <Phone />                          </Avatar>                        </ListItemAvatar>                        <ListItemText primary={location.phone} />                      </ListItem>                    </List>                                        <Divider sx={{ my: 1.5 }} />                                        <Typography variant="subtitle2" color="primary" fontWeight="medium" gutterBottom>                      Özellikler:                    </Typography>                    <Box sx={{ mb: 2 }}>                      {location.features.map((feature, idx) => (                        <Typography key={idx} variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>                          <Box component="span" sx={{                             width: 6,                             height: 6,                             borderRadius: '50%',                             bgcolor: 'primary.main',                             display: 'inline-block',                            mr: 1.5                           }} />                          {feature}                        </Typography>                      ))}                    </Box>                                        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>                      <Button                         variant="contained"                         color="primary"                         sx={{ flexGrow: 1 }}                        endIcon={<ArrowForward />}                      >                        Rezervasyon                      </Button>                      <Button                         component={Link}                        href={location.maps}                        target="_blank"                        rel="noopener noreferrer"                        variant="outlined"                         color="primary"                        startIcon={<LocationOn />}                      >                        Harita                      </Button>                    </Box>                  </CardContent>                </Card>              </Grid>            ))}          </Grid>        </Box>                {/* Harita */}        <Box sx={{ mb: 8 }}>
+        {/* Harita */}
+        <Box sx={{ mb: 8 }}>
           <Typography 
             variant="h4" 
             component="h2" 
@@ -717,10 +816,11 @@ const AboutPage = () => {
                 </List>
                 <Box sx={{ flexGrow: 1 }} />
                 <Button 
-                  variant="contained" 
+                  variant="outlined" 
                   color="primary" 
                   size="large"
                   fullWidth
+                  onClick={goToReservation}
                   sx={{ 
                     mt: 3, 
                     borderRadius: 2,
@@ -802,6 +902,7 @@ const AboutPage = () => {
                 color="primary" 
                 size="large"
                 fullWidth
+                onClick={sendWhatsAppMessage}
                 sx={{ 
                   py: 2, 
                   fontSize: '1.1rem',
@@ -816,6 +917,7 @@ const AboutPage = () => {
                 color="primary" 
                 size="large"
                 fullWidth
+                onClick={goToReservation}
                 sx={{ 
                   py: 2, 
                   mt: 2,

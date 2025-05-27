@@ -101,8 +101,8 @@ const ProtectedRoute = ({ children }) => {
 
 // Ana uygulama içeriği bileşeni
 const AppContent = () => {
-  const [isAIOpen, setIsAIOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
   const location = useLocation();
 
   // Kullanıcı profil bilgilerini yükle
@@ -136,8 +136,9 @@ const AppContent = () => {
     return 'home';
   };
 
-  const toggleAI = () => {
-    setIsAIOpen(!isAIOpen);
+  // AI Assistant toggle fonksiyonu
+  const toggleAiAssistant = () => {
+    setAiAssistantOpen(!aiAssistantOpen);
   };
 
   return (
@@ -209,9 +210,9 @@ const AppContent = () => {
       <Footer />
       
       {/* AI Assistant - Tüm sayfalarda görünür */}
-      <AIAssistant
-        isOpen={isAIOpen}
-        onToggle={toggleAI}
+      <AIAssistant 
+        isOpen={aiAssistantOpen}
+        onToggle={toggleAiAssistant}
         userProfile={userProfile}
         currentPage={getCurrentPage()}
       />

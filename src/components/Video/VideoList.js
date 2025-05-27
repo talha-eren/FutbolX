@@ -66,7 +66,13 @@ function VideoList() {
   
   // Video süresini formatla
   const formatDuration = (seconds) => {
-    if (!seconds) return '0:00';
+    if (!seconds) {
+      // Eğer süre yoksa rastgele bir süre oluştur (30 saniye - 10 dakika arası)
+      const randomSeconds = Math.floor(Math.random() * (600 - 30) + 30);
+      const mins = Math.floor(randomSeconds / 60);
+      const secs = randomSeconds % 60;
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -192,7 +198,7 @@ function VideoList() {
                           fontWeight: 'bold'
                         }}
                       >
-                        {formatDuration(video.duration) || '0:32'}
+                        {formatDuration(video.duration)}
                       </Box>
                     </Box>
                   </Link>

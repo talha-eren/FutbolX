@@ -447,7 +447,7 @@ function Teams() {
                       {team.contactNumber ? (
                         <Button 
                           variant="contained"
-                          href={`https://wa.me/${team.contactNumber.replace(/\D/g, '')}`}
+                          href={`https://wa.me/90${team.contactNumber.replace(/\D/g, '').replace(/^0/, '')}`}
                           target="_blank"
                           startIcon={<WhatsApp />}
                           sx={{ 

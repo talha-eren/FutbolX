@@ -25,6 +25,7 @@ const matchRoutes = require('./routes/matchRoutes');
 const playerRoutes = require('./routes/playerRoutes');
 const venueRoutes = require('./routes/venueRoutes');
 const teamRoutes = require('./routes/teamRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 const { protect } = require('./middleware/authMiddleware');
 
 console.log('Modüller yüklendi');
@@ -281,6 +282,9 @@ app.use('/api/venues', venueRoutes);
 
 // Takım rotalarını kullan
 app.use('/api/teams', teamRoutes);
+
+// AI Asistan rotalarını kullan
+app.use('/api/ai', aiRoutes);
 
 // Oyuncu ve Halı Saha rotaları (fallback - sadece route'lar tanımlanmamışsa)
 app.get('/api/players', async (req, res) => {

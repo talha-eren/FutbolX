@@ -187,7 +187,7 @@ function TeamFinder() {
                           {team.contactNumber && (
                             <IconButton 
                               color="success" 
-                              href={`https://wa.me/${team.contactNumber.replace(/\D/g, '')}`} 
+                              href={`https://wa.me/90${team.contactNumber.replace(/\D/g, '').replace(/^0/, '')}`} 
                               target="_blank"
                             >
                           <WhatsApp />

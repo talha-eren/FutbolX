@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Container, Grid, Paper, Tabs, Tab, Card, CardMedia, CardContent, Avatar, Button, CircularProgress, Alert, Divider, Chip, Rating } from '@mui/material';
-import { SportsSoccer, LocationOn, Star, EmojiEvents, Person, AccessTime, EventAvailable, MonetizationOn, Bolt, Speed, CheckCircle, LocalParking, Shower, Restaurant, Wifi, Groups } from '@mui/icons-material';
+import { SportsSoccer, LocationOn, Star, EmojiEvents, Person, AccessTime, EventAvailable, MonetizationOn, Bolt, Speed, CheckCircle, LocalParking, Shower, Restaurant, Wifi, Groups, Add, VideoCall } from '@mui/icons-material';
 import VideoFeed from './Feed/VideoFeed';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
@@ -158,6 +158,65 @@ function Feed() {
         </Box>
                       </Box>
                       
+      {/* Gönderi Paylaş Kısmı */}
+      <Card sx={{ 
+        mb: 4, 
+        borderRadius: 3, 
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'
+      }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#4CAF50', mb: 2 }}>
+            📝 Gönderi Paylaş
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Düşüncelerinizi, fotoğraflarınızı, videolarınızı ve deneyimlerinizi toplulukla paylaşın!
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              component={Link}
+              to="/upload-post"
+              startIcon={<Add />}
+              sx={{
+                bgcolor: '#4CAF50',
+                '&:hover': { bgcolor: '#388E3C' },
+                borderRadius: '24px',
+                px: 3,
+                py: 1.5,
+                fontWeight: 'bold'
+              }}
+            >
+              Yeni Gönderi
+            </Button>
+            
+            <Button
+              variant="outlined"
+              color="primary"
+              component={Link}
+              to="/videos"
+              startIcon={<SportsSoccer />}
+              sx={{
+                borderColor: '#4CAF50',
+                color: '#4CAF50',
+                '&:hover': { 
+                  borderColor: '#388E3C',
+                  bgcolor: 'rgba(76, 175, 80, 0.08)' 
+                },
+                borderRadius: '24px',
+                px: 3,
+                py: 1.5,
+                fontWeight: 'bold'
+              }}
+            >
+              Tüm Gönderileri Gör
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+      
       <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 3, fontWeight: 'bold', color: '#4CAF50' }}>
         Son Oynanan Maçlar
       </Typography>

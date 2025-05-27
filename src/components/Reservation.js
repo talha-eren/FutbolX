@@ -45,7 +45,7 @@ const sporyum23 = {
 };
 
 // Mock rezervasyon verileri
-const mockReservations = [
+const initialReservations = [
   {
     id: 'res1',
     date: format(new Date(), 'dd.MM.yyyy'),
@@ -54,7 +54,7 @@ const mockReservations = [
     user: {
       firstName: 'Örnek',
       lastName: 'Kullanıcı',
-      phone: '0555 123 4567'
+      phone: '0424 247 7701'
     },
     status: 'onaylandı',
     price: 450,
@@ -68,7 +68,7 @@ const mockReservations = [
     user: {
       firstName: 'Ali',
       lastName: 'Yılmaz',
-      phone: '0532 987 6543'
+      phone: '0555 732 6476'
     },
     status: 'beklemede',
     price: 450,
@@ -267,14 +267,14 @@ function Reservation() {
             date: format(new Date(res.date), 'dd.MM.yyyy'),
             startTime: res.startTime,
             endTime: res.endTime,
+            customerName: res.customerName || res.user?.firstName || 'Misafir',
+            customerPhone: res.customerPhone || res.user?.phone || 'Telefon Bilgisi Yok',
             user: {
-              firstName: res.customerName || res.user?.firstName || res.user?.username || 'Misafir',
-              lastName: '',
+              firstName: res.customerName || res.user?.firstName || 'Misafir',
+              lastName: res.user?.lastName || '',
               phone: res.customerPhone || res.user?.phone || 'Telefon Bilgisi Yok',
               email: res.user?.email || ''
             },
-            customerName: res.customerName || 'Misafir',
-            customerPhone: res.customerPhone || 'Telefon Bilgisi Yok',
             status: res.status || 'beklemede',
             price: res.price,
             field: res.field || 1,
@@ -717,263 +717,30 @@ function Reservation() {
     }
   };
 
-  // Admin paneli için rezervasyon yönetim tablosu
-  const [selectedReservation, setSelectedReservation] = useState(null);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-  
-  const handleStatusChange = async () => {
-    if (!selectedReservation || !newStatus) return;
-    
+  // WhatsApp mesajı gönderme fonksiyonu
+  const sendWhatsAppMessage = (phoneNumber, message) => {
     try {
-      console.log(`Rezervasyon durumu güncelleniyor: ${selectedReservation.id} -> ${newStatus}`);
-      setLoading(true);
+      // Telefon numarasını temizle ve formatla
+      let cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/[^\d]/g, '');
       
-      // API isteği ile rezervasyon durumunu güncelle
-      await axios.patch(`/api/reservations/${selectedReservation.id}/status`, {
-        status: newStatus
-      });
-      
-      // State'deki rezervasyon listesini güncelle - backend'e gitmeden önce UI'ı güncelle
-      const updatedReservations = reservations.map(r => 
-        r.id === selectedReservation.id 
-          ? {...r, status: newStatus} 
-          : r
-      );
-      setReservations(updatedReservations);
-      
-      // Başarılı güncelleme mesajı
-      setError(null);
-      
-      // Boş saatleri de güncelle çünkü durum değişikliği müsaitlik durumunu etkileyebilir
-      if (selectedDate) {
-        fetchAvailableTimeSlots();
+      // Türkiye telefon numarası formatına çevir
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '90' + cleanPhone.substring(1);
+      } else if (!cleanPhone.startsWith('90')) {
+        cleanPhone = '90' + cleanPhone;
       }
       
-      // Dialog'u kapat
-      setStatusDialogOpen(false);
-      setSelectedReservation(null);
-      setNewStatus('');
+      // WhatsApp URL'si oluştur
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
       
-      // 1 saniye sonra tüm rezervasyonları yeniden yükle
-      setTimeout(() => {
-        fetchReservations();
-      }, 1000);
+      // Yeni sekmede WhatsApp'ı aç
+      window.open(whatsappUrl, '_blank');
       
+      console.log('WhatsApp mesajı gönderildi:', cleanPhone, message);
     } catch (error) {
-      console.error('Durum güncelleme hatası:', error);
-      setError('Rezervasyon durumu güncellenirken bir hata oluştu: ' + 
-        (error.response?.data?.message || error.message));
-    } finally {
-      setLoading(false);
+      console.error('WhatsApp mesajı gönderilirken hata:', error);
+      alert('WhatsApp mesajı gönderilirken bir hata oluştu.');
     }
-  };
-  
-  const openStatusDialog = (reservation, initialStatus) => {
-    setSelectedReservation(reservation);
-    setNewStatus(initialStatus || reservation.status || 'beklemede');
-    setStatusDialogOpen(true);
-  };
-
-  const getStatusChipColor = (status) => {
-    switch(status) {
-      case 'onaylandı': return 'success';
-      case 'beklemede': return 'warning';
-      case 'iptal edildi': return 'error';
-      case 'tamamlandı': return 'info';
-      default: return 'default';
-    }
-  };
-
-  const renderAdminPanel = () => {
-    return (
-      <Box sx={{ mt: 6, pt: 4, borderTop: '1px solid #e0e0e0' }}>
-        <Typography variant="h5" gutterBottom>
-          Halı Saha Yönetim Paneli
-        </Typography>
-        
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">
-            Rezervasyon Yönetimi {reservations.length > 0 && `(${reservations.length} rezervasyon)`}
-          </Typography>
-          <Button 
-            variant="outlined" 
-            startIcon={loading ? <CircularProgress size={20} /> : <RefreshIcon />} 
-            onClick={fetchReservations}
-            disabled={loading}
-            color="primary"
-            size="small"
-          >
-            {loading ? 'Yükleniyor...' : 'Yenile'}
-          </Button>
-        </Box>
-        
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        
-        <TableContainer component={Paper} sx={{ maxHeight: 500, overflowY: 'auto' }}>
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                <TableCell>Müşteri</TableCell>
-                <TableCell>İletişim</TableCell>
-                <TableCell>Saha</TableCell>
-                <TableCell>Tarih</TableCell>
-                <TableCell>Saat</TableCell>
-                <TableCell>Tutar</TableCell>
-                <TableCell>Durum</TableCell>
-                <TableCell>İşlemler</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
-                    <CircularProgress size={24} sx={{ mr: 1 }} />
-                    Rezervasyonlar yükleniyor...
-                  </TableCell>
-                </TableRow>
-              ) : reservations.length > 0 ? (
-                reservations.map((reservation) => (
-                  <TableRow key={reservation.id} 
-                    sx={{ 
-                      bgcolor: 
-                        reservation.status === 'beklemede' ? 'rgba(255, 235, 59, 0.1)' : 
-                        reservation.status === 'onaylandı' ? 'rgba(76, 175, 80, 0.1)' : 
-                        reservation.status === 'iptal edildi' ? 'rgba(244, 67, 54, 0.1)' : 
-                        'transparent' 
-                    }}
-                  >
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar sx={{ width: 32, height: 32, mr: 1, bgcolor: 'primary.main' }}>
-                          {reservation.customerName?.charAt(0) || 'M'}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="body2" fontWeight="bold">
-                            {reservation.customerName || reservation.user?.firstName || 'Misafir'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{reservation.customerPhone || reservation.user?.phone || 'Belirtilmemiş'}</Typography>
-                    </TableCell>
-                    <TableCell>Saha {reservation.field || 1}</TableCell>
-                    <TableCell>{reservation.date}</TableCell>
-                    <TableCell>{reservation.startTime} - {reservation.endTime}</TableCell>
-                    <TableCell>{reservation.price} ₺</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={reservation.status === 'onaylandı' ? 'Onaylandı' : 
-                               reservation.status === 'iptal edildi' ? 'İptal Edildi' : 
-                               reservation.status === 'tamamlandı' ? 'Tamamlandı' : 'Onay Bekliyor'} 
-                        color={getStatusChipColor(reservation.status)}
-                        size="small"
-                        sx={{ fontWeight: 'bold' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton 
-                        size="small" 
-                        color="success" 
-                        onClick={() => openStatusDialog(reservation, 'onaylandı')}
-                        title="Onayla"
-                        disabled={reservation.status === 'onaylandı' || reservation.status === 'iptal edildi'}
-                      >
-                        <Check />
-                      </IconButton>
-                      <IconButton 
-                        size="small" 
-                        color="error" 
-                        onClick={() => openStatusDialog(reservation, 'iptal edildi')}
-                        title="İptal Et"
-                        disabled={reservation.status === 'iptal edildi'}
-                      >
-                        <Close />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="info"
-                        onClick={() => openStatusDialog(reservation, reservation.status)}
-                        title="Durumu Değiştir"
-                      >
-                        <Edit fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    Henüz rezervasyon bulunmamaktadır.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        
-        {/* Durum değiştirme dialog'u */}
-        <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)}>
-          <DialogTitle>Rezervasyon Durumu Değiştir</DialogTitle>
-          <DialogContent>
-            <Box sx={{ minWidth: 300, mt: 2 }}>
-              {selectedReservation && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                    Rezervasyon Bilgileri
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Müşteri:</strong> {selectedReservation.customerName || selectedReservation.user?.firstName || 'Misafir'}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>İletişim:</strong> {selectedReservation.customerPhone || selectedReservation.user?.phone || 'Belirtilmemiş'}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Tarih:</strong> {selectedReservation.date}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Saat:</strong> {selectedReservation.startTime} - {selectedReservation.endTime}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Saha:</strong> Saha {selectedReservation.field || 1}
-                  </Typography>
-                </Box>
-              )}
-              
-              <FormControl fullWidth sx={{ mt: 2 }}>
-                <InputLabel>Durum</InputLabel>
-                <Select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  label="Durum"
-                >
-                  <MenuItem value="beklemede">Beklemede</MenuItem>
-                  <MenuItem value="onaylandı">Onaylandı</MenuItem>
-                  <MenuItem value="iptal edildi">İptal Edildi</MenuItem>
-                  <MenuItem value="tamamlandı">Tamamlandı</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setStatusDialogOpen(false)}>İptal</Button>
-            <Button 
-              onClick={handleStatusChange} 
-              variant="contained" 
-              color="primary"
-              disabled={loading}
-            >
-              {loading ? 'İşleniyor...' : 'Kaydet'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    );
   };
 
   return (
@@ -1012,9 +779,6 @@ function Reservation() {
           {activeStep === steps.length - 1 ? 'Rezervasyonu Tamamla' : 'Devam Et'}
         </Button>
       </Box>
-      
-      {/* Admin paneli */}
-      {renderAdminPanel()}
 
       {/* Onay Dialog */}
       <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>

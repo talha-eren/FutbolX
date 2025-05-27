@@ -37,7 +37,8 @@ import {
   AccessTime,
   Search,
   FilterList,
-  Refresh
+  Refresh,
+  Phone
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { format } from 'date-fns';
@@ -91,28 +92,25 @@ function AdminReservations() {
           date: format(new Date(res.date), 'dd.MM.yyyy'),
           startTime: res.startTime,
           endTime: res.endTime,
+          customerName: res.customerName || res.user?.firstName || 'Misafir',
+          customerPhone: res.customerPhone || res.user?.phone || 'Telefon Bilgisi Yok',
           user: {
-            firstName: res.user?.firstName || 'Misafir',
+            firstName: res.customerName || res.user?.firstName || 'Misafir',
             lastName: res.user?.lastName || '',
-            phone: res.user?.phone || 'Belirtilmemiş',
+            phone: res.customerPhone || res.user?.phone || 'Telefon Bilgisi Yok',
             email: res.user?.email || ''
           },
           status: res.status || 'beklemede',
           price: res.price || 450,
-          field: res.field || 1
+          field: res.field || 1,
+          createdAt: res.createdAt ? new Date(res.createdAt) : new Date(),
+          venue: res.venue?.name || 'Sporyum 23'
         }));
         
         // Rezervasyonları tarihsel sıraya göre sırala (en yakın tarih en üstte)
         const sortedReservations = formattedReservations.sort((a, b) => {
-          // Önce tarihe göre sırala (yeni tarihler önce)
-          const dateA = new Date(a.date.split('.').reverse().join('-'));
-          const dateB = new Date(b.date.split('.').reverse().join('-'));
-          
-          if (dateA > dateB) return -1;
-          if (dateA < dateB) return 1;
-          
-          // Tarihler aynıysa saate göre sırala
-          return a.startTime.localeCompare(b.startTime);
+          // En son oluşturulan rezervasyonlar üstte olacak şekilde sırala
+          return b.createdAt.getTime() - a.createdAt.getTime();
         });
         
         setReservations(sortedReservations);
@@ -123,6 +121,8 @@ function AdminReservations() {
           const mockReservations = [
           { 
             id: 1, 
+            customerName: 'Örnek Kullanıcı',
+            customerPhone: '0532 123 4567',
             user: { firstName: 'Örnek', lastName: 'Kullanıcı', phone: '0532 123 4567', email: 'ornek@example.com' }, 
             field: 1, 
             date: format(new Date(), 'dd.MM.yyyy'),
@@ -133,6 +133,8 @@ function AdminReservations() {
           },
           { 
             id: 2, 
+            customerName: 'Test Kullanıcı',
+            customerPhone: '0533 234 5678',
             user: { firstName: 'Test', lastName: 'Kullanıcı', phone: '0533 234 5678', email: 'test@example.com' }, 
             field: 2, 
             date: format(new Date(), 'dd.MM.yyyy'), 
@@ -153,6 +155,8 @@ function AdminReservations() {
         const mockReservations = [
           { 
             id: 1, 
+            customerName: 'Bağlantı Hatası',
+            customerPhone: 'Sistem hatası',
             user: { firstName: 'Bağlantı', lastName: 'Hatası', phone: 'Sistem hatası nedeniyle veri gösterilemiyor', email: '' }, 
             field: 1, 
             date: format(new Date(), 'dd.MM.yyyy'), 
@@ -241,12 +245,17 @@ function AdminReservations() {
       console.log('Başarılı yanıt:', response.data);
       
       // State'deki rezervasyon listesini güncelle
-    const updatedReservations = reservations.map(r => 
+      const updatedReservations = reservations.map(r => 
         r.id === selectedReservation.id 
           ? {...r, status: newStatus} 
           : r
-    );
-    setReservations(updatedReservations);
+      );
+      setReservations(updatedReservations);
+      
+      // WhatsApp bildirimi gönder (sadece durum değişikliği başarılı olursa)
+      if (newStatus !== selectedReservation.status) {
+        sendStatusNotification(selectedReservation, newStatus);
+      }
       
       setError(null);
       setStatusDialogOpen(false);
@@ -279,11 +288,11 @@ function AdminReservations() {
 
   // Filtreleme ve arama
   const filteredReservations = reservations.filter(reservation => {
-    const customerName = `${reservation.user.firstName} ${reservation.user.lastName}`.trim();
+    const customerName = reservation.customerName || reservation.user.firstName || 'Misafir';
     
     const matchesSearch = 
       customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reservation.user.phone.includes(searchTerm) ||
+      (reservation.customerPhone || reservation.user.phone || '').includes(searchTerm) ||
       `Saha ${reservation.field}`.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || reservation.status === filterStatus;
@@ -299,6 +308,86 @@ function AdminReservations() {
     setLoading(true);
     setError(null);
     fetchReservations();
+  };
+
+  // WhatsApp mesajı gönderme fonksiyonu
+  const sendWhatsAppMessage = (phoneNumber, message) => {
+    try {
+      // Telefon numarasını temizle ve formatla
+      let cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/[^\d]/g, '');
+      
+      // Türkiye telefon numarası formatına çevir
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '90' + cleanPhone.substring(1);
+      } else if (!cleanPhone.startsWith('90')) {
+        cleanPhone = '90' + cleanPhone;
+      }
+      
+      // WhatsApp URL'si oluştur
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      
+      // Yeni sekmede WhatsApp'ı aç
+      window.open(whatsappUrl, '_blank');
+      
+      console.log('WhatsApp mesajı gönderildi:', cleanPhone, message);
+    } catch (error) {
+      console.error('WhatsApp mesajı gönderilirken hata:', error);
+      alert('WhatsApp mesajı gönderilirken bir hata oluştu.');
+    }
+  };
+
+  // Rezervasyon durumu değiştiğinde WhatsApp mesajı gönder
+  const sendStatusNotification = (reservation, newStatus) => {
+    if (!reservation.customerPhone || reservation.customerPhone === 'Telefon Bilgisi Yok') {
+      console.log('Telefon numarası bulunamadı, WhatsApp mesajı gönderilemedi');
+      return;
+    }
+
+    let message = '';
+    const customerName = reservation.customerName || 'Değerli Müşterimiz';
+    const date = reservation.date;
+    const time = `${reservation.startTime} - ${reservation.endTime}`;
+    const field = `Saha ${reservation.field}`;
+
+    switch (newStatus) {
+      case 'onaylandı':
+        message = `🎉 *Rezervasyon Onaylandı!*\n\n` +
+                 `Merhaba ${customerName},\n\n` +
+                 `Sporyum 23 halı saha rezervasyonunuz onaylanmıştır.\n\n` +
+                 `📅 *Tarih:* ${date}\n` +
+                 `⏰ *Saat:* ${time}\n` +
+                 `🏟️ *Saha:* ${field}\n` +
+                 `💰 *Ücret:* ${reservation.price} ₺\n\n` +
+                 `Rezervasyonunuz için teşekkür ederiz. Maç saatinizden 15 dakika önce tesisimizde olmanızı rica ederiz.\n\n` +
+                 `📍 *Adres:* Cumhuriyet Mah. F. Ahmet Baba Bulvarı No:110, Elazığ\n` +
+                 `📞 *İletişim:* 0424 247 7701\n\n` +
+                 `İyi maçlar! ⚽`;
+        break;
+        
+      case 'iptal edildi':
+        message = `❌ *Rezervasyon İptal Edildi*\n\n` +
+                 `Merhaba ${customerName},\n\n` +
+                 `Maalesef ${date} tarihli ${time} saatleri arasındaki ${field} rezervasyonunuz iptal edilmiştir.\n\n` +
+                 `Detaylı bilgi için bizimle iletişime geçebilirsiniz.\n\n` +
+                 `📞 *İletişim:* 0424 247 7701\n` +
+                 `📧 *E-posta:* info@sporyum23.com\n\n` +
+                 `Anlayışınız için teşekkür ederiz.`;
+        break;
+        
+      case 'tamamlandı':
+        message = `✅ *Rezervasyon Tamamlandı*\n\n` +
+                 `Merhaba ${customerName},\n\n` +
+                 `${date} tarihli ${time} saatleri arasındaki ${field} rezervasyonunuz başarıyla tamamlanmıştır.\n\n` +
+                 `Sporyum 23'ü tercih ettiğiniz için teşekkür ederiz. Tekrar görüşmek üzere! ⚽\n\n` +
+                 `📞 *İletişim:* 0424 247 7701`;
+        break;
+        
+      default:
+        return; // Diğer durumlar için mesaj gönderme
+    }
+
+    // WhatsApp mesajını gönder
+    sendWhatsAppMessage(reservation.customerPhone, message);
   };
 
   // Durum renkleri
@@ -460,18 +549,18 @@ function AdminReservations() {
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Avatar sx={{ width: 32, height: 32, mr: 1, bgcolor: 'primary.main' }}>
-                          {reservation.user.firstName?.charAt(0) || 'M'}
+                          {(reservation.customerName || reservation.user.firstName || 'M').charAt(0)}
                         </Avatar>
                         <Box>
                           <Typography variant="body2" fontWeight="bold">
-                            {reservation.user.firstName} {reservation.user.lastName}
+                            {reservation.customerName || reservation.user.firstName || 'Misafir'}
                           </Typography>
                         </Box>
                     </Box>
                   </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {reservation.user.phone}
+                        {reservation.customerPhone || reservation.user.phone || 'Telefon Bilgisi Yok'}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                         {reservation.user.email}
@@ -519,6 +608,22 @@ function AdminReservations() {
                         >
                           <Edit fontSize="small" />
                         </IconButton>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => {
+                            if (reservation.customerPhone && reservation.customerPhone !== 'Telefon Bilgisi Yok') {
+                              const message = `Merhaba ${reservation.customerName || 'Değerli Müşterimiz'},\n\nSporyum 23 halı saha rezervasyonunuz hakkında bilgi vermek istiyoruz.\n\n📅 Tarih: ${reservation.date}\n⏰ Saat: ${reservation.startTime} - ${reservation.endTime}\n🏟️ Saha: Saha ${reservation.field}\n\nDetaylı bilgi için: 0424 247 7701`;
+                              sendWhatsAppMessage(reservation.customerPhone, message);
+                            } else {
+                              alert('Bu rezervasyon için telefon numarası bulunamadı.');
+                            }
+                          }}
+                          title="WhatsApp Mesajı Gönder"
+                          disabled={!reservation.customerPhone || reservation.customerPhone === 'Telefon Bilgisi Yok'}
+                        >
+                          <Phone fontSize="small" />
+                        </IconButton>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -556,7 +661,7 @@ function AdminReservations() {
                 <TextField
                   fullWidth
                   label="Müşteri Adı"
-                  value={`${selectedReservation.user.firstName} ${selectedReservation.user.lastName}`.trim()}
+                  value={selectedReservation.customerName || selectedReservation.user.firstName || 'Misafir'}
                   disabled
                 />
               </Grid>
@@ -564,7 +669,7 @@ function AdminReservations() {
                 <TextField
                   fullWidth
                   label="Telefon"
-                  value={selectedReservation.user.phone}
+                  value={selectedReservation.customerPhone || selectedReservation.user.phone || 'Telefon Bilgisi Yok'}
                   disabled
                 />
               </Grid>
@@ -649,7 +754,10 @@ function AdminReservations() {
                   Rezervasyon Bilgileri
                 </Typography>
                 <Typography variant="body2">
-                  <strong>Müşteri:</strong> {selectedReservation.user.firstName} {selectedReservation.user.lastName}
+                  <strong>Müşteri:</strong> {selectedReservation.customerName || selectedReservation.user.firstName || 'Misafir'}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>İletişim:</strong> {selectedReservation.customerPhone || selectedReservation.user.phone || 'Telefon Bilgisi Yok'}
                 </Typography>
                 <Typography variant="body2">
                   <strong>Tarih:</strong> {selectedReservation.date}

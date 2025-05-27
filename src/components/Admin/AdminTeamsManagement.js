@@ -49,17 +49,23 @@ const API_URL = 'http://localhost:5000/api';
 
 // Token'ı localStorage'dan al
 const getToken = () => {
-  return localStorage.getItem('userToken');
+  const token = localStorage.getItem('userToken') || localStorage.getItem('token');
+  console.log('Token alınıyor:', token ? 'Token mevcut' : 'Token bulunamadı');
+  return token;
 };
 
 // API isteği için config oluştur
 const getConfig = () => {
   const token = getToken();
   if (!token) {
-    console.error('Token bulunamadı');
+    console.error('Token bulunamadı - localStorage kontrol ediliyor...');
+    console.log('localStorage userToken:', localStorage.getItem('userToken'));
+    console.log('localStorage token:', localStorage.getItem('token'));
+    console.log('localStorage isLoggedIn:', localStorage.getItem('isLoggedIn'));
     return null;
   }
   
+  console.log('API config oluşturuluyor token ile');
   return {
     headers: {
       'Content-Type': 'application/json',
@@ -112,11 +118,21 @@ function AdminTeamsManagement() {
 
   // Verilerı yükle
   useEffect(() => {
+    // Debug: localStorage içeriğini kontrol et
+    console.log('=== AdminTeamsManagement Debug ===');
+    console.log('localStorage userToken:', localStorage.getItem('userToken'));
+    console.log('localStorage token:', localStorage.getItem('token'));
+    console.log('localStorage isLoggedIn:', localStorage.getItem('isLoggedIn'));
+    console.log('localStorage userInfo:', localStorage.getItem('userInfo'));
+    console.log('================================');
+    
     // Kullanıcı bilgilerini al
     const storedUserInfo = localStorage.getItem('userInfo');
     if (storedUserInfo) {
       try {
-        setUserInfo(JSON.parse(storedUserInfo));
+        const userInfo = JSON.parse(storedUserInfo);
+        console.log('Kullanıcı bilgileri:', userInfo);
+        setUserInfo(userInfo);
       } catch (error) {
         console.error('Kullanıcı bilgileri çözümlenemedi:', error);
       }
@@ -128,20 +144,23 @@ function AdminTeamsManagement() {
   // Veri yükleme fonksiyonu
   const loadData = async () => {
     try {
+      console.log('Admin takımlar sayfası - Veri yükleme başlatılıyor...');
       setLoading(true);
       setError(null);
       
       const config = getConfig();
       if (!config) {
+        console.error('Config oluşturulamadı - token problemi');
         setError('Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.');
         setLoading(false);
         return;
       }
       
-      console.log('Admin takımlar sayfası - Veri yükleniyor...');
+      console.log('API istekleri gönderiliyor...');
+      console.log('Config headers:', config.headers);
       
       // Takımları yükle
-      console.log('Takımlar isteği gönderiliyor...');
+      console.log('Takımlar isteği gönderiliyor:', `${API_URL}/teams`);
       const teamsResponse = await axios.get(`${API_URL}/teams`, config);
       
       console.log(`${teamsResponse.data ? teamsResponse.data.length : 0} takım yüklendi`);
@@ -150,6 +169,7 @@ function AdminTeamsManagement() {
       }
       
       // Halı sahaları yükle
+      console.log('Halı sahalar isteği gönderiliyor:', `${API_URL}/venues`);
       const venuesResponse = await axios.get(`${API_URL}/venues`, config);
       console.log(`${venuesResponse.data ? venuesResponse.data.length : 0} halı saha yüklendi`);
       
@@ -161,20 +181,20 @@ function AdminTeamsManagement() {
       setLoading(false);
     } catch (error) {
       console.error('Veri yüklenirken hata oluştu:', error);
+      console.error('Hata detayları:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers
+      });
       
-      // Hata detaylarını logla
-      if (error.response) {
-        console.error('Sunucu yanıtı:', error.response.status, error.response.data);
-      } else if (error.request) {
-        console.error('İstek yapıldı ancak yanıt alınamadı:', error.request);
-      } else {
-        console.error('İstek yapılırken hata:', error.message);
-      }
+      let errorMessage = 'Veriler yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin veya daha sonra tekrar deneyin.';
       
       if (error.response && error.response.status === 401) {
-        setError('Oturumunuz sonlanmış görünüyor. Lütfen tekrar giriş yapın.');
+        errorMessage = 'Oturumunuz sonlanmış görünüyor. Lütfen tekrar giriş yapın.';
         // Token'ı temizle ve kullanıcıyı login sayfasına yönlendir
         localStorage.removeItem('userToken');
+        localStorage.removeItem('token');
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('userInfo');
         
@@ -182,10 +202,11 @@ function AdminTeamsManagement() {
         setTimeout(() => {
           window.location.href = '/login?redirect=/admin/teams';
         }, 2000);
-      } else {
-        setError('Veriler yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin veya daha sonra tekrar deneyin.');
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Bu sayfaya erişim yetkiniz yok.';
       }
       
+      setError(errorMessage);
       setLoading(false);
     }
   };
@@ -220,10 +241,12 @@ function AdminTeamsManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      console.log('Takım kaydetme işlemi başlatılıyor...');
       setLoading(true);
       
       const config = getConfig();
       if (!config) {
+        console.error('Config oluşturulamadı - token problemi');
         setSnackbar({
           open: true,
           message: 'Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.',
@@ -243,12 +266,14 @@ function AdminTeamsManagement() {
       };
       
       console.log('Gönderilecek takım verileri:', teamData);
+      console.log('Config headers:', config.headers);
       
       // Yeni takım oluştur veya güncelle
       let response;
       
       if (currentTeam) {
         // Takımı güncelle
+        console.log('Takım güncelleme isteği gönderiliyor:', `${API_URL}/teams/${currentTeam._id}`);
         response = await axios.put(
           `${API_URL}/teams/${currentTeam._id}`,
           teamData,
@@ -262,6 +287,7 @@ function AdminTeamsManagement() {
         });
       } else {
         // Yeni takım oluştur
+        console.log('Yeni takım oluşturma isteği gönderiliyor:', `${API_URL}/teams`);
         response = await axios.post(
           `${API_URL}/teams`,
           teamData,
@@ -309,11 +335,35 @@ function AdminTeamsManagement() {
       
     } catch (error) {
       console.error('Takım kaydedilirken hata:', error);
+      console.error('Hata detayları:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers
+      });
       
       // Detaylı hata mesajını görüntüle
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          'Takım kaydedilirken bir hata oluştu';
+      let errorMessage = 'Takım kaydedilirken bir hata oluştu';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Yetkilendirme hatası. Lütfen tekrar giriş yapın.';
+        // Token'ı temizle
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userInfo');
+        
+        // 2 saniye sonra login sayfasına yönlendir
+        setTimeout(() => {
+          window.location.href = '/login?redirect=/admin/teams';
+        }, 2000);
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Bu işlemi gerçekleştirmek için yetkiniz yok.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
       
       setSnackbar({
         open: true,
@@ -360,10 +410,12 @@ function AdminTeamsManagement() {
     }
     
     try {
+      console.log('Takım silme işlemi başlatılıyor, ID:', teamId);
       setLoading(true);
       
       const config = getConfig();
       if (!config) {
+        console.error('Config oluşturulamadı - token problemi');
         setSnackbar({
           open: true,
           message: 'Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.',
@@ -373,8 +425,12 @@ function AdminTeamsManagement() {
         return;
       }
       
+      console.log('DELETE isteği gönderiliyor:', `${API_URL}/teams/${teamId}`);
+      console.log('Config headers:', config.headers);
+      
       // Takımı sil
-      await axios.delete(`${API_URL}/teams/${teamId}`, config);
+      const response = await axios.delete(`${API_URL}/teams/${teamId}`, config);
+      console.log('Silme işlemi başarılı:', response.status);
       
       setSnackbar({
         open: true,
@@ -386,10 +442,36 @@ function AdminTeamsManagement() {
       loadData();
     } catch (error) {
       console.error('Takım silinirken hata:', error);
+      console.error('Hata detayları:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers
+      });
+      
+      let errorMessage = 'Takım silinirken bir hata oluştu';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Yetkilendirme hatası. Lütfen tekrar giriş yapın.';
+        // Token'ı temizle
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userInfo');
+        
+        // 2 saniye sonra login sayfasına yönlendir
+        setTimeout(() => {
+          window.location.href = '/login?redirect=/admin/teams';
+        }, 2000);
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Bu işlemi gerçekleştirmek için yetkiniz yok.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
       
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || 'Takım silinirken bir hata oluştu',
+        message: errorMessage,
         severity: 'error'
       });
     } finally {
@@ -432,39 +514,57 @@ function AdminTeamsManagement() {
             Halı sahanızda oynayan takımları ekleyin, düzenleyin veya silin.
           </Typography>
         </div>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setCurrentTeam(null);
-            setFormData({
-              name: '',
-              level: 'Orta',
-              neededPlayers: 2,
-              preferredTime: '20:00',
-              contactNumber: '',
-              description: '',
-              venue: '',
-              regularPlayDays: [],
-              location: {
-                city: 'İstanbul',
-                district: ''
-              },
-              isApproved: true,
-              stats: {
-                attack: 50,
-                defense: 50,
-                speed: 50,
-                teamwork: 50
-              },
-              matches: []
-            });
-            setOpenDialog(true);
-          }}
-        >
-          Yeni Takım Ekle
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant="outlined" 
+            color="secondary" 
+            size="small"
+            onClick={() => {
+              console.log('=== Token Test ===');
+              const token = getToken();
+              const config = getConfig();
+              console.log('Token:', token);
+              console.log('Config:', config);
+              console.log('================');
+              alert(`Token: ${token ? 'Mevcut' : 'Yok'}\nConfig: ${config ? 'Oluşturuldu' : 'Oluşturulamadı'}`);
+            }}
+          >
+            Token Test
+          </Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setCurrentTeam(null);
+              setFormData({
+                name: '',
+                level: 'Orta',
+                neededPlayers: 2,
+                preferredTime: '20:00',
+                contactNumber: '',
+                description: '',
+                venue: '',
+                regularPlayDays: [],
+                location: {
+                  city: 'İstanbul',
+                  district: ''
+                },
+                isApproved: true,
+                stats: {
+                  attack: 50,
+                  defense: 50,
+                  speed: 50,
+                  teamwork: 50
+                },
+                matches: []
+              });
+              setOpenDialog(true);
+            }}
+          >
+            Yeni Takım Ekle
+          </Button>
+        </Box>
       </Box>
       
       {loading && (

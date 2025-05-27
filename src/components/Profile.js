@@ -1153,43 +1153,6 @@ function Profile() {
               </Card>
             </Grid>
             
-            {/* Oyuncu Eşleştirme */}
-            <Grid item xs={12}>
-              <Card sx={{ bgcolor: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)', color: 'white' }}>
-                <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                  <PersonSearch sx={{ fontSize: 60, mb: 2, color: 'white' }} />
-                  <Typography variant="h5" gutterBottom fontWeight="bold">
-                    🤝 Takım Arkadaşı Bul
-                  </Typography>
-                  <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>
-                    Pozisyonunuza uygun ideal takım arkadaşlarını bulun ve iletişime geçin
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    onClick={() => setPlayerMatcherOpen(true)}
-                    sx={{
-                      bgcolor: 'white',
-                      color: '#4CAF50',
-                      fontWeight: 'bold',
-                      px: 4,
-                      py: 1.5,
-                      borderRadius: 3,
-                      '&:hover': {
-                        bgcolor: '#f5f5f5',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                      },
-                      transition: 'all 0.3s ease'
-                    }}
-                    startIcon={<PersonSearch />}
-                  >
-                    Oyuncu Eşleştir
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-            
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                 <Button 
@@ -1566,15 +1529,33 @@ function Profile() {
                     fullWidth
                     onClick={() => setPlayerMatcherOpen(true)}
                     sx={{
-                      bgcolor: 'rgba(255,255,255,0.2)', 
+                      bgcolor: 'linear-gradient(45deg, #FF6B6B 30%, #4ECDC4 90%)', 
                       color: 'white',
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
-                      mt: 1
+                      '&:hover': { 
+                        bgcolor: 'linear-gradient(45deg, #FF5252 30%, #26C6DA 90%)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 25px rgba(255, 107, 107, 0.3)'
+                      },
+                      mt: 1,
+                      py: 1.5,
+                      borderRadius: 3,
+                      background: 'linear-gradient(45deg, #FF6B6B 30%, #4ECDC4 90%)',
+                      boxShadow: '0 4px 15px rgba(255, 107, 107, 0.2)',
+                      transition: 'all 0.3s ease',
+                      fontSize: '1rem',
+                      fontWeight: 'bold'
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PersonSearch />
-                      <span>Oyuncu Eşleştir</span>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <PersonSearch sx={{ fontSize: 24 }} />
+                      <Box sx={{ textAlign: 'left' }}>
+                        <Typography variant="body1" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>
+                          🤖 AI Oyuncu Eşleştir
+                        </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.9, fontSize: '0.75rem' }}>
+                          15+ komut türü ile akıllı eşleştirme
+                        </Typography>
+                      </Box>
                     </Box>
                   </Button>
                 </Box>

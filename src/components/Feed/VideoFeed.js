@@ -35,7 +35,9 @@ import {
   FastForward,
   FastRewind,
   Delete,
-  Edit
+  Edit,
+  Fullscreen,
+  FullscreenExit
 } from '@mui/icons-material';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
@@ -56,6 +58,7 @@ function VideoFeed() {
   const [duration, setDuration] = useState({});
   const [seeking, setSeeking] = useState(false);
   const [likedVideos, setLikedVideos] = useState({});
+  const [fullscreenVideo, setFullscreenVideo] = useState(null);
   
   const playerRefs = useRef({});
   
@@ -63,6 +66,29 @@ function VideoFeed() {
   const { ref, inView } = useInView({
     threshold: 0.7,
   });
+  
+  // Tam ekran açma/kapama
+  const toggleFullscreen = (videoId) => {
+    if (fullscreenVideo === videoId) {
+      setFullscreenVideo(null);
+    } else {
+      setFullscreenVideo(videoId);
+    }
+  };
+
+  // ESC tuşu ile tam ekrandan çıkma
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && fullscreenVideo) {
+        setFullscreenVideo(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [fullscreenVideo]);
   
   // Sayfa yüklendiğinde oturum durumunu kontrol et
   useEffect(() => {
@@ -462,7 +488,7 @@ function VideoFeed() {
               subheader={formatDate(video.createdAt)}
             />
             
-            <Box sx={{ position: 'relative', paddingTop: '56.25%', backgroundColor: (video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/'))) ? '#f5f5f5' : (video.postType === 'text') ? '#f8f8f8' : '#000' }}>
+            <Box sx={{ position: 'relative', paddingTop: '75%', backgroundColor: (video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/'))) ? '#f5f5f5' : (video.postType === 'text') ? '#f8f8f8' : '#000' }}>
               {(video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/'))) ? (
                 <Box
                   sx={{
@@ -474,8 +500,10 @@ function VideoFeed() {
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    backgroundColor: '#f5f5f5'
+                    backgroundColor: '#f5f5f5',
+                    cursor: 'pointer'
                   }}
+                  onClick={() => toggleFullscreen(video._id)}
                 >
                   <img
                     src={video.filePath ? 
@@ -487,15 +515,35 @@ function VideoFeed() {
                       : '/images/players/player1.jpg'}
                     alt={video.title}
                     style={{
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                      objectFit: 'contain'
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
                     }}
                     onError={(e) => {
                       console.error('Image load error:', e);
                       e.target.src = '/images/players/player1.jpg';
                     }}
                   />
+                  
+                  {/* Tam ekran butonu */}
+                  <IconButton
+                    sx={{
+                      position: 'absolute',
+                      top: 10,
+                      left: 10,
+                      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)'
+                      }
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFullscreen(video._id);
+                    }}
+                  >
+                    <Fullscreen />
+                  </IconButton>
                 </Box>
               ) : video.postType === 'text' ? (
                 <Box
@@ -510,8 +558,10 @@ function VideoFeed() {
                     backgroundColor: '#f8f8f8',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    cursor: 'pointer'
                   }}
+                  onClick={() => toggleFullscreen(video._id)}
                 >
                   <Typography 
                     variant="body1" 
@@ -531,6 +581,26 @@ function VideoFeed() {
                   >
                     {video.textContent || 'İçerik bulunamadı'}
                   </Typography>
+                  
+                  {/* Tam ekran butonu */}
+                  <IconButton
+                    sx={{
+                      position: 'absolute',
+                      top: 10,
+                      left: 10,
+                      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)'
+                      }
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFullscreen(video._id);
+                    }}
+                  >
+                    <Fullscreen />
+                  </IconButton>
                 </Box>
               ) : (
               <Box
@@ -563,11 +633,13 @@ function VideoFeed() {
                   style={{
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain'
+                    objectFit: 'cover'
                   }}
                   playsInline
                   muted={muted}
                   loop
+                  controls={false}
+                  preload="metadata"
                   onPlay={() => {
                     console.log(`Video ${video._id} playing`);
                     setIsPlaying(prev => ({...prev, [video._id]: true}));
@@ -610,6 +682,27 @@ function VideoFeed() {
                     <PlayArrow sx={{ fontSize: 40, color: 'white' }} />
                   </Box>
                 )}
+                
+                {/* Video için tam ekran butonu */}
+                <IconButton
+                  sx={{
+                    position: 'absolute',
+                    top: 10,
+                    left: 10,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    color: 'white',
+                    zIndex: 15,
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)'
+                    }
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFullscreen(video._id);
+                  }}
+                >
+                  <Fullscreen />
+                </IconButton>
               </Box>
               )}
               
@@ -900,6 +993,198 @@ function VideoFeed() {
             Sil
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Tam Ekran Dialog */}
+      <Dialog
+        open={Boolean(fullscreenVideo)}
+        onClose={() => setFullscreenVideo(null)}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            width: '100vw',
+            height: '100vh',
+            maxWidth: 'none',
+            maxHeight: 'none',
+            margin: 0,
+            borderRadius: 0,
+            backgroundColor: '#000'
+          }
+        }}
+      >
+        <Box
+          sx={{
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#000'
+          }}
+        >
+          {/* Kapatma butonu */}
+          <IconButton
+            sx={{
+              position: 'absolute',
+              top: 20,
+              right: 20,
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              color: 'white',
+              zIndex: 1000,
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.2)'
+              }
+            }}
+            onClick={() => setFullscreenVideo(null)}
+          >
+            <FullscreenExit />
+          </IconButton>
+
+          {fullscreenVideo && (() => {
+            const video = videos.find(v => v._id === fullscreenVideo);
+            if (!video) return null;
+
+            if (video.postType === 'image' || (video.filePath && video.filePath.includes('/uploads/images/'))) {
+              return (
+                <img
+                  src={video.filePath ? 
+                    (video.filePath.startsWith('http') 
+                      ? video.filePath 
+                      : video.filePath.startsWith('/') 
+                        ? `http://localhost:5000${video.filePath}` 
+                        : `http://localhost:5000/${video.filePath}`) 
+                    : '/images/players/player1.jpg'}
+                  alt={video.title}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
+              );
+            } else if (video.postType === 'text') {
+              return (
+                <Box
+                  sx={{
+                    width: '80%',
+                    maxWidth: '800px',
+                    padding: '40px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    borderRadius: 2,
+                    textAlign: 'center'
+                  }}
+                >
+                  <Typography 
+                    variant="h4" 
+                    sx={{ 
+                      color: '#333',
+                      fontWeight: 'bold',
+                      mb: 3
+                    }}
+                  >
+                    {video.title}
+                  </Typography>
+                  <Typography 
+                    variant="h6" 
+                    sx={{ 
+                      color: '#555', 
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.8
+                    }}
+                  >
+                    {video.textContent || 'İçerik bulunamadı'}
+                  </Typography>
+                </Box>
+              );
+            } else {
+              // Video içeriği için
+              return (
+                <Box
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <video
+                    src={video.filePath ? 
+                      (video.filePath.startsWith('http') 
+                        ? video.filePath 
+                        : video.filePath.startsWith('/') 
+                          ? `http://localhost:5000${video.filePath}` 
+                          : `http://localhost:5000/${video.filePath}`) 
+                      : '/videos/gol1.mp4'}
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain'
+                    }}
+                    controls
+                    autoPlay
+                    muted={muted}
+                    onError={(e) => {
+                      console.error('Tam ekran video yüklenirken hata:', e);
+                    }}
+                  />
+                </Box>
+              );
+            }
+          })()}
+
+          {/* Video bilgileri */}
+          {fullscreenVideo && (() => {
+            const video = videos.find(v => v._id === fullscreenVideo);
+            if (!video) return null;
+
+            return (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                  color: 'white',
+                  p: 3
+                }}
+              >
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  {video.title}
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  {video.description}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Avatar 
+                    src={video.uploadedBy?.profilePicture ? 
+                      (video.uploadedBy.profilePicture.startsWith('http') 
+                        ? video.uploadedBy.profilePicture 
+                        : video.uploadedBy.profilePicture.startsWith('/') 
+                          ? `http://localhost:5000${video.uploadedBy.profilePicture}` 
+                          : `http://localhost:5000/uploads/${video.uploadedBy.profilePicture}`) 
+                      : null}
+                    alt={video.uploadedBy?.username || 'Kullanıcı'}
+                    sx={{ bgcolor: '#1976d2' }}
+                  >
+                    {video.uploadedBy?.username?.charAt(0).toUpperCase() || 'U'}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      {video.uploadedBy?.username || 'Kullanıcı'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                      {formatDate(video.createdAt)}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            );
+          })()}
+        </Box>
       </Dialog>
     </Box>
   );
