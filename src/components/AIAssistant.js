@@ -181,65 +181,6 @@ Hangi konuda özel yardım istiyorsunuz?`
   const generateResponse = (userMessage) => {
     const message = userMessage.toLowerCase();
     
-    // Komutlar listesi
-    if (message.includes('komutlar') || message.includes('komut') || message.includes('yardım') || message.includes('help')) {
-      return `🤖 **FutbolX AI Asistan Komutları**
-
-📋 **Tüm komutları görmek için aşağıdaki kategorilere tıklayın:**
-
-🏟️ **Saha & Rezervasyon Komutları**
-• "Saha bul" - Müsait sahaları listeler
-• "Rezervasyon yap" - Saha rezervasyonu yapar
-• "Bugün açık sahalar" - Bugünkü müsait sahalar
-• "Saha fiyatları" - Güncel fiyat listesi
-• "En uygun saha" - Bütçe dostu sahalar
-
-⚽ **Oyuncu & Takım Komutları**
-• "Oyuncu arıyorum" - Uyumlu oyuncular bulur
-• "Kaleci arıyorum" - Kaleci pozisyonu arar
-• "Takım öner" - Size uygun takımları gösterir
-• "Takımıma oyuncu bul" - Takım için oyuncu arar
-• "Maça katıl" - Aktif maçlara katılım
-
-📊 **İstatistik & Analiz Komutları**
-• "İstatistiklerimi göster" - Kişisel istatistikler
-• "Gelişimimi göster" - Performans analizi
-• "En çok gol atan" - Gol krallığı listesi
-• "En aktif takımlar" - Takım sıralaması
-• "Başarı rozetlerim" - Kazanılan rozetler
-
-🎯 **Hedef & Motivasyon Komutları**
-• "Motivasyon sözü ver" - İlham verici sözler
-• "Bugünkü ipucu" - Günlük futbol ipuçları
-• "Hedef belirle" - Kişisel hedefler
-• "Antrenman programı" - Gelişim önerileri
-
-📱 **Sayfa Yönlendirme Komutları**
-• "Profil sayfasına git" - Profil sayfası
-• "Ayarlarımı değiştir" - Ayarlar sayfası
-• "Rezervasyonlarım" - Rezervasyon geçmişi
-• "Takımlarım" - Takım yönetimi
-• "Ana sayfaya git" - Ana sayfa
-
-🌤️ **Bilgi & Destek Komutları**
-• "Hava durumu" - Güncel hava bilgisi
-• "Destek" - Yardım ve iletişim
-• "Fiyat listesi" - Detaylı fiyatlar
-• "Turnuva bilgisi" - Aktif turnuvalar
-
-🎮 **Eğlence Komutları**
-• "Quiz başlat" - Futbol bilgi yarışması
-• "Tahmin oyunu" - Maç tahmin oyunu
-• "Rastgele öneri" - Sürpriz öneriler
-• "Skill challenge" - Beceri yarışması
-
-💡 **Örnek Kullanım:**
-Sadece istediğiniz komutu yazın! Örnek:
-"Kaleci arıyorum" veya "Motivasyon sözü ver"
-
-Hangi kategoriyi keşfetmek istersiniz?`;
-    }
-
     // Sayfa yönlendirme komutları
     if (message.includes('profil') || message.includes('profil sayfasına git')) {
       setTimeout(() => window.location.href = '/profile', 1500);
@@ -334,13 +275,13 @@ Hangi kategoriyi keşfetmek istersiniz?`;
   // Hızlı eylem önerileri - dinamik olarak güncellenen
   const getQuickActions = () => {
     const baseActions = [
-      { text: '📋 Komutlar', action: 'komutlar' },
       { text: '🏟️ Saha Rezervasyonu', action: 'rezervasyon yap' },
       { text: '⚽ Oyuncu Bul', action: 'oyuncu arıyorum' },
       { text: '👥 Takım Öner', action: 'takım öner' },
       { text: '📊 İstatistikler', action: 'istatistiklerimi göster' },
       { text: '💡 Motivasyon', action: 'motivasyon sözü ver' },
       { text: '🎯 Günlük İpucu', action: 'bugünkü ipucu nedir' },
+      { text: '🌤️ Hava Durumu', action: 'hava durumu' },
       { text: '🆘 Yardım', action: 'yardım' }
     ];
 
@@ -455,80 +396,6 @@ Hangi kategoriyi keşfetmek istersiniz?`;
     }, 800);
   };
 
-  // Komut tıklama işleyicisi
-  const handleCommandClick = (command) => {
-    setInputMessage(command);
-    setTimeout(() => handleSendMessage(), 100);
-  };
-
-  // Mesaj içeriğini render etme fonksiyonu
-  const renderMessageContent = (content) => {
-    // Komutlar listesi kontrolü
-    if (content.includes('FutbolX AI Asistan Komutları')) {
-      const lines = content.split('\n');
-      return (
-        <div className="commands-list">
-          {lines.map((line, index) => {
-            // Komut satırlarını tespit et
-            if (line.includes('• "') && line.includes('" -')) {
-              const commandMatch = line.match(/• "([^"]+)" - (.+)/);
-              if (commandMatch) {
-                const [, command, description] = commandMatch;
-                return (
-                  <div 
-                    key={index}
-                    className="command-item"
-                    onClick={() => handleCommandClick(command)}
-                  >
-                    <strong>"{command}"</strong>
-                    <span className="command-description">- {description}</span>
-                  </div>
-                );
-              }
-            }
-            
-            // Kategori başlıkları
-            if (line.includes('**') && (line.includes('Komutları') || line.includes('Komutlar'))) {
-              return (
-                <div key={index} className="command-category">
-                  <h4>{line.replace(/\*\*/g, '').replace(/🏟️|⚽|📊|🎯|📱|🌤️|🎮/g, '').trim()}</h4>
-                </div>
-              );
-            }
-            
-            // Normal satırlar
-            if (line.trim()) {
-              return (
-                <div key={index} className="message-line">
-                  {line.includes('**') ? (
-                    <strong>{line.replace(/\*\*/g, '')}</strong>
-                  ) : (
-                    line
-                  )}
-                </div>
-              );
-            }
-            
-            return <br key={index} />;
-          })}
-        </div>
-      );
-    }
-
-    // Normal mesaj içeriği
-    return content.split('\n').map((line, index) => (
-      <div key={index}>
-        {line.includes('**') ? (
-          <strong>{line.replace(/\*\*/g, '')}</strong>
-        ) : line.includes('•') ? (
-          <div className="bullet-point">{line}</div>
-        ) : (
-          line
-        )}
-      </div>
-    ));
-  };
-
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -625,7 +492,17 @@ Hangi kategoriyi keşfetmek istersiniz?`;
               <div className="message-content">
                 {message.type === 'bot' && <div className="ai-avatar">🤖</div>}
                 <div className="message-text">
-                  {renderMessageContent(message.content)}
+                  {message.content.split('\n').map((line, index) => (
+                    <div key={index}>
+                      {line.includes('**') ? (
+                        <strong>{line.replace(/\*\*/g, '')}</strong>
+                      ) : line.includes('•') ? (
+                        <div className="bullet-point">{line}</div>
+                      ) : (
+                        line
+                      )}
+                    </div>
+                  ))}
                 </div>
                 {message.type === 'user' && userProfile?.profilePicture && (
                   <img 
