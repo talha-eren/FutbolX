@@ -13,6 +13,8 @@ import SharePostScreen from './sharePost';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
+import ChatBot from '@/components/ChatBot';
+import { Text } from 'react-native';
 
 // Sekme tipini tanımla
 type TabType = 'home' | 'upload' | 'profile' | 'matches' | 'teams' | 'admin' | 'reservation';
@@ -68,6 +70,9 @@ export default function TabLayout() {
   
   // Aktif sekme durumu için state tanımla
   const [activeTab, setActiveTab] = useState<TabType>('home');
+  
+  // ChatBot state'i
+  const [chatBotVisible, setChatBotVisible] = useState(false);
   
   // Admin yetkisi kontrolü
   const isAdmin = user?.isAdmin || false;
@@ -140,6 +145,26 @@ export default function TabLayout() {
       case 'admin':
         router.push('/(tabs)/admin' as any);
         break;
+    }
+  };
+
+  // ChatBot navigation handler
+  const handleChatBotNavigate = (screen: string) => {
+    switch(screen) {
+      case 'explore':
+        changeTab('home');
+        break;
+      case 'profile':
+        changeTab('profile');
+        break;
+      case 'matches':
+        changeTab('matches');
+        break;
+      case 'teams':
+        changeTab('teams');
+        break;
+      default:
+        changeTab('home');
     }
   };
 
@@ -368,6 +393,27 @@ export default function TabLayout() {
           </HoverableTouchable>
         )}
       </View>
+      
+      {/* Floating ChatBot Button */}
+      <TouchableOpacity
+        style={[styles.floatingButton, { backgroundColor: primaryColor }]}
+        onPress={() => setChatBotVisible(true)}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={['#4CAF50', '#45A049']}
+          style={styles.floatingButtonGradient}
+        >
+          <Text style={{ fontSize: 24 }}>🤖</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* ChatBot Modal */}
+      <ChatBot
+        visible={chatBotVisible}
+        onClose={() => setChatBotVisible(false)}
+        onNavigate={handleChatBotNavigate}
+      />
     </View>
   );
 }
@@ -424,5 +470,24 @@ const styles = StyleSheet.create({
         transition: 'all 0.2s ease-in-out',
       }
     })
+  },
+  floatingButton: {
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  floatingButtonGradient: {
+    flex: 1,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

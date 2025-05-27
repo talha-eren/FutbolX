@@ -23,7 +23,10 @@ import { useAuth } from '@/context/AuthContext';
 import { getApiUrl } from '@/services/networkConfig';
 import { Video, ResizeMode } from 'expo-av';
 
-const { width } = Dimensions.get('window');
+// NetworkConfig fonksiyonlarını CommonJS require ile import et
+const { getImageUrl, getVideoUrl } = require('@/services/networkConfig');
+
+const { width, height } = Dimensions.get('window');
 
 // Gönderi tipi tanımı
 interface Post {
@@ -249,24 +252,22 @@ export default function IndexScreen() {
 
   // Gönderi kartı render
   const renderPostCard = ({ item }: { item: Post }) => {
-    const getImageUrl = (imagePath: string) => {
+    const getImageUrlSafe = (imagePath: string) => {
       if (imagePath.startsWith('http')) {
         return imagePath;
       }
-      // API base URL ile birleştir - networkConfig'den al
-      return `http://${process.env.EXPO_PUBLIC_BACKEND_IP || '192.168.1.73'}:${process.env.EXPO_PUBLIC_BACKEND_PORT || '5000'}${imagePath}`;
+      // NetworkConfig'den import edilen fonksiyonu kullan
+      return getImageUrl(imagePath);
     };
 
-    const getVideoUrl = (videoPath: string) => {
+    const getVideoUrlSafe = (videoPath: string) => {
       if (videoPath.startsWith('http')) {
         return videoPath;
       }
       
-      // Veritabanında video path'ler /public/uploads/videos/ formatında
-      const baseUrl = `http://${process.env.EXPO_PUBLIC_BACKEND_IP || '192.168.1.73'}:${process.env.EXPO_PUBLIC_BACKEND_PORT || '5000'}`;
-
-      // Eğer path zaten / ile başlıyorsa direkt ekle, yoksa / ekle
-      const fullUrl = videoPath.startsWith('/') ? baseUrl + videoPath : baseUrl + '/' + videoPath;
+      // NetworkConfig'den import edilen fonksiyonu kullan
+      const videoItem = { filePath: videoPath };
+      const fullUrl = getVideoUrl(videoItem);
       
       console.log('🎬 Video URL oluşturuluyor:');
       console.log('📁 Video path:', videoPath);
@@ -279,39 +280,32 @@ export default function IndexScreen() {
       <View style={[styles.postCard, { backgroundColor: cardBgColor, borderColor }]}>
         {/* Kullanıcı Bilgileri */}
         <View style={styles.postHeader}>
-                        <View style={styles.userInfo}>
-                          <View style={styles.userAvatar}>
+          <View style={styles.userInfo}>
+            <View style={styles.userAvatar}>
               {item.userImage ? (
                 <Image source={{ uri: item.userImage }} style={styles.avatarImage} />
               ) : (
                 <ThemedText style={styles.avatarText}>
                   {(item.username || 'U').charAt(0).toUpperCase()}
-                        </ThemedText>
-                      )}
-                        </View>
+                </ThemedText>
+              )}
+            </View>
             <View style={styles.userDetails}>
               <ThemedText style={styles.username}>{item.username || 'Kullanıcı'}</ThemedText>
               <ThemedText style={styles.postDate}>{formatDate(item.createdAt)}</ThemedText>
-                      </View>
-                        </View>
-          
-          {/* Video Etiketi */}
-          {item.video && (
-            <View style={styles.videoTag}>
-              <ThemedText style={styles.videoTagText}>Video</ThemedText>
-                            </View>
-                          )}
+            </View>
+          </View>
           
           {/* Silme butonu (sadece kendi gönderileri için) */}
           {user && item.user && item.user._id === user._id && (
-                          <TouchableOpacity 
+            <TouchableOpacity 
               style={styles.deleteButton}
               onPress={() => deletePost(item._id)}
-                          >
+            >
               <IconSymbol name="trash" size={20} color="#F44336" />
-                          </TouchableOpacity>
-                        )}
-                      </View>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Gönderi İçeriği */}
         {item.title && (
@@ -322,90 +316,72 @@ export default function IndexScreen() {
           <ThemedText style={styles.postDescription}>{item.description}</ThemedText>
         )}
 
-        {/* Medya İçeriği */}
+        {/* Medya İçeriği - Tam Ekran */}
         {item.image && (
-                  <Image 
-            source={{ uri: getImageUrl(item.image) }} 
-                    style={styles.postImage}
-                    resizeMode="cover"
-            onError={(error) => {
-              console.log('Resim yükleme hatası:', error.nativeEvent.error);
+          <TouchableOpacity 
+            style={styles.fullScreenImageContainer}
+            onPress={() => {
+              // Resmi tam ekran göster
+              Alert.alert('Resim', 'Tam ekran resim görüntüleme özelliği eklenecek');
             }}
-          />
-        )}
-
-        {/* Video İçeriği */}
-        {item.video && (
-          <View style={styles.videoContainer}>
-            {/* MOV dosyası uyarısı ve alternatif gösterim */}
-            {item.video.toLowerCase().includes('.mov') ? (
-              <View style={styles.movWarningContainer}>
-                <View style={styles.movWarningHeader}>
-                  <IconSymbol name="exclamationmark.triangle.fill" size={24} color="#FF9800" />
-                  <ThemedText style={styles.movWarningTitle}>MOV Video Dosyası</ThemedText>
-        </View>
-                <ThemedText style={styles.movWarningText}>
-                  Bu video MOV formatında olduğu için mobil cihazlarda oynatılamayabilir.
-                </ThemedText>
-                <ThemedText style={styles.videoPathText}>
-                  📁 Dosya: {item.video?.split('/').pop() || 'video dosyası'}
-                </ThemedText>
-                <TouchableOpacity
-                  style={styles.downloadButton}
-                  onPress={() => {
-                    if (item.video) {
-                      const videoUrl = getVideoUrl(item.video);
-                      Alert.alert(
-                        'Video İndirme', 
-                        `Bu videoyu indirmek için aşağıdaki URL'yi kullanabilirsiniz:\n\n${videoUrl}`,
-                        [
-                          { text: 'Tamam', style: 'default' },
-                          { 
-                            text: 'URL Kopyala', 
-                            onPress: () => {
-                              // URL'yi clipboard'a kopyalama burada yapılabilir
-                              console.log('Video URL kopyalandı:', videoUrl);
-                            }
-                          }
-                        ]
-                      );
-                    }
-                  }}
-                >
-                  <IconSymbol name="arrow.down.circle" size={20} color="white" />
-                  <ThemedText style={styles.downloadButtonText}>Video URL'si Al</ThemedText>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* Normal video oynatıcı - MP4 ve diğer desteklenen formatlar için */
-              <View style={styles.videoPlayerContainer}>
-                <Video
-                  source={{ uri: getVideoUrl(item.video) }}
-                  style={styles.postVideo}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-                  shouldPlay={false}
-              isLooping={false}
-                  onError={(error) => {
-                    console.log('❌ Video yükleme hatası:', error);
-                    if (item.video) {
-                      const videoUrl = getVideoUrl(item.video);
-                      console.log('🔗 Hatalı video URL:', videoUrl);
-                      Alert.alert('Video Hatası', `Video oynatılamadı!\n\nDosya: ${item.video?.split('/').pop() || 'video dosyası'}\n\nHata: Video formatı desteklenmiyor olabilir.`);
-                    }
-                  }}
-                  onLoad={(status: any) => {
-                    console.log('✅ Video yüklendi:', status);
-                  }}
-                  onLoadStart={() => {
-                    console.log('🔄 Video yüklenmeye başladı:', item.video);
-                  }}
-              onPlaybackStatusUpdate={(status: any) => {
-                    if (status.isLoaded && status.error) {
-                      console.log('📹 Video playback error:', status.error);
-                }
+          >
+            <Image 
+              source={{ uri: getImageUrlSafe(item.image) }} 
+              style={styles.fullScreenImage}
+              resizeMode="cover"
+              onError={(error) => {
+                console.log('Resim yükleme hatası:', error.nativeEvent.error);
               }}
             />
+          </TouchableOpacity>
+        )}
+
+        {/* Video İçeriği - Hata Kontrolü ile */}
+        {item.video && (
+          <View style={styles.fullScreenVideoContainer}>
+            {/* Video formatı kontrolü */}
+            {item.video.toLowerCase().includes('.mov') || 
+             item.video.toLowerCase().includes('.avi') || 
+             item.video.toLowerCase().includes('.wmv') ? (
+              <View style={styles.unsupportedVideoContainer}>
+                <View style={styles.videoPlaceholder}>
+                  <IconSymbol name="play.circle.fill" size={64} color="#4CAF50" />
+                  <ThemedText style={styles.videoPlaceholderTitle}>Video Mevcut</ThemedText>
+                  <ThemedText style={styles.videoPlaceholderText}>
+                    Bu video formatı mobil cihazlarda desteklenmiyor
+                  </ThemedText>
+                  <ThemedText style={styles.videoFileName}>
+                    📁 {item.video?.split('/').pop() || 'video dosyası'}
+                  </ThemedText>
+                </View>
+              </View>
+            ) : (
+              /* Desteklenen video formatları için oynatıcı */
+              <View style={styles.videoPlayerWrapper}>
+                <Video
+                  source={{ uri: getVideoUrlSafe(item.video) }}
+                  style={styles.fullScreenVideo}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay={false}
+                  isLooping={false}
+                  onError={(error) => {
+                    console.log('❌ Video hatası (sessiz):', error);
+                    // Hata mesajını gösterme, sadece log'la
+                  }}
+                  onLoad={(status: any) => {
+                    console.log('✅ Video yüklendi');
+                  }}
+                  onLoadStart={() => {
+                    console.log('🔄 Video yüklenmeye başladı');
+                  }}
+                  onPlaybackStatusUpdate={(status: any) => {
+                    // Hata durumunda sessizce handle et
+                    if (status.isLoaded && status.error) {
+                      console.log('📹 Video playback error (sessiz):', status.error);
+                    }
+                  }}
+                />
               </View>
             )}
           </View>
@@ -415,16 +391,11 @@ export default function IndexScreen() {
         <View style={styles.postFooter}>
           {/* Görüntülenme, Beğeni, Yorum Sayıları */}
           <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <IconSymbol name="eye" size={16} color="#666" />
-              <ThemedText style={styles.statText}>2</ThemedText>
-      </View>
-            
             <TouchableOpacity 
               style={styles.statItem}
               onPress={() => toggleLike(item._id, false)}
             >
-              <IconSymbol name="heart" size={16} color="#666" />
+              <IconSymbol name="heart" size={20} color="#E91E63" />
               <ThemedText style={styles.statText}>{item.likes}</ThemedText>
             </TouchableOpacity>
             
@@ -432,11 +403,21 @@ export default function IndexScreen() {
               style={styles.statItem}
               onPress={() => router.push(`/comments/${item._id}` as any)}
             >
-              <IconSymbol name="bubble.left" size={16} color="#666" />
+              <IconSymbol name="bubble.left" size={20} color="#2196F3" />
               <ThemedText style={styles.statText}>{item.comments}</ThemedText>
             </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => {
+                Alert.alert('Paylaş', 'Paylaşım özelliği eklenecek');
+              }}
+            >
+              <IconSymbol name="square.and.arrow.up" size={20} color="#4CAF50" />
+              <ThemedText style={styles.statText}>Paylaş</ThemedText>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
       </View>
     );
   };
@@ -502,19 +483,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   postsContainer: {
-    padding: 16,
     paddingTop: 60, // Status bar için üst boşluk
   },
   postCard: {
-    borderRadius: 16,
-    marginBottom: 20,
-    overflow: 'hidden',
+    backgroundColor: 'white',
+    marginBottom: 2, // Kartlar arası minimal boşluk
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 0.5,
+    minHeight: height * 0.6, // Minimum ekran yüksekliğinin %60'ı
   },
   postHeader: {
     flexDirection: 'row',
@@ -573,55 +553,86 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 12,
   },
-  postImage: {
+  fullScreenImageContainer: {
     width: '100%',
-    height: 200,
+    height: height * 0.4, // Ekran yüksekliğinin %40'ı
     marginBottom: 12,
   },
-  videoContainer: {
-    width: '100%',
-    height: 250,
-    marginBottom: 12,
-    backgroundColor: '#000',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  postVideo: {
+  fullScreenImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+  },
+  fullScreenVideoContainer: {
+    width: '100%',
+    height: height * 0.4, // Ekran yüksekliğinin %40'ı
+    marginBottom: 12,
+    backgroundColor: '#000',
+  },
+  videoPlayerWrapper: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  fullScreenVideo: {
+    width: '100%',
+    height: '100%',
   },
   postFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0,0,0,0.1)',
   },
   statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
+    flex: 1,
   },
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   statText: {
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
   },
-  videoTag: {
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#4CAF50',
-    borderRadius: 4,
-    marginRight: 8,
+  unsupportedVideoContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#1a1a1a',
   },
-  videoTagText: {
-    fontSize: 12,
+  videoPlaceholder: {
+    alignItems: 'center',
+  },
+  videoPlaceholderTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    marginTop: 16,
+    marginBottom: 12,
+    color: 'white',
+  },
+  videoPlaceholderText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+    opacity: 0.8,
+    color: 'white',
+  },
+  videoFileName: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.7,
+    color: 'white',
   },
   loadingContainer: {
     flex: 1,
@@ -663,59 +674,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
     opacity: 0.7,
-  },
-  movWarningContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    margin: 8,
-  },
-  movWarningHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  movWarningTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-    color: '#FF9800',
-  },
-  movWarningText: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
-    opacity: 0.8,
-  },
-  videoPathText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 16,
-    opacity: 0.7,
-  },
-  downloadButton: {
-    padding: 12,
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-    borderRadius: 8,
-    backgroundColor: '#4CAF50',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  downloadButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  videoPlayerContainer: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#000',
   },
 });

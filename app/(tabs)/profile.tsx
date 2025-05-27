@@ -15,6 +15,7 @@ import { Card } from '../../components/ui/Card';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import VideoPlayer from '../../components/VideoPlayer';
+import PlayerMatcher from '../../components/PlayerMatcher';
 
 // Varsayılan profil resmi URL'si
 const DEFAULT_PROFILE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
@@ -78,6 +79,9 @@ export default function ProfileScreen() {
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   // Kullanım koşulları modalı
   const [showTermsOfService, setShowTermsOfService] = useState(false);
+  
+  // PlayerMatcher modalı
+  const [showPlayerMatcher, setShowPlayerMatcher] = useState(false);
   
   // Yeni renk şemasından renkleri al - tüm hook'ları bileşenin en üst seviyesinde tanımla
   const tintColor = useThemeColor({}, 'tint');
@@ -574,7 +578,7 @@ export default function ProfileScreen() {
             </View>
           </View>
           
-          <View style={[styles.infoRow, {borderBottomWidth: 0}]}><ThemedText style={styles.infoLabel}>İlerleme:</ThemedText><ThemedText style={styles.infoValue}>{userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : '-'}</ThemedText></View>
+          <View style={[styles.infoRow, {borderBottomWidth: 0}]}><ThemedText style={styles.infoLabel}>İlerleme:</ThemedText><ThemedText style={styles.infoValue}>{userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('tr-TR') : '-'}</ThemedText></View>
         </View>
         
         <View style={[styles.statsContainer, { backgroundColor: cardColor }]}> 
@@ -610,6 +614,23 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        {/* Oyuncu Eşleştirme Butonu */}
+        <TouchableOpacity 
+          style={styles.playerMatchButton}
+          onPress={() => setShowPlayerMatcher(true)}
+        >
+          <LinearGradient
+            colors={[accentColor, '#4CAF50']}
+            style={styles.playerMatchGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <IconSymbol name="person.3.fill" size={24} color="white" />
+            <ThemedText style={styles.playerMatchButtonText}>🏆 Takım Arkadaşı Bul</ThemedText>
+            <IconSymbol name="chevron.right" size={20} color="white" />
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -1088,45 +1109,35 @@ Kullanım koşulları ile ilgili sorular için: bilikcitalha@gmail.com
   const updateUserProfile = async (updatedData: Partial<UserProfile>) => {
     try {
       setLoading(true);
+      const result = await userService.updateProfile(updatedData);
       
-      // Mevcut kullanıcı verilerini al
-      const currentUserData = userData || {};
-      
-      // Güncellenecek verileri hazırla
-      const profileUpdateData = {
-        ...currentUserData,
-        ...updatedData
-      };
-      
-      // API'ye gönderilecek verileri hazırla
-      const apiData = {
-        firstName: profileUpdateData.firstName,
-        lastName: profileUpdateData.lastName,
-        bio: profileUpdateData.bio,
-        location: profileUpdateData.location,
-        level: profileUpdateData.level,
-        position: profileUpdateData.position,
-        footPreference: profileUpdateData.footPreference,
-        footballExperience: profileUpdateData.footballExperience,
-        preferredFoot: profileUpdateData.preferredFoot,
-        phone: profileUpdateData.phone
-      };
-      
-      // API çağrısı yap
-      await userService.updateProfile(apiData);
-      
-      // Kullanıcı verilerini yenile
-      await refreshUserData();
-      
-      // Profil verilerini tekrar çek
-      await fetchUserProfile();
-      
-      Alert.alert("Başarılı", "Profil bilgileriniz güncellendi.");
+      if (result) {
+        // Başarılı güncelleme sonrası kullanıcı verilerini yenile
+        setUserData(prev => prev ? { ...prev, ...updatedData } : null);
+        
+        // AuthContext'teki kullanıcı bilgilerini de güncelle
+        if (refreshUserData) {
+          await refreshUserData();
+        }
+        
+        Alert.alert('Başarılı', 'Profil bilgileriniz güncellendi');
+      }
     } catch (error: any) {
       console.error('Profil güncelleme hatası:', error);
-      Alert.alert("Hata", error.message || "Profil güncellenirken bir hata oluştu.");
+      Alert.alert('Hata', error.message || 'Profil güncellenirken bir hata oluştu');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Oyuncu eşleştirme fonksiyonu
+  const handleMatchPlayers = async () => {
+    try {
+      const result = await userService.matchPlayers();
+      return result;
+    } catch (error: any) {
+      console.error('Oyuncu eşleştirme hatası:', error);
+      throw new Error(error.message || 'Oyuncu eşleştirme sırasında hata oluştu');
     }
   };
 
@@ -1210,6 +1221,15 @@ Kullanım koşulları ile ilgili sorular için: bilikcitalha@gmail.com
       
       {/* Kullanım Koşulları Modal */}
       {renderTermsOfServiceModal()}
+
+      {/* Oyuncu Eşleştirme Modal */}
+      <PlayerMatcher
+        visible={showPlayerMatcher}
+        onClose={() => setShowPlayerMatcher(false)}
+        userPosition={userData?.position}
+        userLocation={userData?.location}
+        onMatchPlayers={handleMatchPlayers}
+      />
     </ThemedView>
   );
 }
@@ -1858,6 +1878,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  playerMatchButton: {
+    marginTop: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  playerMatchGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  playerMatchButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
+    marginRight: 8,
   },
 });
 

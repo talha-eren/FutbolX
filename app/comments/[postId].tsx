@@ -26,9 +26,11 @@ interface Comment {
   _id: string;
   contentId: string;
   contentType: 'post' | 'video';
-  user: string;
-  username: string;
-  userImage?: string;
+  user: {
+    _id: string;
+    username: string;
+    profilePicture?: string;
+  };
   text: string;
   likes: number;
   createdAt: string;
@@ -37,15 +39,10 @@ interface Comment {
 // Post tipi tanımı
 interface Post {
   _id: string;
-  user?: {
-    _id: string;
-    username: string;
-    profilePicture?: string;
-  };
+  title: string;
+  description: string;
   username: string;
-  content: string;
-  image?: string;
-  video?: string;
+  userImage?: string;
   likes: number;
   comments: number;
   createdAt: string;
@@ -69,64 +66,77 @@ export default function CommentsScreen() {
   const cardBgColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
 
-  // Gönderi bilgilerini yükle
-  const loadPost = async () => {
-    try {
-      if (!token) return;
-      
-      const response = await fetch(await getApiUrl(`/posts/${postId}`), {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data: any = await response.json();
-        setPost(data);
-      }
-    } catch (error) {
-      console.error('Gönderi yüklenirken hata:', error);
+  // Gönderi ve yorumları yükle
+  useEffect(() => {
+    if (postId) {
+      fetchPostAndComments();
     }
-  };
+  }, [postId]);
 
-  // Yorumları yükle
-  const loadComments = async () => {
+  const fetchPostAndComments = async () => {
     try {
-      if (!token) return;
+      setLoading(true);
       
-      console.log('📝 Yorumlar yükleniyor, postId:', postId);
-      
-      const response = await fetch(await getApiUrl(`/comments/post/${postId}`), {
+      if (!token) {
+        Alert.alert('Hata', 'Oturum açmanız gerekiyor');
+        return;
+      }
+
+      // Gönderiyi getir
+      const postResponse = await fetch(await getApiUrl(`/posts/${postId}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
-      if (!response.ok) {
-        throw new Error('Yorumlar yüklenemedi');
+
+      if (postResponse.ok) {
+        const postData = await postResponse.json() as Post;
+        setPost(postData);
       }
-      
-      const data: any = await response.json();
-      console.log('✅ Yorumlar yüklendi:', data.length, 'adet yorum');
-      
-      setComments(data);
+
+      // Yorumları getir
+      const commentsResponse = await fetch(await getApiUrl(`/comments/post/${postId}`), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (commentsResponse.ok) {
+        const commentsData = await commentsResponse.json() as Comment[];
+        console.log('📝 Gelen yorumlar:', commentsData);
+        console.log('📝 İlk yorum detayı:', commentsData[0]);
+        setComments(commentsData);
+      }
+
     } catch (error) {
       console.error('Yorumlar yüklenirken hata:', error);
       Alert.alert('Hata', 'Yorumlar yüklenirken bir hata oluştu');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Yorum ekle
+  // Yeni yorum ekle
   const addComment = async () => {
-    if (!newComment.trim() || !token || !user) {
-      Alert.alert('Hata', 'Yorum yazmanız gerekiyor');
+    if (!newComment.trim()) {
+      Alert.alert('Hata', 'Lütfen bir yorum yazın');
       return;
     }
 
-    setSubmitting(true);
+    if (!token) {
+      Alert.alert('Hata', 'Oturum açmanız gerekiyor');
+      return;
+    }
+
     try {
-      console.log('💬 Yeni yorum ekleniyor:', newComment);
+      setSubmitting(true);
       
+      console.log('📝 Yorum ekleniyor:', {
+        postId,
+        text: newComment.trim(),
+        token: token.substring(0, 20) + '...'
+      });
+
       const response = await fetch(await getApiUrl('/comments'), {
         method: 'POST',
         headers: {
@@ -136,80 +146,103 @@ export default function CommentsScreen() {
         body: JSON.stringify({
           contentId: postId,
           contentType: 'post',
-          text: newComment
+          text: newComment.trim()
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Yorum eklenemedi');
+      console.log('📡 Yorum API response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('📡 Yorum API response text:', responseText);
+
+      if (response.ok) {
+        const newCommentData = JSON.parse(responseText);
+        console.log('✅ Yorum başarıyla eklendi:', newCommentData);
+        
+        setComments(prev => [newCommentData, ...prev]);
+        setNewComment('');
+        
+        // Gönderi yorum sayısını güncelle
+        if (post) {
+          setPost(prev => prev ? { ...prev, comments: prev.comments + 1 } : null);
+        }
+      } else {
+        console.error('❌ Yorum ekleme API hatası:', {
+          status: response.status,
+          statusText: response.statusText,
+          responseText
+        });
+        
+        let errorMessage = 'Yorum eklenirken bir hata oluştu';
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+          console.log('📋 Hata detayları:', errorData);
+        } catch (parseError) {
+          console.log('❌ Hata mesajı parse edilemedi:', parseError);
+        }
+        
+        Alert.alert('Hata', errorMessage);
       }
 
-      const data: any = await response.json();
-      console.log('✅ Yorum başarıyla eklendi:', data);
-      
-      // Yeni yorumu listeye ekle (en üste)
-      const newCommentObj: Comment = {
-        _id: data.comment._id,
-        contentId: postId as string,
-        contentType: 'post',
-        user: user._id || '',
-        username: user.username || '',
-        userImage: user.profilePicture || '',
-        text: newComment,
-        likes: 0,
-        createdAt: new Date().toISOString()
-      };
-      
-      setComments(prev => [newCommentObj, ...prev]);
-      setNewComment('');
-      
-      // Post'un yorum sayısını güncelle
-      if (post) {
-        setPost(prev => prev ? { ...prev, comments: prev.comments + 1 } : null);
-      }
-      
-    } catch (error) {
-      console.error('Yorum eklenirken hata:', error);
-      Alert.alert('Hata', 'Yorum eklenirken bir hata oluştu');
+    } catch (error: any) {
+      console.error('❌ Yorum ekleme network hatası:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name
+      });
+      Alert.alert('Hata', 'Ağ bağlantısı hatası. Lütfen internet bağlantınızı kontrol edin.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Sayfa yüklendiğinde verileri getir
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([loadPost(), loadComments()]);
-      setLoading(false);
-    };
-    
-    loadData();
-  }, [postId, token]);
+  // Yorumu beğen
+  const likeComment = async (commentId: string) => {
+    try {
+      if (!token) return;
 
-  // Yenile
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([loadPost(), loadComments()]);
-    setRefreshing(false);
+      const response = await fetch(await getApiUrl(`/comments/${commentId}/like`), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const likeData = await response.json() as { likes: number };
+        setComments(prev => 
+          prev.map(comment => 
+            comment._id === commentId 
+              ? { ...comment, likes: likeData.likes }
+              : comment
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Yorum beğeni hatası:', error);
+    }
   };
 
   // Tarih formatla
   const formatDate = (dateString: string) => {
-    const now = new Date();
     const date = new Date(dateString);
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
     
-    if (diffInMinutes < 1) return 'Az önce';
-    if (diffInMinutes < 60) return `${diffInMinutes} dakika önce`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} saat önce`;
-    return `${Math.floor(diffInMinutes / 1440)} gün önce`;
+    if (diffInHours < 1) return 'Az önce';
+    if (diffInHours < 24) return `${diffInHours} saat önce`;
+    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)} gün önce`;
+    
+    return date.toLocaleDateString('tr-TR');
   };
 
   // Avatar oluştur
-  const generateAvatar = (username: string) => {
+  const generateAvatar = (username?: string) => {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
-    const colorIndex = username.charCodeAt(0) % colors.length;
+    const safeUsername = username || 'U';
+    const colorIndex = safeUsername.charCodeAt(0) % colors.length;
     return colors[colorIndex];
   };
 
@@ -256,17 +289,25 @@ export default function CommentsScreen() {
             <View style={styles.postHeader}>
               <View style={[styles.avatar, { backgroundColor: generateAvatar(post.username) }]}>
                 <ThemedText style={styles.avatarText}>
-                  {post.username.charAt(0).toUpperCase()}
+                  {(post.username || 'U').charAt(0).toUpperCase()}
                 </ThemedText>
               </View>
               <View style={styles.postInfo}>
-                <ThemedText style={styles.username}>{post.username}</ThemedText>
+                <ThemedText style={styles.username}>{post.username || 'Kullanıcı'}</ThemedText>
                 <ThemedText style={styles.postDate}>{formatDate(post.createdAt)}</ThemedText>
               </View>
             </View>
             <ThemedText style={styles.postContent} numberOfLines={3}>
-              {post.content}
+              {post.title}
             </ThemedText>
+            <ThemedText style={styles.postDescription} numberOfLines={3}>
+              {post.description}
+            </ThemedText>
+            <View style={styles.postStats}>
+              <ThemedText style={styles.postStatsText}>
+                {post.likes} beğeni • {post.comments} yorum
+              </ThemedText>
+            </View>
           </View>
         )}
 
@@ -274,7 +315,7 @@ export default function CommentsScreen() {
         <ScrollView
           style={styles.commentsList}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={fetchPostAndComments} />
           }
           showsVerticalScrollIndicator={false}
         >
@@ -288,17 +329,31 @@ export default function CommentsScreen() {
             comments.map((comment) => (
               <View key={comment._id} style={[styles.commentCard, { backgroundColor: cardBgColor, borderColor }]}>
                 <View style={styles.commentHeader}>
-                  <View style={[styles.commentAvatar, { backgroundColor: generateAvatar(comment.username) }]}>
+                  <View style={[styles.commentAvatar, { backgroundColor: generateAvatar(comment.user?.username) }]}>
                     <ThemedText style={styles.commentAvatarText}>
-                      {comment.username.charAt(0).toUpperCase()}
+                      {(comment.user?.username || 'U').charAt(0).toUpperCase()}
                     </ThemedText>
                   </View>
                   <View style={styles.commentInfo}>
-                    <ThemedText style={styles.commentUsername}>{comment.username}</ThemedText>
+                    <ThemedText style={styles.commentUsername}>
+                      {(() => {
+                        console.log('🔍 Yorum kullanıcı verisi:', comment.user);
+                        console.log('🔍 Username:', comment.user?.username);
+                        return comment.user?.username || 'Kullanıcı';
+                      })()}
+                    </ThemedText>
                     <ThemedText style={styles.commentDate}>{formatDate(comment.createdAt)}</ThemedText>
                   </View>
                 </View>
                 <ThemedText style={styles.commentText}>{comment.text}</ThemedText>
+                <View style={styles.likeButton}>
+                  <TouchableOpacity
+                    onPress={() => likeComment(comment._id)}
+                  >
+                    <IconSymbol name="heart" size={16} color="#666" />
+                  </TouchableOpacity>
+                  <ThemedText style={styles.likeCount}>{comment.likes}</ThemedText>
+                </View>
               </View>
             ))
           )}
@@ -306,7 +361,7 @@ export default function CommentsScreen() {
 
         {/* Yorum Ekleme */}
         <View style={[styles.addCommentContainer, { backgroundColor: cardBgColor, borderColor }]}>
-          <View style={[styles.commentAvatar, { backgroundColor: generateAvatar(user?.username || 'U') }]}>
+          <View style={[styles.commentAvatar, { backgroundColor: generateAvatar(user?.username) }]}>
             <ThemedText style={styles.commentAvatarText}>
               {(user?.username || 'U').charAt(0).toUpperCase()}
             </ThemedText>
@@ -419,6 +474,19 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     opacity: 0.8,
   },
+  postDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  postStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postStatsText: {
+    fontSize: 12,
+    color: '#666',
+  },
   commentsList: {
     flex: 1,
     paddingHorizontal: 16,
@@ -480,6 +548,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginLeft: 44,
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+  },
+  likeCount: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
   },
   addCommentContainer: {
     flexDirection: 'row',

@@ -15,6 +15,10 @@ const BACKEND_PORT = 5000;
 
 // Alternatif IP adresleri (bağlantı sorunları için)
 const ALTERNATIVE_IPS = [
+  '10.196.224.148',    // Otomatik algılanan IP
+
+  '172.20.10.6',    // Otomatik algılanan IP
+
   '192.168.1.73',    // Otomatik algılanan IP
 
   'localhost',       // Localhost (Öncelikli)
@@ -28,7 +32,7 @@ const ALTERNATIVE_IPS = [
 try {
   // Önce Expo Metro sunucusunun IP'sini almaya çalış - bu genellikle en iyi çözümdür
   // Bu IP, telefonun ve bilgisayarın aynı ağda olduğunu varsayar
-  const METRO_IP = '192.168.1.73'; // Değiştirildi
+  const METRO_IP = '10.196.224.148'; // Değiştirildi
   
   if (Platform.OS === 'android') {
     // Android emülatör için özel IP kullan
@@ -190,7 +194,7 @@ const testApiConnection = async () => {
   }
   
   // Metro IP'sini önce dene
-  const METRO_IP = '192.168.1.73'; // Değiştirildi
+  const METRO_IP = '10.196.224.148'; // Değiştirildi
   console.log(`Önce güncel backend IP adresi deneniyor: ${METRO_IP}`);
   try {
     const controller = new AbortController();
@@ -1624,6 +1628,144 @@ export const userService = {
       console.error('Kullanıcı rezervasyonlarını getirme hatası:', error);
       // Hata durumunda boş dizi döndür
       return [];
+    }
+  },
+
+  // Oyuncu eşleştirme
+  matchPlayers: async () => {
+    try {
+      // Çevrimdışı mod kontrolü
+      if (IS_OFFLINE_MODE) {
+        console.log('Çevrimdışı mod: Örnek oyuncu eşleştirme verileri kullanılıyor');
+        // Örnek eşleştirme verileri
+        return {
+          success: true,
+          data: {
+            userPosition: 'Forvet',
+            matchedPlayers: {
+              'Kaleci': [
+                {
+                  _id: 'offline-player-1',
+                  firstName: 'Ahmet',
+                  lastName: 'Yılmaz',
+                  username: 'ahmet_kaleci',
+                  position: 'Kaleci',
+                  phone: '+90 555 111 2233',
+                  email: 'ahmet@example.com',
+                  location: 'İstanbul',
+                  bio: 'Deneyimli kaleci',
+                  footballExperience: 'İleri'
+                }
+              ],
+              'Defans': [
+                {
+                  _id: 'offline-player-2',
+                  firstName: 'Mehmet',
+                  lastName: 'Kaya',
+                  username: 'mehmet_defans',
+                  position: 'Defans',
+                  phone: '+90 555 444 5566',
+                  location: 'İstanbul',
+                  bio: 'Güçlü defans oyuncusu',
+                  footballExperience: 'Orta'
+                },
+                {
+                  _id: 'offline-player-3',
+                  firstName: 'Ali',
+                  lastName: 'Demir',
+                  username: 'ali_defans',
+                  position: 'Defans',
+                  email: 'ali@example.com',
+                  location: 'İstanbul',
+                  footballExperience: 'Başlangıç'
+                }
+              ],
+              'Orta Saha': [
+                {
+                  _id: 'offline-player-4',
+                  firstName: 'Emre',
+                  lastName: 'Özkan',
+                  username: 'emre_ortasaha',
+                  position: 'Orta Saha',
+                  phone: '+90 555 777 8899',
+                  location: 'İstanbul',
+                  bio: 'Yaratıcı orta saha oyuncusu',
+                  footballExperience: 'İleri'
+                },
+                {
+                  _id: 'offline-player-5',
+                  firstName: 'Burak',
+                  lastName: 'Şen',
+                  username: 'burak_ortasaha',
+                  position: 'Orta Saha',
+                  email: 'burak@example.com',
+                  location: 'Ankara',
+                  footballExperience: 'Orta'
+                }
+              ]
+            },
+            totalMatches: 5
+          }
+        };
+      }
+      
+      const headers = await getAuthHeaders();
+      const url = await getApiUrl('/users/match-players');
+      const data = await fetchAPI(url, {
+        method: 'GET',
+        headers
+      });
+      return data;
+    } catch (error) {
+      console.error('Oyuncu eşleştirme hatası:', error);
+      throw error;
+    }
+  },
+
+  // Tüm oyuncuları getir
+  getAllPlayers: async () => {
+    try {
+      // Çevrimdışı mod kontrolü
+      if (IS_OFFLINE_MODE) {
+        console.log('Çevrimdışı mod: Örnek oyuncu listesi kullanılıyor');
+        return {
+          success: true,
+          data: [
+            {
+              _id: 'offline-player-1',
+              firstName: 'Ahmet',
+              lastName: 'Yılmaz',
+              username: 'ahmet_kaleci',
+              position: 'Kaleci',
+              phone: '+90 555 111 2233',
+              email: 'ahmet@example.com',
+              location: 'İstanbul',
+              footballExperience: 'İleri'
+            },
+            {
+              _id: 'offline-player-2',
+              firstName: 'Mehmet',
+              lastName: 'Kaya',
+              username: 'mehmet_defans',
+              position: 'Defans',
+              phone: '+90 555 444 5566',
+              location: 'İstanbul',
+              footballExperience: 'Orta'
+            }
+          ]
+        };
+      }
+      
+      const headers = await getAuthHeaders();
+      const url = await getApiUrl('/users/all-players');
+      const data = await fetchAPI(url, {
+        method: 'GET',
+        headers
+      });
+      return data;
+    } catch (error) {
+      console.error('Tüm oyuncuları getirme hatası:', error);
+      throw error;
     }
   },
 };

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Manuel IP yapılandırması - Backend sunucunuzun IP'sini buraya girin
 // NOT: Eğer backend bağlantısı kurulamıyorsa burayı düzenleyin
-const MANUAL_BACKEND_IP = '192.168.1.73';
+const MANUAL_BACKEND_IP = '10.196.224.148';
 
 // Backend yapılandırması
 const BACKEND_PORT = 5000; // Backend port
@@ -15,9 +15,9 @@ const JWT_SECRET = 'futbolx_super_gizli_anahtar_2025';
 
 // IP adresi öncelik sıralaması (platform bazlı)
 const IP_PRIORITIES = {
-  ios: ["192.168.1.73", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
-  android: ["192.168.1.73", "192.168.1.59", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
-  default: ["192.168.1.73", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
+  ios: ["10.196.224.148", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1", "10.0.2.2"], // iOS simulator için
+  android: ["10.196.224.148", "192.168.1.59", "192.168.1.49", "10.0.2.2", "localhost", "127.0.0.1"], // Android emulator için
+  default: ["10.196.224.148", "192.168.1.59", "192.168.1.49", "localhost", "127.0.0.1"] // Web için
 };
 
 // Manuel bağlantı kullanmak için anahtar - Aktif etmek için true yapın
@@ -139,7 +139,7 @@ const getCommonIPAddresses = () => {
  * WiFi IP adresini algılayıp API URL'yi oluşturan fonksiyon
  * @returns {Promise<string>} API Base URL
  */
-export const getApiBaseUrl = async () => {
+const getApiBaseUrl = async () => {
   // Üretim ortamındaysa, sabit API URL'yi döndür
   if (process.env.NODE_ENV === 'production') {
     return API_URLS.production.default;
@@ -289,7 +289,7 @@ export const getApiBaseUrl = async () => {
  * @param {string} endpoint - API endpoint ("/users", "/auth/login" gibi)
  * @returns {Promise<string>} Tam API URL'si
  */
-export const getApiUrl = async (endpoint) => {
+const getApiUrl = async (endpoint) => {
   const baseUrl = await getApiBaseUrl();
   
   // "/api/auth/login" gibi tam endpoint path verilmişse düzelt
@@ -312,7 +312,7 @@ export const getApiUrl = async (endpoint) => {
  * Backend bağlantısını test eder
  * @returns {Promise<boolean>} Bağlantı durumu
  */
-export const testBackendConnection = async () => {
+const testBackendConnection = async () => {
   try {
     const baseUrl = await getApiBaseUrl();
     console.log(`Backend bağlantısı test ediliyor: ${baseUrl}`);
