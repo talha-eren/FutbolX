@@ -34,6 +34,121 @@ class AIService {
     }
   }
 
+  // Gemini AI ile sohbet et
+  async chatWithGeminiAI(message, userContext = {}) {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Kullanıcı girişi gerekli');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          question: message,
+          userContext
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('AI servisi yanıt veremedi');
+      }
+
+      const data = await response.json();
+      return data.response;
+    } catch (error) {
+      console.error('Gemini AI Error:', error);
+      return null;
+    }
+  }
+
+  // Oyuncu önerileri al (Gemini AI)
+  async getPlayerRecommendations() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Kullanıcı girişi gerekli');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/ai/player-recommendations`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Oyuncu önerileri alınamadı');
+      }
+
+      const data = await response.json();
+      return data.recommendations;
+    } catch (error) {
+      console.error('Player Recommendations Error:', error);
+      return null;
+    }
+  }
+
+  // Antrenman önerileri al (Gemini AI)
+  async getTrainingRecommendations() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Kullanıcı girişi gerekli');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/ai/training-recommendations`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Antrenman önerileri alınamadı');
+      }
+
+      const data = await response.json();
+      return data.recommendations;
+    } catch (error) {
+      console.error('Training Recommendations Error:', error);
+      return null;
+    }
+  }
+
+  // Takım analizi yap (Gemini AI)
+  async analyzeTeam(playerIds) {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Kullanıcı girişi gerekli');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/ai/analyze-team`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ playerIds })
+      });
+
+      if (!response.ok) {
+        throw new Error('Takım analizi yapılamadı');
+      }
+
+      const data = await response.json();
+      return data.analysis;
+    } catch (error) {
+      console.error('Team Analysis Error:', error);
+      return null;
+    }
+  }
+
   // Ana AI sorgu işleme fonksiyonu
   async processQuery(message) {
     try {
@@ -72,6 +187,10 @@ class AIService {
         response = await this.handleSupportQuery(user, message);
       } else if (this.isRandomQuery(lowerMessage)) {
         response = await this.handleRandomQuery(user, message);
+      } else if (this.isTrainingQuery(lowerMessage)) {
+        response = await this.handleTrainingQuery(user, message);
+      } else if (this.isAIAdviceQuery(lowerMessage)) {
+        response = await this.handleAIAdviceQuery(user, message);
       } else {
         response = await this.handleGeneralQuery(user, message);
       }
@@ -89,6 +208,17 @@ class AIService {
       console.error('AI Query Error:', error);
       return this.getErrorResponse();
     }
+  }
+
+  // Yeni sorgu türü kontrolleri
+  isTrainingQuery(message) {
+    const trainingKeywords = ['antrenman', 'training', 'egzersiz', 'çalışma', 'gelişim', 'program'];
+    return trainingKeywords.some(k => message.includes(k));
+  }
+
+  isAIAdviceQuery(message) {
+    const aiKeywords = ['tavsiye', 'öneri', 'nasıl', 'ne yapmalı', 'yardım et', 'öğret'];
+    return aiKeywords.some(k => message.includes(k));
   }
 
   // Mesaj türü kontrolleri
@@ -750,19 +880,55 @@ class AIService {
     }
   }
 
-  // Genel sorgu işleyicisi
+  // Genel sorgu işleyicisi - Gemini AI entegreli
   async handleGeneralQuery(user, message) {
-    const userName = user ? user.firstName || user.name : 'dostum';
-    
-    return {
-      text: `Hmm, bu konuda tam emin değilim ${userName}. 🤔 Ama futbol konularında sana kesinlikle yardımcı olabilirim! Ne yapmak istiyorsun?`,
-      quickActions: [
-        { text: '🏟️ Saha Bul', action: 'find-venues' },
-        { text: '👥 Oyuncu Ara', action: 'find-players' },
-        { text: '⚽ Takım Kur', action: 'create-team' },
-        { text: '📊 İstatistikler', action: 'view-stats' }
-      ]
-    };
+    try {
+      const userName = user ? user.firstName || user.name : 'dostum';
+      
+      // Önce Gemini AI'dan yanıt almaya çalış
+      const userContext = user ? {
+        position: user.position,
+        footballExperience: user.footballExperience,
+        location: user.location
+      } : {};
+
+      const geminiResponse = await this.chatWithGeminiAI(message, userContext);
+      
+      if (geminiResponse) {
+        return {
+          text: `🤖 **AI Asistan:** ${geminiResponse}`,
+          quickActions: [
+            { text: '🏟️ Saha Bul', action: 'find-venues' },
+            { text: '👥 Oyuncu Ara', action: 'find-players' },
+            { text: '⚽ Takım Kur', action: 'create-team' },
+            { text: '📊 İstatistikler', action: 'view-stats' }
+          ]
+        };
+      }
+      
+      // Gemini AI yanıt veremezse varsayılan yanıt
+      return {
+        text: `Hmm, bu konuda tam emin değilim ${userName}. 🤔 Ama futbol konularında sana kesinlikle yardımcı olabilirim! Ne yapmak istiyorsun?`,
+        quickActions: [
+          { text: '🏟️ Saha Bul', action: 'find-venues' },
+          { text: '👥 Oyuncu Ara', action: 'find-players' },
+          { text: '⚽ Takım Kur', action: 'create-team' },
+          { text: '📊 İstatistikler', action: 'view-stats' }
+        ]
+      };
+    } catch (error) {
+      console.error('General query error:', error);
+      const userName = user ? user.firstName || user.name : 'dostum';
+      return {
+        text: `Üzgünüm ${userName}, şu anda bu soruya yanıt veremiyorum. 😅 Başka nasıl yardımcı olabilirim?`,
+        quickActions: [
+          { text: '🏟️ Saha Bul', action: 'find-venues' },
+          { text: '👥 Oyuncu Ara', action: 'find-players' },
+          { text: '⚽ Takım Kur', action: 'create-team' },
+          { text: '📊 İstatistikler', action: 'view-stats' }
+        ]
+      };
+    }
   }
 
   // Maç sorguları işleyicisi
@@ -1481,6 +1647,100 @@ class AIService {
     } catch (error) {
       console.error('Auto suggestions error:', error);
       return [];
+    }
+  }
+
+  // Antrenman sorguları işleyicisi - Gemini AI entegreli
+  async handleTrainingQuery(user, message) {
+    try {
+      if (!user) {
+        return {
+          text: 'Kişiselleştirilmiş antrenman önerileri için giriş yapman gerekiyor. 🔐',
+          quickActions: [
+            { text: '🔑 Giriş Yap', action: 'login' }
+          ]
+        };
+      }
+
+      // Gemini AI'dan antrenman önerileri al
+      const trainingRecommendations = await this.getTrainingRecommendations();
+      
+      if (trainingRecommendations) {
+        return {
+          text: `🏃‍♂️ **Kişisel Antrenman Programın:**\n\n${trainingRecommendations}`,
+          quickActions: [
+            { text: '📅 Program Kaydet', action: 'save-training' },
+            { text: '🎯 Hedef Belirle', action: 'set-goals' },
+            { text: '📊 İlerleme Takibi', action: 'track-progress' },
+            { text: '👥 Antrenman Partneri', action: 'find-training-partner' }
+          ]
+        };
+      }
+
+      // Varsayılan antrenman önerileri
+      const position = user.position || 'Genel';
+      const experience = user.footballExperience || 'Orta';
+      
+      return {
+        text: `🏃‍♂️ **${position} Pozisyonu İçin Antrenman Önerileri:**\n\n**Haftalık Program:**\n• Pazartesi: Kondisyon + Teknik\n• Çarşamba: Taktik + Oyun\n• Cuma: Maç Simülasyonu\n• Pazar: Aktif Dinlenme\n\n**${experience} Seviye İçin Özel Egzersizler:**\n• Top kontrolü geliştirme\n• Pas kalitesi artırma\n• Fiziksel dayanıklılık`,
+        quickActions: [
+          { text: '📅 Detaylı Program', action: 'detailed-training' },
+          { text: '🎯 Hedef Belirle', action: 'set-goals' },
+          { text: '👥 Antrenman Partneri', action: 'find-training-partner' },
+          { text: '📊 İlerleme Takibi', action: 'track-progress' }
+        ]
+      };
+    } catch (error) {
+      console.error('Training query error:', error);
+      return {
+        text: 'Antrenman önerilerini getirirken sorun yaşadım. 😅',
+        quickActions: []
+      };
+    }
+  }
+
+  // AI tavsiye sorguları işleyicisi - Gemini AI entegreli
+  async handleAIAdviceQuery(user, message) {
+    try {
+      const userName = user ? user.firstName || user.name : 'dostum';
+      
+      // Özel AI tavsiyeleri için Gemini AI kullan
+      const userContext = user ? {
+        position: user.position,
+        footballExperience: user.footballExperience,
+        location: user.location
+      } : {};
+
+      const geminiResponse = await this.chatWithGeminiAI(message, userContext);
+      
+      if (geminiResponse) {
+        return {
+          text: `💡 **AI Tavsiyesi:** ${geminiResponse}`,
+          quickActions: [
+            { text: '🎯 Daha Fazla Tavsiye', action: 'more-advice' },
+            { text: '📊 Oyuncu Önerileri', action: 'player-recommendations' },
+            { text: '🏃‍♂️ Antrenman Programı', action: 'training-program' },
+            { text: '⚽ Takım Analizi', action: 'team-analysis' }
+          ]
+        };
+      }
+
+      // Varsayılan tavsiye
+      return {
+        text: `💡 **Genel Tavsiyeler ${userName}:**\n\n🏃‍♂️ **Gelişim İçin:**\n• Düzenli antrenman yap\n• Farklı pozisyonları dene\n• Video analizi yap\n\n⚽ **Oyun İçin:**\n• Takım oyununa odaklan\n• İletişimi güçlendir\n• Sabırlı ol ve öğrenmeye devam et`,
+        quickActions: [
+          { text: '🎯 Kişisel Hedefler', action: 'personal-goals' },
+          { text: '📊 Gelişim Analizi', action: 'progress-analysis' },
+          { text: '👥 Mentor Bul', action: 'find-mentor' },
+          { text: '🏆 Başarı Hikayeleri', action: 'success-stories' }
+        ]
+      };
+    } catch (error) {
+      console.error('AI Advice query error:', error);
+      return {
+        text: 'Tavsiye verirken sorun yaşadım. 😅 Başka nasıl yardımcı olabilirim?',
+        quickActions: []
+      };
     }
   }
 }

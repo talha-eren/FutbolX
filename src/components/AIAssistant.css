@@ -150,6 +150,65 @@
   gap: 8px;
 }
 
+/* AI Mode Seçici */
+.ai-mode-selector {
+  margin-right: 8px;
+}
+
+.ai-mode-select {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  outline: none;
+  min-width: 100px;
+}
+
+.ai-mode-select:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.ai-mode-select option {
+  background: #4CAF50;
+  color: white;
+  padding: 4px;
+}
+
+/* AI Mode Bilgi Paneli */
+.ai-mode-info {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  padding: 8px 16px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.mode-indicator {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 12px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.mode-indicator.smart {
+  background: linear-gradient(135deg, #17a2b8, #138496);
+  color: white;
+}
+
+.mode-indicator.gemini {
+  background: linear-gradient(135deg, #6f42c1, #5a32a3);
+  color: white;
+}
+
+.mode-indicator.classic {
+  background: linear-gradient(135deg, #28a745, #1e7e34);
+  color: white;
+}
+
 .ai-control-btn {
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -908,18 +967,4 @@
   padding: 12px;
   margin: 12px 0;
   font-size: 12px;
-}
-
-.usage-example h5 {
-  margin: 0 0 6px 0;
-  color: #4CAF50;
-  font-size: 13px;
-}
-
-.usage-example code {
-  background: rgba(76, 175, 80, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-  color: #2E7D32;
 } 

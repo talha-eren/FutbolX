@@ -7,7 +7,7 @@ const AIAssistant = ({ isOpen, onToggle, userProfile, currentPage }) => {
     {
       id: 1,
       type: 'bot',
-      content: 'Merhaba! Ben FutbolX AI asistanınızım. 50+ farklı komut türü ile size yardımcı olabilirim! ⚽\n\n💡 Deneyebileceğiniz komutlar:\n• "Oyuncu arıyorum" - Uyumlu oyuncular bulur\n• "Saha bul" - Müsait sahaları listeler\n• "Takım öner" - Size uygun takımları gösterir\n• "Profil sayfasına git" - Sayfa yönlendirmeleri\n• "Motivasyon sözü ver" - Kişisel motivasyon\n\nNasıl yardımcı olabilirim?',
+      content: 'Merhaba! Ben FutbolX AI asistanınızım. 🤖⚽\n\n💬 **Doğal Konuşma:**\nBenimle normal bir insan gibi konuşabilirsiniz! Herhangi bir konu hakkında soru sorabilir, sohbet edebiliriz.\n\n🎯 **Özel Komutlar:**\n• "Antrenman programı öner" - Kişisel antrenman planı\n• "Oyuncu önerileri ver" - AI destekli eşleştirme\n• "Takımımı analiz et" - Detaylı takım analizi\n• "Saha bul" - Müsait sahaları listeler\n\n🔧 **AI Modu:** Üstteki menüden Gemini AI modunu seçerek daha gelişmiş yanıtlar alabilirsiniz.\n\nNasıl yardımcı olabilirim?',
       timestamp: new Date()
     }
   ]);
@@ -15,6 +15,7 @@ const AIAssistant = ({ isOpen, onToggle, userProfile, currentPage }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [aiMode, setAiMode] = useState('gemini'); // 'smart', 'gemini', 'classic'
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -39,6 +40,30 @@ const AIAssistant = ({ isOpen, onToggle, userProfile, currentPage }) => {
       }
     }
   }, [currentPage, userProfile]);
+
+  // AI Mode değiştirme
+  const handleAIModeChange = (mode) => {
+    setAiMode(mode);
+    const modeMessages = {
+      'smart': 'Akıllı mod aktif! 🧠 Hem klasik hem AI özelliklerini kullanıyorum.',
+      'gemini': 'Gemini AI modu aktif! 🤖 Gelişmiş AI yanıtları alacaksınız.',
+      'classic': 'Klasik mod aktif! ⚡ Hızlı ve önceden tanımlanmış yanıtlar.'
+    };
+    
+    addMessage('bot', modeMessages[mode]);
+  };
+
+  // Mesaj ekleme fonksiyonu
+  const addMessage = (type, content, data = null) => {
+    const newMessage = {
+      id: Date.now(),
+      type,
+      content,
+      timestamp: new Date(),
+      data
+    };
+    setMessages(prev => [...prev, newMessage]);
+  };
 
   // Önceden tanımlanmış yanıtlar ve akıllı öneriler
   const predefinedResponses = {
@@ -177,99 +202,60 @@ Hangi konuda özel yardım istiyorsunuz?`
     }
   };
 
-  // Gelişmiş yanıt üretici
-  const generateResponse = (userMessage) => {
+  // Gelişmiş yanıt üretici - Gemini AI öncelikli
+  const generateResponse = async (userMessage) => {
     const message = userMessage.toLowerCase();
     
-    // Sayfa yönlendirme komutları
-    if (message.includes('profil') || message.includes('profil sayfasına git')) {
-      setTimeout(() => window.location.href = '/profile', 1500);
-      return '📱 Profil sayfanıza yönlendiriliyorsunuz...\n\nProfilinizde kişisel bilgilerinizi, istatistiklerinizi ve ayarlarınızı düzenleyebilirsiniz.';
-    }
-    if (message.includes('ayar') || message.includes('ayarlarımı değiştir')) {
-      setTimeout(() => window.location.href = '/settings', 1500);
-      return '⚙️ Ayarlar sayfasına yönlendiriliyorsunuz...\n\nBurada hesap ayarlarınızı, bildirim tercihlerinizi ve gizlilik ayarlarınızı düzenleyebilirsiniz.';
-    }
-    if (message.includes('rezervasyon') || message.includes('saha rezervasyonu')) {
-      setTimeout(() => window.location.href = '/reservations', 1500);
-      return '🏟️ Saha rezervasyon sayfasına yönlendiriliyorsunuz...\n\nMüsait sahaları görüntüleyebilir ve rezervasyon yapabilirsiniz.';
-    }
-    if (message.includes('takım') && (message.includes('öner') || message.includes('bul'))) {
-      setTimeout(() => window.location.href = '/teams', 1500);
-      return '👥 Takımlar sayfasına yönlendiriliyorsunuz...\n\nSize uygun takımları bulabilir ve katılım talebinde bulunabilirsiniz.';
-    }
-    if (message.includes('video') || message.includes('videolar')) {
-      setTimeout(() => window.location.href = '/videos', 1500);
-      return '📹 Videolar sayfasına yönlendiriliyorsunuz...\n\nFutbol videolarını izleyebilir ve kendi videolarınızı paylaşabilirsiniz.';
-    }
-    if (message.includes('maç') || message.includes('maçlar')) {
-      setTimeout(() => window.location.href = '/matches', 1500);
-      return '⚽ Maçlar sayfasına yönlendiriliyorsunuz...\n\nAktif maçları görüntüleyebilir ve maç programını inceleyebilirsiniz.';
-    }
-    if (message.includes('istatistik') || message.includes('stats')) {
-      setTimeout(() => window.location.href = '/stats', 1500);
-      return '📊 İstatistikler sayfasına yönlendiriliyorsunuz...\n\nKişisel performansınızı ve genel istatistikleri görüntüleyebilirsiniz.';
-    }
-    if (message.includes('ana sayfa') || message.includes('anasayfa') || message.includes('home')) {
-      setTimeout(() => window.location.href = '/', 1500);
-      return '🏠 Ana sayfaya yönlendiriliyorsunuz...\n\nAna sayfada en son güncellemeleri ve önemli duyuruları görebilirsiniz.';
-    }
+    // Önce Gemini AI'dan yanıt almaya çalış (normal konuşma için)
+    try {
+      const userContext = userProfile ? {
+        position: userProfile.position,
+        footballExperience: userProfile.footballExperience,
+        location: userProfile.location,
+        firstName: userProfile.firstName
+      } : {};
 
-    // Motivasyon ve ipuçları
-    if (message.includes('motivasyon') || message.includes('motive')) {
-      const motivationMessages = [
-        '💪 "Başarı, hazırlık fırsatla buluştuğunda ortaya çıkar. Sen hazır ol, fırsat gelecek!"',
-        '⚽ "Her büyük futbolcu bir gün amatör olarak başladı. Sen de o yoldasın!"',
-        '🌟 "Futbolda en önemli şey takım ruhu. Sen de bu ruhun bir parçasısın!"',
-        '🏆 "Kazanmak önemli değil, asla pes etmemek önemli. Devam et!"',
-        '🎯 "Hedefin net olsun, çalışman sıkı olsun. Başarı kaçınılmaz olacak!"'
-      ];
-      return motivationMessages[Math.floor(Math.random() * motivationMessages.length)];
-    }
-    if (message.includes('ipucu') || message.includes('tavsiye')) {
-      const tips = [
-        '⚽ Günlük İpucu: Maç öncesi 2 saat önce yemek yemeyi bırakın, performansınız artar!',
-        '🏃‍♂️ Antrenman İpucu: Haftada en az 3 kez kondisyon çalışması yapın.',
-        '🧠 Taktik İpucu: Rakibinizi gözlemleyin, zayıf noktalarını bulun.',
-        '💧 Sağlık İpucu: Maç sırasında düzenli su için, dehidrasyon performansı düşürür.',
-        '🎯 Teknik İpucu: Top kontrolünü geliştirmek için duvarla pas çalışması yapın.'
-      ];
-      return tips[Math.floor(Math.random() * tips.length)];
-    }
-
-    // Hava durumu
-    if (message.includes('hava durumu') || message.includes('hava')) {
-      return '🌤️ Hava Durumu Bilgisi\n\nBugün Elazığ\'da:\n🌡️ Sıcaklık: 18°C\n☁️ Durum: Parçalı bulutlu\n💨 Rüzgar: 15 km/h\n\n⚽ Maç için ideal hava koşulları! Sahaya çıkmak için mükemmel bir gün!';
-    }
-
-    // Eğlence komutları
-    if (message.includes('quiz') || message.includes('bilgi yarışması')) {
-      return '🎮 Futbol Quiz Başlatılıyor!\n\n❓ Soru: Dünya Kupası\'nı en çok kazanan ülke hangisidir?\nA) Brezilya (5 kez)\nB) Almanya (4 kez)\nC) İtalya (4 kez)\nD) Arjantin (3 kez)\n\nCevabınızı düşünün! 🤔';
-    }
-    if (message.includes('tahmin') || message.includes('tahmin oyunu')) {
-      return '🔮 Maç Tahmin Oyunu!\n\n⚽ Bu hafta sonu Galatasaray - Fenerbahçe derbisi var!\nTahminiz nedir?\n\n🟡🔴 Galatasaray galip\n🟡💙 Fenerbahçe galip\n⚖️ Beraberlik\n\nTahminlerinizi paylaşın!';
-    }
-
-    // Önce AIService'den akıllı yanıt al
-    const smartResponses = AIService.getSmartResponse(userMessage, {
-      userProfile,
-      currentPage,
-      timeOfDay: new Date().getHours()
-    });
-
-    if (smartResponses.length > 0) {
-      return smartResponses[0].message;
-    }
-
-    // Önceden tanımlanmış yanıtları kontrol et
-    for (const [key, data] of Object.entries(predefinedResponses)) {
-      if (data.keywords.some(keyword => message.includes(keyword))) {
-        return data.response;
+      const geminiResponse = await AIService.chatWithGeminiAI(userMessage, userContext);
+      
+      if (geminiResponse) {
+        return `🤖 ${geminiResponse}`;
       }
+    } catch (error) {
+      console.log('Gemini AI yanıt veremedi, klasik yanıtlara geçiliyor...');
+    }
+    
+    // Sadece özel komutlar için önceden tanımlanmış yanıtlar
+    
+    // Sayfa yönlendirme komutları
+    if (message.includes('profil') && message.includes('git')) {
+      setTimeout(() => window.location.href = '/profile', 1500);
+      return '📱 Profil sayfanıza yönlendiriliyorsunuz...';
+    }
+    if (message.includes('ayar') && message.includes('git')) {
+      setTimeout(() => window.location.href = '/settings', 1500);
+      return '⚙️ Ayarlar sayfasına yönlendiriliyorsunuz...';
+    }
+    if (message.includes('rezervasyon') && message.includes('git')) {
+      setTimeout(() => window.location.href = '/reservations', 1500);
+      return '🏟️ Saha rezervasyon sayfasına yönlendiriliyorsunuz...';
+    }
+    if (message.includes('takım') && message.includes('git')) {
+      setTimeout(() => window.location.href = '/teams', 1500);
+      return '👥 Takımlar sayfasına yönlendiriliyorsunuz...';
+    }
+    if (message.includes('ana sayfa') && message.includes('git')) {
+      setTimeout(() => window.location.href = '/', 1500);
+      return '🏠 Ana sayfaya yönlendiriliyorsunuz...';
     }
 
-    // Varsayılan yanıt
-    return `🤖 "${userMessage}" hakkında bilgi arıyorsunuz.\n\n💡 Size yardımcı olabilmek için şu komutları deneyebilirsiniz:\n\n⚽ Oyuncu arama: "kaleci arıyorum", "takım öner"\n🏟️ Saha işlemleri: "saha bul", "rezervasyon yap"\n📊 Bilgi: "istatistiklerimi göster", "maç geçmişi"\n⚙️ Sistem: "profil sayfasına git", "ayarlar"\n\n50+ komut için hızlı eylem butonlarını kullanın!`;
+    // Acil durum yanıtları (sadece çok spesifik komutlar için)
+    if (message.includes('hava durumu')) {
+      return '🌤️ Bugün Elazığ\'da 18°C, parçalı bulutlu. Futbol için ideal hava! ⚽';
+    }
+
+    // Eğer hiçbir özel komut yoksa, genel AI yanıtı
+    const userName = userProfile?.firstName || 'dostum';
+    return `Merhaba ${userName}! Bu konuda size nasıl yardımcı olabilirim? Futbol hakkında soru sorabilir veya genel konularda sohbet edebiliriz. 😊`;
   };
 
   // Hızlı eylem önerileri - dinamik olarak güncellenen
@@ -285,6 +271,16 @@ Hangi konuda özel yardım istiyorsunuz?`
       { text: '🆘 Yardım', action: 'yardım' }
     ];
 
+    // Gemini AI özel eylemleri
+    const geminiActions = [
+      { text: '🤖 AI Antrenman Programı', action: 'antrenman programı öner' },
+      { text: '🎯 AI Oyuncu Önerileri', action: 'oyuncu önerileri ver' },
+      { text: '📊 AI Takım Analizi', action: 'takımımı analiz et' },
+      { text: '💡 AI Futbol Tavsiyesi', action: 'futbol tavsiyesi ver' },
+      { text: '🏃‍♂️ Gelişim Planı', action: 'nasıl gelişebilirim' },
+      { text: '⚽ Pozisyon Analizi', action: 'pozisyonumu analiz et' }
+    ];
+
     // Sayfa bazlı özel eylemler ekle
     const pageSpecificActions = [];
     
@@ -292,45 +288,58 @@ Hangi konuda özel yardım istiyorsunuz?`
       pageSpecificActions.push(
         { text: '⏰ Müsait Saatler', action: 'bugün açık sahalar hangileri' },
         { text: '💰 Fiyat Listesi', action: 'saha fiyatları nedir' },
-        { text: '📍 Saha Konumları', action: 'saha bul' }
+        { text: '📍 Saha Konumları', action: 'saha bul' },
+        { text: '🤖 AI Saha Önerisi', action: 'bana uygun saha öner' }
       );
     } else if (currentPage === 'profile') {
       pageSpecificActions.push(
         { text: '📈 Gelişimim', action: 'gelişimimi göster' },
         { text: '🎯 Hedeflerim', action: 'hedeflerimi belirle' },
-        { text: '🏆 Başarılarım', action: 'başarı rozetlerimi göster' }
+        { text: '🏆 Başarılarım', action: 'başarı rozetlerimi göster' },
+        { text: '🤖 AI Profil Analizi', action: 'profilimi analiz et' }
       );
     } else if (currentPage === 'teams') {
       pageSpecificActions.push(
         { text: '🔍 Oyuncu Ara', action: 'takımıma oyuncu bulur musun' },
         { text: '⚽ Maç Organize Et', action: 'maça katıl' },
-        { text: '📊 Takım Analizi', action: 'takım istatistiklerimi göster' }
+        { text: '📊 Takım Analizi', action: 'takım istatistiklerimi göster' },
+        { text: '🤖 AI Takım Stratejisi', action: 'takım stratejisi öner' }
       );
     } else if (currentPage === 'matches') {
       pageSpecificActions.push(
         { text: '🏆 Turnuva Bilgisi', action: 'turnuva bilgisi ver' },
         { text: '📅 Hafta Sonu Maçları', action: 'hafta sonu maçları' },
-        { text: '🎮 Tahmin Oyunu', action: 'tahmin oyunu' }
+        { text: '🎮 Tahmin Oyunu', action: 'tahmin oyunu' },
+        { text: '🤖 AI Maç Analizi', action: 'maç performansımı analiz et' }
       );
     } else if (currentPage === 'videos') {
       pageSpecificActions.push(
         { text: '🎬 Video Paylaş', action: 'video nasıl paylaşırım' },
         { text: '⭐ Popüler Videolar', action: 'en popüler videolar' },
-        { text: '🎯 Skill Challenge', action: 'skill challenge' }
+        { text: '🎯 Skill Challenge', action: 'skill challenge' },
+        { text: '🤖 AI Video Analizi', action: 'videolarımı analiz et' }
       );
     }
 
     // Zaman bazlı özel eylemler
     const hour = new Date().getHours();
     if (hour >= 6 && hour < 12) {
-      pageSpecificActions.push({ text: '🌅 Sabah Antrenmanı', action: 'antrenman programı öner' });
+      pageSpecificActions.push({ text: '🌅 AI Sabah Antrenmanı', action: 'sabah antrenman programı öner' });
     } else if (hour >= 18 && hour < 22) {
-      pageSpecificActions.push({ text: '🌆 Akşam Maçı', action: 'bugün hangi takımlar maç yapıyor' });
+      pageSpecificActions.push({ text: '🌆 AI Akşam Maçı', action: 'akşam için maç öner' });
     }
 
-    return [...baseActions, ...pageSpecificActions].slice(0, 8); // Maksimum 8 eylem
+    // AI Mode'a göre eylemler
+    if (aiMode === 'gemini') {
+      return [...geminiActions, ...pageSpecificActions].slice(0, 8);
+    } else if (aiMode === 'smart') {
+      return [...baseActions, ...geminiActions, ...pageSpecificActions].slice(0, 8);
+    } else {
+      return [...baseActions, ...pageSpecificActions].slice(0, 8);
+    }
   };
 
+  // Gelişmiş mesaj gönderme fonksiyonu
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
@@ -342,29 +351,86 @@ Hangi konuda özel yardım istiyorsunuz?`
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputMessage;
     setInputMessage('');
     setIsTyping(true);
 
-    // Bot yanıtını simüle et
-    setTimeout(() => {
-      const botResponse = {
-        id: Date.now() + 1,
-        type: 'bot',
-        content: generateResponse(inputMessage),
-        timestamp: new Date()
-      };
+    try {
+      // Önce AIService'den yanıt almaya çalış
+      const response = await AIService.processQuery(currentInput);
       
-      setMessages(prev => [...prev, botResponse]);
-      setIsTyping(false);
+      // Eğer AIService yanıt verirse onu kullan
+      if (response && response.text) {
+        setTimeout(() => {
+          const botResponse = {
+            id: Date.now() + 1,
+            type: 'bot',
+            content: response.text,
+            timestamp: new Date(),
+            quickActions: response.quickActions || [],
+            data: response.data || null
+          };
+          
+          setMessages(prev => [...prev, botResponse]);
+          setIsTyping(false);
+          
+          // Yeni öneriler oluştur
+          const newSuggestions = AIService.getAutoSuggestions({
+            userProfile,
+            currentPage,
+            timeOfDay: new Date().getHours()
+          });
+          setSuggestions(newSuggestions.slice(0, 2));
+        }, 800 + Math.random() * 500);
+      } else {
+        // AIService yanıt veremezse generateResponse kullan
+        const fallbackResponse = await generateResponse(currentInput);
+        
+        setTimeout(() => {
+          const botResponse = {
+            id: Date.now() + 1,
+            type: 'bot',
+            content: fallbackResponse,
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, botResponse]);
+          setIsTyping(false);
+        }, 800 + Math.random() * 500);
+      }
+    } catch (error) {
+      console.error('AI Response Error:', error);
       
-      // Yeni öneriler oluştur
-      const newSuggestions = AIService.getAutoSuggestions({
-        userProfile,
-        currentPage,
-        timeOfDay: new Date().getHours()
-      });
-      setSuggestions(newSuggestions.slice(0, 2));
-    }, 1000 + Math.random() * 1000);
+      // Hata durumunda generateResponse'u dene
+      try {
+        const fallbackResponse = await generateResponse(currentInput);
+        
+        setTimeout(() => {
+          const botResponse = {
+            id: Date.now() + 1,
+            type: 'bot',
+            content: fallbackResponse,
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, botResponse]);
+          setIsTyping(false);
+        }, 800);
+      } catch (fallbackError) {
+        console.error('Fallback Response Error:', fallbackError);
+        setTimeout(() => {
+          const botResponse = {
+            id: Date.now() + 1,
+            type: 'bot',
+            content: 'Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin. 😅',
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, botResponse]);
+          setIsTyping(false);
+        }, 800);
+      }
+    }
   };
 
   const handleQuickAction = (action) => {
@@ -458,12 +524,34 @@ Hangi konuda özel yardım istiyorsunuz?`
             </div>
           </div>
           <div className="ai-header-controls">
+            {/* AI Mode Seçici */}
+            <div className="ai-mode-selector">
+              <select 
+                value={aiMode} 
+                onChange={(e) => handleAIModeChange(e.target.value)}
+                className="ai-mode-select"
+                title="AI Modu Seç"
+              >
+                <option value="smart">🧠 Akıllı</option>
+                <option value="gemini">🤖 Gemini AI</option>
+                <option value="classic">⚡ Klasik</option>
+              </select>
+            </div>
             <button className="ai-control-btn" onClick={toggleFullscreen} title={isFullscreen ? 'Küçült' : 'Tam Ekran'}>
               {isFullscreen ? '🗗' : '🗖'}
             </button>
             <button className="ai-close-btn" onClick={onToggle} title="Kapat">
               ✕
             </button>
+          </div>
+        </div>
+
+        {/* AI Mode Bilgi Paneli */}
+        <div className="ai-mode-info">
+          <div className={`mode-indicator ${aiMode}`}>
+            {aiMode === 'smart' && '🧠 Akıllı Mod: Hem klasik hem AI özellikler aktif'}
+            {aiMode === 'gemini' && '🤖 Gemini AI: Gelişmiş yapay zeka yanıtları'}
+            {aiMode === 'classic' && '⚡ Klasik Mod: Hızlı önceden tanımlanmış yanıtlar'}
           </div>
         </div>
 
