@@ -17,6 +17,7 @@ import { IconSymbol } from './ui/IconSymbol';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
+import geminiService from '../services/geminiService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -44,6 +45,8 @@ const ChatBot: React.FC<ChatBotProps> = ({ visible, onClose, onNavigate }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<string[]>([]);
+  const [isGeminiEnabled, setIsGeminiEnabled] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
   const typingAnimation = useRef(new Animated.Value(0)).current;
 
@@ -65,6 +68,27 @@ const ChatBot: React.FC<ChatBotProps> = ({ visible, onClose, onNavigate }) => {
       }, 500);
     }
   }, [visible]);
+
+  // Gemini sağlık kontrolü
+  useEffect(() => {
+    if (visible) {
+      checkGeminiHealth();
+    }
+  }, [visible]);
+
+  // Gemini sağlık kontrolü fonksiyonu
+  const checkGeminiHealth = async () => {
+    try {
+      const isHealthy = await geminiService.healthCheck();
+      setIsGeminiEnabled(isHealthy);
+      if (!isHealthy) {
+        console.log('Gemini servisi kullanılamıyor, yerel moda geçiliyor');
+      }
+    } catch (error) {
+      console.error('Gemini sağlık kontrolü hatası:', error);
+      setIsGeminiEnabled(false);
+    }
+  };
 
   // Typing animasyonu
   useEffect(() => {
@@ -118,22 +142,121 @@ const ChatBot: React.FC<ChatBotProps> = ({ visible, onClose, onNavigate }) => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   };
 
+  // Konversasyon geçmişini temizle
+  const clearConversation = () => {
+    setMessages([]);
+    setConversationHistory([]);
+    geminiService.clearConversation();
+    // İlk mesajı tekrar ekle
+    setTimeout(() => {
+      addBotMessage(
+        "Konversasyon temizlendi! 🧹\n\nSize nasıl yardımcı olabilirim?",
+        [
+          { text: "🏟️ Saha Rezervasyonu", action: "saha_rezervasyon" },
+          { text: "👥 Oyuncu Eşleştir", action: "navigate_oyuncu" },
+          { text: "⚽ Maç Organize Et", action: "mac_organize" }
+        ]
+      );
+    }, 100);
+  };
+
   // Mesaj gönder
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (inputText.trim()) {
-      addUserMessage(inputText);
+      const userMessage = inputText.trim();
+      addUserMessage(userMessage);
       setInputText('');
       
-      // Bot yanıtını simüle et
+      // Konversasyon geçmişine ekle
+      setConversationHistory(prev => [...prev, userMessage]);
+      
+      // Bot yanıtını al
       setIsTyping(true);
-      setTimeout(() => {
+      try {
+        if (isGeminiEnabled) {
+          await handleGeminiResponse(userMessage);
+        } else {
+          setTimeout(() => {
+            setIsTyping(false);
+            handleBotResponse(userMessage);
+          }, 1500);
+        }
+      } catch (error) {
+        console.error('Mesaj gönderme hatası:', error);
         setIsTyping(false);
-        handleBotResponse(inputText);
-      }, 1500);
+        addBotMessage("Üzgünüm, şu anda bir sorun yaşıyorum. Lütfen tekrar deneyin. 😔");
+      }
     }
   };
 
-  // Bot yanıtı - Gelişmiş komutlar
+  // Gemini AI yanıtı
+  const handleGeminiResponse = async (userMessage: string) => {
+    try {
+      const response = await geminiService.sendMessage({
+        userMessage,
+        conversationHistory: conversationHistory.slice(-10), // Son 10 mesaj
+        userProfile: {
+          // Kullanıcı profil bilgileri buraya eklenebilir
+          // name: "Kullanıcı",
+          // position: "Orta Saha",
+          // level: "Orta"
+        }
+      });
+
+      setIsTyping(false);
+      
+      // Konversasyon geçmişine bot yanıtını ekle
+      setConversationHistory(prev => [...prev, response]);
+      
+      // Yanıta göre butonlar ekle
+      const buttons = getContextualButtons(userMessage, response);
+      addBotMessage(response, buttons);
+      
+    } catch (error) {
+      console.error('Gemini yanıt hatası:', error);
+      setIsTyping(false);
+      
+      // Fallback olarak eski sistemi kullan
+      handleBotResponse(userMessage);
+    }
+  };
+
+  // Bağlama göre butonlar oluştur
+  const getContextualButtons = (userMessage: string, botResponse: string): ChatButton[] | undefined => {
+    const message = userMessage.toLowerCase();
+    const response = botResponse.toLowerCase();
+    
+    if (message.includes('saha') || response.includes('saha')) {
+      return [
+        { text: "🏟️ Saha Ara", action: "go_saha" },
+        { text: "💰 Fiyat Karşılaştır", action: "fiyat_karsilastir" }
+      ];
+    } else if (message.includes('oyuncu') || response.includes('oyuncu') || response.includes('eşleş')) {
+      return [
+        { text: "🎯 Akıllı Eşleştirme", action: "go_oyuncu" },
+        { text: "📍 Yakınımdaki Oyuncular", action: "yakin_oyuncular" }
+      ];
+    } else if (message.includes('maç') || response.includes('maç')) {
+      return [
+        { text: "⚽ Hızlı Maç Kur", action: "hizli_mac" },
+        { text: "🏆 Turnuva Organize Et", action: "turnuva_organize" }
+      ];
+    } else if (message.includes('antrenman') || response.includes('antrenman')) {
+      return [
+        { text: "🏃‍♂️ Kondisyon Programı", action: "kondisyon_program" },
+        { text: "⚽ Teknik Antrenman", action: "teknik_antrenman" }
+      ];
+    } else if (message.includes('istatistik') || response.includes('istatistik') || response.includes('performans')) {
+      return [
+        { text: "📈 Gelişim Grafiği", action: "gelisim_grafigi" },
+        { text: "👤 Profilim", action: "go_profil" }
+      ];
+    }
+    
+    return undefined;
+  };
+
+  // Bot yanıtı - Gelişmiş komutlar (Fallback)
   const handleBotResponse = (userMessage: string) => {
     const message = userMessage.toLowerCase();
     
@@ -485,12 +608,19 @@ const ChatBot: React.FC<ChatBotProps> = ({ visible, onClose, onNavigate }) => {
               </View>
               <View style={styles.headerTextContainer}>
                 <Text style={styles.headerTitle}>FutbolX AI Asistan</Text>
-                <Text style={styles.headerSubtitle}>🟢 Veri Tabanından Bağlı • 15+ Komut Türü</Text>
+                <Text style={styles.headerSubtitle}>
+                  {isGeminiEnabled ? '🟢 Gemini AI Aktif' : '🟡 Yerel Mod'} • 15+ Komut Türü
+                </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <IconSymbol name="xmark" size={22} color="white" />
-            </TouchableOpacity>
+            <View style={styles.headerButtons}>
+              <TouchableOpacity onPress={clearConversation} style={styles.clearButton}>
+                <IconSymbol name="trash" size={18} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <IconSymbol name="xmark" size={22} color="white" />
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
@@ -610,6 +740,10 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 6,
+  },
+  clearButton: {
+    padding: 6,
+    marginLeft: 8,
   },
   content: {
     flex: 1,
@@ -740,6 +874,10 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 11,
     fontWeight: '600',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 
