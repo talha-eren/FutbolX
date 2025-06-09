@@ -354,3 +354,6 @@ FutbolX AI Asistanı ile:
 - 🤖 7/24 yardım alın
 
 **Hemen deneyin ve farkı yaşayın!** 🚀
+
+![Ekran görüntüsü 2025-06-09 154106](https://github.com/user-attachments/assets/cd558e5b-5b9f-4669-84de-d9875050a7e2)
+
